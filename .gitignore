@@ -2,6 +2,7 @@
 license-tools/private.key
 license-tools/trial-private.key
 license-tools/licenses.json
+license-tools/backup.env.json
 license-dashboard/server/private.key
 .scanner-certs/
 
