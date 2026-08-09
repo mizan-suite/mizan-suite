@@ -1,0 +1,121 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Purchasing</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="purchasing.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container">
+    <h1 data-i18n="purchasing.title">Purchasing</h1>
+
+    <!-- Add supplier -->
+    <div class="product-form">
+      <h2 data-i18n="purchasing.addSupplier">Add Supplier</h2>
+      <div class="form-grid">
+        <input type="text" id="supplier-name" data-i18n="purchasing.supplierName" placeholder="Supplier name*">
+        <input type="text" id="supplier-contact" data-i18n="purchasing.contactPerson" placeholder="Contact person">
+        <input type="text" id="supplier-phone" data-i18n="purchasing.phone" placeholder="Phone">
+        <input type="email" id="supplier-email" data-i18n="purchasing.email" placeholder="Email">
+      </div>
+      <button id="add-supplier-btn" class="btn btn-ico" data-i18n="purchasing.addSupplierBtn"><span data-icon="plus"></span> Add Supplier</button>
+
+      <!-- Current Suppliers - collapsible table -->
+      <div class="collapse-card" id="suppliers-collapse" style="margin-top:1.2rem;">
+        <div class="collapse-header" id="suppliers-toggle">
+          <h3 data-i18n="purchasing.currentSuppliers">Current Suppliers</h3>
+          <span class="badge badge-ok" id="supplier-count">0</span>
+          <span class="chev" id="suppliers-chev" data-icon="chevrondown"></span>
+        </div>
+        <div class="collapse-body" id="suppliers-body">
+          <input type="text" id="supplier-search" class="supplier-search" data-i18n="purchasing.searchSuppliers" placeholder="Search suppliers...">
+          <div style="overflow-x:auto;">
+            <table class="product-table">
+              <thead>
+                <tr>
+                  <th data-i18n="purchasing.thName">Name</th>
+                  <th data-i18n="purchasing.thContact">Contact</th>
+                  <th data-i18n="purchasing.thPhone">Phone</th>
+                  <th data-i18n="purchasing.thEmail">Email</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="supplier-list">
+                <!-- Rows are inserted here by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create purchase order -->
+    <div class="product-form">
+      <h2 data-i18n="purchasing.createPO">Create Purchase Order</h2>
+      <div class="form-grid">
+        <select id="po-supplier">
+          <option value="" data-i18n="purchasing.selectSupplier">Select supplier*</option>
+        </select>
+        <input type="text" id="po-invoice" data-i18n="purchasing.invoicePlaceholder" placeholder="Supplier invoice # (optional)">
+        <select id="po-discount-type">
+          <option value="" data-i18n="purchasing.noDiscount">No discount</option>
+          <option value="percent" data-i18n="purchasing.percentOff">% off</option>
+          <option value="amount" data-i18n="purchasing.amountOff">Fixed amount off</option>
+        </select>
+        <input type="number" id="po-discount-value" data-i18n="purchasing.discountPlaceholder" placeholder="Discount value" step="0.01" min="0">
+      </div>
+
+      <h3 class="sub-heading" data-i18n="purchasing.items">Items</h3>
+      <div id="po-items"></div>
+      <button id="add-po-line" class="btn-link" type="button" data-i18n="purchasing.addLine">+ Add another product</button>
+
+      <div class="po-totals">
+        <p class="hint-text" style="margin:0.2rem 0;"><span data-i18n="purchasing.subtotal">Subtotal:</span> <strong id="po-subtotal">0.00 DA</strong></p>
+        <p class="hint-text" id="po-discount-row" style="margin:0.2rem 0; display:none;"><span data-i18n="purchasing.discount">Discount:</span> <strong id="po-discount-amount">-0.00 DA</strong></p>
+        <p class="hint-text" style="margin:0.2rem 0; font-size:1rem;"><span data-i18n="purchasing.total">Total:</span> <strong id="po-total">0.00 DA</strong></p>
+      </div>
+      <button id="create-po-btn" class="btn" data-i18n="purchasing.createPOBtn">Create Purchase Order</button>
+      <p id="po-message"></p>
+    </div>
+
+    <!-- Purchase orders list -->
+    <h2 data-i18n="purchasing.purchaseOrders">Purchase Orders</h2>
+    <div class="po-filter">
+      <button class="filter-btn active" data-status="" data-i18n="purchasing.filterAll">All</button>
+      <button class="filter-btn" data-status="pending" data-i18n="purchasing.filterPending">Pending</button>
+      <button class="filter-btn" data-status="received" data-i18n="purchasing.filterReceived">Received</button>
+      <button class="filter-btn" data-status="cancelled" data-i18n="purchasing.filterCancelled">Cancelled</button>
+    </div>
+    <div id="po-list"></div>
+    <div id="po-pagination" class="pagination-bar" hidden>
+      <span id="po-page-info" class="page-info"></span>
+      <div class="pagination-actions">
+        <button type="button" id="po-page-prev" class="btn btn-outline btn-sm" data-i18n="purchasing.prevPage">Previous</button>
+        <span id="po-page-num" class="page-num"></span>
+        <button type="button" id="po-page-next" class="btn btn-outline btn-sm" data-i18n="purchasing.nextPage">Next</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="icons.js"></script>
+  <script src="i18n.js"></script>
+  <script src="print.js"></script>
+  <script src="purchasing.js"></script>
+  
+
+
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

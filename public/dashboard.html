@@ -1,0 +1,245 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Dashboard</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+  <script src="vendor/chart.min.js"></script>
+</head>
+<body data-i18n-title="dash.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container">
+
+    <!-- Hero -->
+    <div class="home-hero">
+      <div class="hero-main">
+        <div class="hero-greeting" id="hero-greeting" data-i18n="dash.welcome">Welcome</div>
+        <div class="hero-datetime" id="hero-datetime"></div>
+        <div class="hero-sub" data-i18n="dash.subtitle">Here's what's happening in the pharmacy today.</div>
+      </div>
+      <div class="hero-quick" id="hero-quick"><!-- Small icon shortcuts are rendered by JavaScript --></div>
+    </div>
+
+
+    <div class="dashboard-header-row">
+      <h1 data-i18n="dash.title">Dashboard</h1>
+      <div class="dashboard-actions">
+        <button id="set-budget-btn" class="btn btn-outline btn-sm btn-ico" data-i18n="dash.setBudget"><span data-icon="banknote"></span> Set Starting Budget</button>
+        <button id="budget-menu-btn" class="row-menu-btn" type="button" data-i18n-title="dash.budgetOptions" title="Budget options">
+          <span data-icon="dots"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Inline form for setting starting budget - shown when the set button above is clicked -->
+    <div id="budget-form" class="product-form" style="display:none;">
+      <h2 data-i18n="dash.setBudgetTitle">Set Starting Budget</h2>
+      <div class="form-grid">
+        <input type="number" id="budget-input" data-i18n="dash.budgetPlaceholder" placeholder="Starting budget (DA)" step="0.01">
+      </div>
+      <button id="save-budget-btn" class="btn btn-ico" data-i18n="dash.save"><span data-icon="check"></span> Save</button>
+      <button id="cancel-budget-btn" class="btn-link" data-i18n="dash.cancel">Cancel</button>
+    </div>
+
+    <!-- Inline form for adding money to the budget - shown when the menu Add is clicked -->
+    <div id="add-budget-form" class="product-form" style="display:none;">
+      <h2 data-i18n="dash.addBudgetTitle">Add to Budget</h2>
+      <div class="form-grid">
+        <input type="number" id="add-budget-input" data-i18n="dash.addAmountPlaceholder" placeholder="Amount to add (DA)" step="0.01">
+      </div>
+      <button id="save-add-budget-btn" class="btn btn-ico" data-i18n="dash.add"><span data-icon="plus"></span> Add</button>
+      <button id="cancel-add-budget-btn" class="btn-link" data-i18n="dash.cancel">Cancel</button>
+    </div>
+
+    <!-- Inline form for removing money from the budget - shown when the menu Remove is clicked -->
+    <div id="remove-budget-form" class="product-form" style="display:none;">
+      <h2 data-i18n="dash.removeBudgetTitle">Remove from Budget</h2>
+      <div class="form-grid">
+        <input type="number" id="remove-budget-input" data-i18n="dash.removeAmountPlaceholder" placeholder="Amount to remove (DA)" step="0.01">
+      </div>
+      <button id="save-remove-budget-btn" class="btn btn-ico" data-i18n="dash.removeBtn"><span data-icon="minus"></span> Remove</button>
+      <button id="cancel-remove-budget-btn" class="btn-link" data-i18n="dash.cancel">Cancel</button>
+    </div>
+
+    <!-- Inline confirmation for reset - shown when the reset button above is clicked -->
+    <div id="reset-form" class="product-form" style="display:none;">
+      <h2 data-i18n="dash.resetStatsTitle">Reset All Stats</h2>
+      <p class="hint-text" data-i18n="dash.resetHint">This permanently erases ALL sales, purchase orders, expenses, and stock history (your product list and current stock quantities are kept). Type <strong>RESET</strong> below to confirm.</p>
+      <div class="form-grid">
+        <input type="text" id="reset-confirm-input" data-i18n="dash.resetConfirmPlaceholder" placeholder="Type RESET to confirm">
+      </div>
+      <button id="confirm-reset-btn" class="btn btn-danger btn-ico" data-i18n="dash.confirmReset"><span data-icon="trash"></span> Confirm Reset</button>
+      <button id="cancel-reset-btn" class="btn-link" data-i18n="dash.cancel">Cancel</button>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="po-filter">
+      <button class="filter-btn active" data-dash-period="today" data-i18n="financial.daily">Daily</button>
+      <button class="filter-btn" data-dash-period="weekly" data-i18n="financial.weekly">Weekly</button>
+      <button class="filter-btn" data-dash-period="monthly" data-i18n="financial.monthly">Monthly</button>
+      <button class="filter-btn" data-dash-period="yearly" data-i18n="financial.yearly">Yearly</button>
+      <button class="filter-btn" data-dash-period="custom" data-i18n="financial.custom">Custom</button>
+    </div>
+    <div class="po-filter" id="custom-range" style="display:none;">
+      <input type="date" id="custom-from" class="date-range-input" data-i18n="financial.from" data-i18n-title="financial.from" title="From date">
+      <span class="date-range-sep">Ã¢â€ â€™</span>
+      <input type="date" id="custom-to" class="date-range-input" data-i18n="financial.to" data-i18n-title="financial.to" title="To date">
+      <button class="btn btn-sm" id="apply-custom-btn" data-i18n="financial.apply">Apply</button>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card budget-card">
+        <span class="sc-icon" data-icon="banknote"></span>
+        <span class="stat-label" data-i18n="dash.shopBudget">Shop Budget</span>
+        <span class="stat-value" id="current-budget">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="sc-icon" data-icon="cart"></span>
+        <span class="stat-label" id="sales-label" data-i18n="dash.todaySales">Today's Sales</span>
+        <span class="stat-value" id="today-total">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="sc-icon" data-icon="cart"></span>
+        <span class="stat-label" data-i18n="dash.monthSales">This Month's Sales</span>
+        <span class="stat-value" id="month-total">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="sc-icon" data-icon="chartline"></span>
+        <span class="stat-label" id="profit-label" data-i18n="dash.todayProfit">Today's Profit</span>
+        <span class="stat-value" id="today-profit">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="sc-icon" data-icon="chartline"></span>
+        <span class="stat-label" data-i18n="dash.monthProfit">Month's Profit</span>
+        <span class="stat-value" id="month-profit">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="sc-icon" data-icon="package"></span>
+        <span class="stat-label" id="items-label" data-i18n="dash.itemsToday">Items Sold Today</span>
+        <span class="stat-value" id="items-today">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="sc-icon" data-icon="truck"></span>
+        <span class="stat-label" data-i18n="dash.totalPurchases">Total Spent on Purchases</span>
+        <span class="stat-value" id="total-spent">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="sc-icon" data-icon="coins"></span>
+        <span class="stat-label" data-i18n="dash.totalExpenses">Total Expenses</span>
+        <span class="stat-value" id="total-expenses">-</span>
+      </div>
+      <div class="stat-card alert-card">
+        <span class="sc-icon" data-icon="alert"></span>
+        <span class="stat-label" data-i18n="dash.lowOutOfStock">Low / Out of Stock</span>
+        <span class="stat-value" id="stock-alert-count">-</span>
+      </div>
+      <div class="stat-card alert-card">
+        <span class="sc-icon" data-icon="alert"></span>
+        <span class="stat-label" data-i18n="dash.expiredExpiring">Expired / Expiring</span>
+        <span class="stat-value" id="expiry-alert-count">-</span>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h2 id="sales-chart-title" data-i18n="dash.sales7d">Sales - Last 7 Days</h2>
+        <canvas id="sales-chart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h2 id="profit-chart-title" data-i18n="dash.profit7d">Profit - Last 7 Days</h2>
+        <canvas id="profit-chart"></canvas>
+      </div>
+      <div class="chart-card panel-wide">
+        <h2 id="budget-chart-title" data-i18n="dash.budgetOverTime">Budget Over Time (last 7 days)</h2>
+        <canvas id="budget-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="panel-grid">
+      <!-- Best sellers -->
+      <div class="panel">
+        <h2 data-i18n="dash.bestSellers">Best-Selling Products</h2>
+        <ul id="best-sellers" class="simple-list"></ul>
+      </div>
+
+<!-- Stock alerts -->
+      <div class="panel">
+        <h2 class="fact-heading">
+          <span data-i18n="dash.stockAlerts">Stock Alerts</span>
+          <button type="button" class="btn btn-outline btn-sm fact-toggle" data-target="stock-alerts" data-i18n="dash.show">Show</button>
+        </h2>
+        <ul id="stock-alerts" class="simple-list" hidden></ul>
+      </div>
+
+      <!-- Expiry alerts -->
+      <div class="panel">
+        <h2 class="fact-heading">
+          <span data-i18n="dash.expiryAlerts">Expiry Alerts</span>
+          <button type="button" class="btn btn-outline btn-sm fact-toggle" data-target="expiry-alerts" data-i18n="dash.show">Show</button>
+        </h2>
+        <ul id="expiry-alerts" class="simple-list" hidden></ul>
+      </div>
+
+      <!-- Recent transactions -->
+      <div class="panel panel-wide">
+        <h2 data-i18n="dash.recentTransactions">Recent Transactions</h2>
+        <table class="product-table">
+          <thead><tr><th data-i18n="dash.saleNo">Sale #</th><th data-i18n="dash.date">Date</th><th data-i18n="dash.total">Total</th></tr></thead>
+          <tbody id="recent-sales"></tbody>
+        </table>
+      </div>
+
+      <!-- Debts summary -->
+      <div class="panel panel-wide">
+        <h2 data-i18n="dash.debtsSummary">Debts Summary</h2>
+        <div class="stat-grid" style="margin:0;">
+          <div class="stat-card">
+            <span class="sc-icon" data-icon="truck"></span>
+            <span class="stat-label" data-i18n="dash.weOweSuppliers">We owe suppliers</span>
+            <span class="stat-value" id="debt-payable">-</span>
+          </div>
+          <div class="stat-card">
+            <span class="sc-icon" data-icon="users"></span>
+            <span class="stat-label" data-i18n="dash.clientsOweUs">Clients owe us</span>
+            <span class="stat-value" id="debt-receivable">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Stock / expiry alerts: opened by clicking an alert card or an alert row -->
+  <div id="alert-modal" class="scanner-modal" hidden>
+    <div class="scanner-box alert-modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 id="alert-modal-title" style="margin-bottom:0;">Alerts</h2>
+        <button type="button" id="alert-modal-close" class="btn-ico btn-outline" data-i18n-aria-label="cashier.close" aria-label="Close"><span data-icon="x"></span></button>
+      </div>
+      <p class="hint-text" data-i18n="dash.alertHint">Click a product's "Manage Stock" to adjust its quantity or expiry date.</p>
+      <div style="max-height:60vh; overflow:auto;">
+        <table class="product-table">
+          <thead><tr><th data-i18n="dash.thProduct">Product</th><th data-i18n="dash.thStatus">Status</th><th data-i18n="dash.thQty">Qty</th><th data-i18n="dash.thExpiry">Expiry</th><th></th></tr></thead>
+          <tbody id="alert-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="auth.js"></script>
+  <script src="i18n.js"></script>
+  <script src="dashboard.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

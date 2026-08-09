@@ -1,0 +1,7 @@
+// Ignore runtime data + local secrets when publishing/tooling.
+ledger.json
+queue.json
+signer.env.json
+*.log
+.env
+node_modules/

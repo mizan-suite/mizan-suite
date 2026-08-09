@@ -1,0 +1,71 @@
+{
+  "name": "mizan",
+  "version": "1.0.0",
+  "description": "Mizan Suite - pharmacy management software",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "server-only": "node server.js",
+    "dist": "electron-builder",
+    "test": "node --test",
+    "licenses": "node license-tools/dashboard.js"
+  },
+  "build": {
+    "appId": "com.mizan.pharmacy",
+    "productName": "Mizan Suite",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "server.js",
+      "database.js",
+      "ocr.js",
+      "pdf.js",
+      "ocr/**/*",
+      "parapharmacy.db",
+      "electron/**/*",
+      "public/**/*",
+      "node_modules/**/*",
+      "!node_modules/@zxing/**",
+      "!node_modules/chart.js/**",
+      "package.json"
+    ],
+    "win": {
+      "icon": "electron/build-assets/icon.ico",
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "perMachine": true,
+      "include": "electron/installer/firewall.nsh"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "mupdf": "^1.28.0",
+    "node-machine-id": "^1.1.12",
+    "pdfkit": "^0.19.1",
+    "selfsigned": "^5.5.0",
+    "tesseract.js": "^7.0.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@zxing/library": "^0.23.0",
+    "chart.js": "^4.4.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "qrcode-generator": "^2.0.4"
+  }
+}

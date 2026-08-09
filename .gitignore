@@ -1,0 +1,17 @@
+# Secrets - NEVER commit these
+license-tools/private.key
+license-tools/trial-private.key
+license-tools/licenses.json
+license-dashboard/server/private.key
+.scanner-certs/
+
+# Runtime / local data
+trial/ledger.json
+trial/queue.json
+trial/signer.env.json
+dist/
+node_modules/
+parapharmacy.db*
+backups/
+ssl/
+*.log

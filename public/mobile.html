@@ -1,0 +1,104 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1b6e5c">
+  <script>try{var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Mizan Suite - Mobile</title>
+  <link rel="stylesheet" href="mobile.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="mobile.title">
+
+  <header class="m-header">
+    <div class="m-brand">Mizan Suite</div>
+    <div class="m-header-actions">
+      <button id="m-desktop" class="m-icobtn" type="button" data-i18n="mobile.desktop" data-i18n-title="mobile.desktopTitle" title="Open the main app">Desktop</button>
+      <button id="m-refresh" class="m-icobtn" type="button" data-i18n="mobile.refresh" data-i18n-title="mobile.refreshTitle" title="Refresh">Refresh</button>
+      <button id="m-logout" class="m-icobtn m-icobtn-danger" type="button" data-i18n="mobile.logout" data-i18n-title="mobile.logoutTitle" title="Log out">Log out</button>
+    </div>
+  </header>
+
+  <div id="m-offline" class="m-offline" data-i18n="mobile.offline" hidden>Offline - showing last data</div>
+
+  <main id="m-content">
+    <section id="view-overview" class="m-view">
+      <div class="m-kpis">
+        <div class="m-kpi"><span class="m-kpi-label" data-i18n="mobile.todaySales">Today sales</span><span class="m-kpi-value" id="kpi-today">...</span></div>
+        <div class="m-kpi"><span class="m-kpi-label" data-i18n="mobile.todayProfit">Today profit</span><span class="m-kpi-value" id="kpi-today-profit">...</span></div>
+        <div class="m-kpi"><span class="m-kpi-label" data-i18n="mobile.monthSales">Month sales</span><span class="m-kpi-value" id="kpi-month">...</span></div>
+        <div class="m-kpi"><span class="m-kpi-label" data-i18n="mobile.monthProfit">Month profit</span><span class="m-kpi-value" id="kpi-month-profit">...</span></div>
+        <div class="m-kpi"><span class="m-kpi-label" data-i18n="mobile.itemsToday">Items today</span><span class="m-kpi-value" id="kpi-items">...</span></div>
+        <div class="m-kpi"><span class="m-kpi-label" data-i18n="mobile.budget">Budget</span><span class="m-kpi-value" id="kpi-budget">...</span></div>
+      </div>
+
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.last7Days">Last 7 days</h2>
+        <div class="m-bars" id="m-bars"></div>
+      </div>
+
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.bestSellers">Best sellers</h2>
+        <ul class="m-list" id="m-best"></ul>
+      </div>
+
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.financialTotals">Financial totals</h2>
+        <div class="m-rows" id="m-fin"></div>
+      </div>
+    </section>
+
+    <section id="view-sales" class="m-view" hidden>
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.recentSales">Recent sales</h2>
+        <ul class="m-list m-sales" id="m-sales"></ul>
+      </div>
+    </section>
+
+    <section id="view-stock" class="m-view" hidden>
+      <input id="stock-search" class="m-search" type="search" data-i18n="mobile.searchProduct" placeholder="Search product...">
+      <div class="m-card">
+        <ul class="m-list m-stock" id="m-stock"></ul>
+      </div>
+    </section>
+
+    <section id="view-alerts" class="m-view" hidden>
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.outOfStock">Out of stock <span class="m-badge m-badge-red" id="alert-oos-count">0</span></h2>
+        <ul class="m-list" id="m-oos"></ul>
+      </div>
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.lowStock">Low stock <span class="m-badge m-badge-amber" id="alert-low-count">0</span></h2>
+        <ul class="m-list" id="m-low"></ul>
+      </div>
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.expired">Expired <span class="m-badge m-badge-red" id="alert-expired-count">0</span></h2>
+        <ul class="m-list" id="m-expired"></ul>
+      </div>
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.expiringSoon">Expiring soon (30 days) <span class="m-badge m-badge-amber" id="alert-expiring-count">0</span></h2>
+        <ul class="m-list" id="m-expiring"></ul>
+      </div>
+      <div class="m-card">
+        <h2 class="m-card-title" data-i18n="mobile.openDebts">Open debts</h2>
+        <div class="m-rows" id="m-debts"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="m-nav">
+    <button class="m-nav-btn active" data-view="overview" type="button" data-i18n="mobile.home">Home</button>
+    <button class="m-nav-btn" data-view="sales" type="button" data-i18n="mobile.sales">Sales</button>
+    <button class="m-nav-btn" data-view="stock" type="button" data-i18n="mobile.stock">Stock</button>
+    <button class="m-nav-btn" data-view="alerts" type="button" data-i18n="mobile.alerts">Alerts</button>
+  </nav>
+
+  <div id="m-toast" class="m-toast" hidden></div>
+
+  <script src="i18n.js"></script>
+  <script src="mobile.js"></script>
+</body>
+</html>

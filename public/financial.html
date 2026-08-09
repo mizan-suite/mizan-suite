@@ -1,0 +1,122 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Financial</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+  <script src="vendor/chart.min.js"></script>
+</head>
+<body data-i18n-title="financial.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container">
+    <h1 data-i18n="financial.title">Financial Management</h1>
+
+    <!-- Period selector -->
+    <div class="po-filter">
+      <button class="filter-btn" data-period="daily" data-i18n="financial.daily">Daily</button>
+      <button class="filter-btn active" data-period="weekly" data-i18n="financial.weekly">Weekly</button>
+      <button class="filter-btn" data-period="monthly" data-i18n="financial.monthly">Monthly</button>
+      <button class="filter-btn" data-period="yearly" data-i18n="financial.yearly">Yearly</button>
+      <button class="filter-btn" data-period="custom" data-i18n="financial.custom">Custom</button>
+    </div>
+
+    <!-- Custom date range -->
+    <div class="po-filter" id="custom-range" style="display:none;">
+      <input type="date" id="custom-from" class="date-range-input" data-i18n="financial.from" data-i18n-title="financial.from" title="From date">
+      <span class="date-range-sep">Ã¢â€ â€™</span>
+      <input type="date" id="custom-to" class="date-range-input" data-i18n="financial.to" data-i18n-title="financial.to" title="To date">
+      <button class="btn btn-sm" id="apply-custom-btn" data-i18n="financial.apply">Apply</button>
+    </div>
+
+    <!-- Summary for current period -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <span class="stat-label" id="income-label" data-i18n="financial.incomePeriod">Income (this period)</span>
+        <span class="stat-value" id="period-income">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="financial.grossProfit">Gross Profit</span>
+        <span class="stat-value" id="period-gross-profit">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="financial.expenses">Expenses</span>
+        <span class="stat-value" id="period-expenses">-</span>
+      </div>
+      <div class="stat-card" id="net-profit-card">
+        <span class="stat-label" data-i18n="financial.netProfit">Net Profit / Loss</span>
+        <span class="stat-value" id="period-net">-</span>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card panel-wide">
+      <h2 data-i18n="financial.chartTitle">Income vs Expenses vs Net Profit</h2>
+      <canvas id="financial-chart"></canvas>
+    </div>
+
+    <div class="panel-grid">
+      <!-- Add expense -->
+      <div class="panel">
+        <h2 data-i18n="financial.addExpense">Add Expense</h2>
+        <div class="form-grid">
+          <select id="expense-category">
+            <option value="rent" data-i18n="financial.rent">Rent</option>
+            <option value="electricity" data-i18n="financial.electricity">Electricity</option>
+            <option value="water" data-i18n="financial.water">Water</option>
+            <option value="internet" data-i18n="financial.internet">Internet</option>
+            <option value="salaries" data-i18n="financial.salaries">Salaries</option>
+            <option value="maintenance" data-i18n="financial.maintenance">Maintenance</option>
+            <option value="other" data-i18n="financial.other">Other</option>
+          </select>
+          <input type="number" id="expense-amount" data-i18n="financial.amount" placeholder="Amount" step="0.01">
+          <input type="date" id="expense-date">
+          <input type="text" id="expense-description" data-i18n="financial.description" placeholder="Description (optional)">
+        </div>
+        <button id="add-expense-btn" class="btn" data-i18n="financial.addExpense">Add Expense</button>
+        <p id="expense-message"></p>
+      </div>
+
+      <!-- Expenses by category -->
+      <div class="panel">
+        <h2 data-i18n="financial.expensesByCat">Expenses by Category (all-time)</h2>
+        <ul id="expense-categories" class="simple-list"></ul>
+      </div>
+
+      <!-- Expense list -->
+      <div class="panel panel-wide">
+        <h2 data-i18n="financial.recentExpenses">Recent Expenses</h2>
+        <table class="product-table">
+          <thead><tr><th data-i18n="financial.thDate">Date</th><th data-i18n="financial.thCategory">Category</th><th data-i18n="financial.thAmount">Amount</th><th data-i18n="financial.thDescription">Description</th><th></th></tr></thead>
+          <tbody id="expense-list"></tbody>
+        </table>
+        <div id="expense-pagination" class="pagination-bar" hidden>
+          <span id="expense-page-info" class="page-info"></span>
+          <div class="pagination-actions">
+            <button type="button" id="expense-page-prev" class="btn btn-outline btn-sm" data-i18n="financial.prevPage">Previous</button>
+            <span id="expense-page-num" class="page-num"></span>
+            <button type="button" id="expense-page-next" class="btn btn-outline btn-sm" data-i18n="financial.nextPage">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="i18n.js"></script>
+  <script src="financial.js"></script>
+  
+
+
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

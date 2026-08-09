@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self'">
+  <title>Mizan Suite - Activation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #2b2b2b;
+      background: #f7f9f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      width: 520px;
+      max-width: 94vw;
+      padding: 2rem 2.2rem;
+    }
+    .logo {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #1b6e5c;
+      text-align: center;
+      margin-bottom: 0.2rem;
+    }
+    .logo span { color: #4fc3a1; }
+    .sub {
+      text-align: center;
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 1.4rem;
+    }
+    .status-box {
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 1.2rem;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .status-box.warn { background: #fff4e5; color: #9a5b00; border: 1px solid #f5d9a8; display: block; }
+    .status-box.error { background: #fdecea; color: #a33327; border: 1px solid #f5c6c2; display: block; }
+    .status-box.ok { background: #e8f5ee; color: #16603f; border: 1px solid #b9e0cd; display: block; }
+    label { display: block; font-weight: 600; font-size: 0.85rem; margin: 1rem 0 0.35rem; }
+    input[type=text], textarea {
+      width: 100%;
+      padding: 0.6rem 0.7rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: Consolas, monospace;
+    }
+    textarea { min-height: 84px; resize: vertical; word-break: break-all; }
+    .machine {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .machine input { flex: 1; }
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1.2rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary { background: #1b6e5c; color: #fff; width: 100%; margin-top: 1.2rem; }
+    .btn-primary:hover { background: #155a4b; }
+    .btn-small { background: #eee; color: #333; padding: 0.5rem 0.9rem; font-size: 0.8rem; }
+    .btn-small:hover { background: #ddd; }
+    .btn-link { background: none; color: #1b6e5c; text-decoration: underline; padding: 0.4rem; }
+    .hint { color: #888; font-size: 0.8rem; margin-top: 1.1rem; line-height: 1.45; }
+    .hint b { color: #555; }
+    .or { color: #999; font-size: .85rem; }
+    .footer { text-align: center; margin-top: 1.2rem; font-size: 0.75rem; color: #aaa; }
+    .spinner { display: none; }
+    .disabled { opacity: 0.55; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Mizan Suite</div>
+    <p class="sub">Software activation</p>
+
+    <div id="status-box" class="status-box"></div>
+
+    <label for="machine-id">Machine ID (send this to your software provider)</label>
+    <div class="machine">
+      <input type="text" id="machine-id" readonly>
+      <button type="button" id="copy-btn" class="btn-small">Copy</button>
+    </div>
+
+    <label for="license-key">License key</label>
+    <textarea id="license-key" placeholder="Paste your license key here (MZN-... )" spellcheck="false"></textarea>
+
+    <label for="trial-email">Your email (for the free trial key)</label>
+    <input type="text" id="trial-email" placeholder="you@example.com" autocomplete="off">
+
+    <button type="button" id="trial-btn" class="btn-primary">Start free trial</button>
+
+    <div style="text-align:center; margin-top:1rem;">
+      <span class="or">- or paste your key below -</span>
+    </div>
+
+    <button type="button" id="activate-btn" class="btn-primary">Activate</button>
+    <div style="text-align:center; margin-top:0.6rem;">
+      <button type="button" id="quit-btn" class="btn-link">Quit</button>
+    </div>
+
+    <p class="hint">
+      <b>How to activate:</b><br>
+      1. Click <b>Start free trial</b> and enter your email - a 14-day key is sent to your inbox.<br>
+      2. Or copy the <b>Machine ID</b> above and send it to your software provider.<br>
+      3. Paste the <b>license key</b> above and click <b>Activate</b>.
+    </p>
+
+    <p class="footer">Mizan Suite &middot; License: one computer per key</p>
+  </div>
+
+  <script src="activation.js"></script>
+</body>
+</html>

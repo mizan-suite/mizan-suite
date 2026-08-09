@@ -1,0 +1,92 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Barcode Labels</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="labels.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container">
+    <h1 data-i18n="labels.title">Barcode Labels</h1>
+    <p class="hint-text" data-i18n="labels.subtitle">Pick products, choose a template, then generate a printable sheet of barcode labels (A4, 63.5 &times; 38.1 mm).</p>
+
+    <div class="label-builder">
+      <!-- Left: product picker -->
+      <section class="panel">
+        <h2 data-i18n="labels.products">Products</h2>
+        <input type="text" id="label-search" data-i18n="labels.searchPlaceholder" placeholder="Search product by name or barcode..." style="width:100%; padding:0.6rem 0.8rem; border:1px solid #d8d8d8; border-radius:6px; box-sizing:border-box; margin-bottom:0.6rem;">
+        <button id="add-all-btn" class="btn btn-sm btn-outline" type="button" data-i18n="labels.addAll" style="margin-bottom:0.6rem;">Add all products</button>
+        <div id="label-search-results" class="label-results"></div>
+      </section>
+
+      <!-- Right: template + selected -->
+      <section class="panel">
+        <h2 data-i18n="labels.template">Template</h2>
+        <div class="label-templates">
+          <label class="label-template">
+            <input type="radio" name="template" value="price" checked>
+            <span><strong data-i18n="labels.priceTicket">Price ticket</strong><small data-i18n="labels.priceTicketDesc">Name + barcode + price</small></span>
+          </label>
+          <label class="label-template">
+            <input type="radio" name="template" value="expiry">
+            <span><strong data-i18n="labels.priceExpiry">Price + expiry</strong><small data-i18n="labels.priceExpiryDesc">Adds the expiry date</small></span>
+          </label>
+          <label class="label-template">
+            <input type="radio" name="template" value="plain">
+            <span><strong data-i18n="labels.plainLabel">Plain label</strong><small data-i18n="labels.plainLabelDesc">Name + barcode only</small></span>
+          </label>
+          <label class="label-template">
+            <input type="radio" name="template" value="bigprice">
+            <span><strong data-i18n="labels.bigPrice">Big price</strong><small data-i18n="labels.bigPriceDesc">Large price + barcode</small></span>
+          </label>
+          <label class="label-template">
+            <input type="radio" name="template" value="priceonly">
+            <span><strong data-i18n="labels.priceOnly">Price only</strong><small data-i18n="labels.priceOnlyDesc">Name + price, no barcode</small></span>
+          </label>
+          <label class="label-template">
+            <input type="radio" name="template" value="expiryonly">
+            <span><strong data-i18n="labels.expiryOnly">Expiry only</strong><small data-i18n="labels.expiryOnlyDesc">Name + expiry date</small></span>
+          </label>
+          <label class="label-template">
+            <input type="radio" name="template" value="nameonly">
+            <span><strong data-i18n="labels.nameOnly">Name only</strong><small data-i18n="labels.nameOnlyDesc">Product name only</small></span>
+          </label>
+        </div>
+
+        <h2 style="margin-top:1.2rem;" data-i18n="labels.selectedProducts">Selected products</h2>
+        <ul id="label-selection" class="label-selection simple-list"></ul>
+        <p class="hint-text" id="label-selection-empty" data-i18n="labels.nothingSelected">Nothing selected yet - search on the left.</p>
+
+        <button id="generate-labels-btn" class="btn checkout-btn" type="button" data-i18n="labels.generate" style="margin-top:1rem;">Generate label sheet</button>
+      </section>
+    </div>
+
+    <div id="label-print-bar" class="label-print-bar no-print" hidden>
+      <button id="do-print-btn" class="btn" type="button" data-i18n="labels.printSheet">Print sheet</button>
+      <button id="edit-more-btn" class="btn btn-close" type="button" data-i18n="labels.editMore">Edit more products</button>
+    </div>
+
+    <div id="label-sheet" class="label-sheet"></div>
+  </main>
+
+  <script src="icons.js"></script>
+  <script src="vendor/JsBarcode.all.min.js"></script>
+  <script src="i18n.js"></script>
+  <script src="print.js"></script>
+  <script src="labels.js"></script>
+
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

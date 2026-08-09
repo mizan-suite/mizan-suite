@@ -1,0 +1,86 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Debts</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="debts.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container">
+    <div class="dashboard-header-row">
+      <h1 data-i18n="debts.title">Debts</h1>
+    </div>
+
+    <!-- Tab + filter -->
+    <div class="po-filter">
+      <button class="filter-btn tab-btn active" data-kind="payable" data-i18n="debts.payable">I owe suppliers</button>
+      <button class="filter-btn tab-btn" data-kind="receivable" data-i18n="debts.receivable">Clients owe me</button>
+      <span style="flex:1;"></span>
+      <button class="filter-btn status-btn active" data-status="open" data-i18n="debts.open">Open</button>
+      <button class="filter-btn status-btn" data-status="closed" data-i18n="debts.closed">Closed</button>
+      <button class="filter-btn status-btn" data-status="all" data-i18n="debts.all">All</button>
+    </div>
+
+    <!-- Summary -->
+    <div class="stat-grid" style="margin-bottom:1.5rem;">
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="debts.outstanding">Outstanding</span>
+        <span class="stat-value" id="sum-outstanding">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="debts.openDebts">Open debts</span>
+        <span class="stat-value" id="sum-open">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="debts.paidSoFar">Paid so far</span>
+        <span class="stat-value" id="sum-paid">-</span>
+      </div>
+    </div>
+
+    <!-- New debt -->
+    <form id="debt-form" class="product-form">
+      <h2 data-i18n="debts.newDebt">New Debt</h2>
+      <div class="form-grid">
+        <select id="debt-kind">
+          <option value="payable" data-i18n="debts.weOwe">We owe them (payable)</option>
+          <option value="receivable" data-i18n="debts.theyOwe">They owe us (receivable)</option>
+        </select>
+        <select id="debt-party-type">
+          <option value="supplier" data-i18n="debts.supplier">Supplier</option>
+          <option value="client" data-i18n="debts.client">Client</option>
+          <option value="other" data-i18n="debts.other">Other</option>
+        </select>
+        <select id="debt-party-supplier" style="display:none;"></select>
+        <select id="debt-party-client" style="display:none;"></select>
+        <input type="text" id="debt-party-name" data-i18n="debts.partyName" placeholder="Party name" style="display:none;">
+        <input type="number" id="debt-amount" data-i18n="debts.amountPlaceholder" placeholder="Amount (DA)" step="0.01" min="0">
+        <input type="date" id="debt-due">
+        <input type="text" id="debt-note" data-i18n="debts.notePlaceholder" placeholder="Note">
+      </div>
+      <button type="submit" class="btn" data-i18n="debts.addDebt">Add Debt</button>
+    </form>
+
+    <!-- Debt list -->
+    <div id="debt-list"></div>
+  </main>
+
+  <script src="i18n.js"></script>
+  <script src="debts.js"></script>
+  
+
+
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

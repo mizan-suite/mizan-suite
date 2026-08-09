@@ -1,0 +1,146 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Cashier</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="cashier.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container pos-layout">
+
+    <!-- Left: product browser -->
+    <section class="pos-left">
+      <h1 data-i18n="cashier.title">Cashier</h1>
+
+      <div class="pos-scan-row">
+        <input type="text" id="barcode-input" data-i18n="cashier.barcodePlaceholder" placeholder="Type or scan a barcode, then Enter..." autofocus>
+        <button id="scan-btn" class="btn btn-ico btn-outline" type="button" data-i18n-title="cashier.usbScannerTitle" title="USB scanner: use your handheld scanner device"><span data-icon="scan"></span> <span data-i18n="cashier.scan">Scan</span></button>
+        <button id="scan-camera-btn" class="btn btn-ico btn-outline" type="button" data-i18n-title="cashier.cameraScannerTitle" title="Scan barcodes with your phone camera - keeps scanning, each scan is added to the cart"><span data-icon="camera"></span></button>
+      </div>
+      <div class="pos-search-row">
+        <span class="pos-search-icon"><span data-icon="search"></span></span>
+        <input type="text" id="search-box" data-i18n="cashier.searchPlaceholder" placeholder="Search by name or barcode...">
+      </div>
+      <p class="hint-text pos-hint" data-i18n="cashier.tip">Tip: USB scanners type into the barcode box automatically. Press / to search by name.</p>
+
+      <div id="category-chips" class="cat-chips"></div>
+      <div id="cart-detail" class="cart-detail" hidden></div>
+      <div id="search-results" class="search-results"></div>
+      <div id="product-grid" class="product-grid"></div>
+      <div id="grid-pagination" class="pagination-bar" hidden>
+        <span id="grid-page-info" class="page-info"></span>
+        <div class="pagination-actions">
+          <button type="button" id="grid-page-prev" class="btn btn-outline btn-sm" data-i18n="cashier.prevPage">Previous</button>
+          <span id="grid-page-num" class="page-num"></span>
+          <button type="button" id="grid-page-next" class="btn btn-outline btn-sm" data-i18n="cashier.nextPage">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: multi-sale checkout -->
+    <section class="pos-right">
+      <div class="sale-tabs" id="sale-tabs"></div>
+
+      <div class="pos-cart">
+        <div id="cart-items" class="cart-items"></div>
+
+        <div class="cart-total">
+          <span data-i18n="cashier.subtotal">Subtotal</span>
+          <span id="cart-subtotal-amount">0.00 DA</span>
+        </div>
+        <div class="cart-total points-discount-row" id="points-discount-row" style="display:none;">
+          <span data-i18n="cashier.pointsDiscount">Points discount</span>
+          <span id="points-discount-amount">0.00 DA</span>
+        </div>
+        <div class="cart-total cart-total-grand">
+          <span data-i18n="cashier.total">Total</span>
+          <span id="cart-total-amount">0.00 DA</span>
+        </div>
+
+        <div class="discount-row">
+          <select id="discount-type">
+            <option value="" data-i18n="cashier.noDiscount">No discount</option>
+            <option value="percent" data-i18n="cashier.percentOff">% off</option>
+            <option value="fixed" data-i18n="cashier.fixedOff">Fixed amount off</option>
+          </select>
+          <input type="number" id="discount-value" data-i18n="cashier.valuePlaceholder" placeholder="Value" step="0.01">
+        </div>
+
+        <!-- Client / loyalty -->
+        <div class="client-panel">
+          <h3 class="sub-heading" data-i18n="cashier.clientOptional">Client (optional)</h3>
+          <input type="text" id="client-search" data-i18n="cashier.searchClient" placeholder="Search client by name or phone...">
+          <div id="client-search-results" class="search-results"></div>
+          <div id="selected-client" class="client-badge" style="display:none;">
+            <div>
+              <strong id="selected-client-name"></strong>
+              <span class="hint-text" id="selected-client-phone"></span>
+              <div><span class="hint-text"><span data-i18n="cashier.pointsLabel">Points:</span> <strong id="selected-client-points">0</strong></span></div>
+            </div>
+            <div style="text-align:right;">
+              <button id="clear-client-btn" class="btn-link" type="button" data-i18n="cashier.remove">Remove</button>
+              <div style="margin-top:0.3rem;">
+                <label class="hint-text" style="display:block;" data-i18n="cashier.redeemPoints">Redeem points</label>
+                <input type="number" id="redeem-points" min="0" step="1" value="0" style="width:80px; padding:0.3rem 0.5rem; border:1px solid #d8d8d8; border-radius:6px;">
+              </div>
+            </div>
+          </div>
+          <p class="hint-text" id="loyalty-preview"></p>
+        </div>
+
+        <!-- Payment -->
+        <div class="payment-panel">
+          <h3 class="sub-heading" data-i18n="cashier.payment">Payment</h3>
+          <div id="payment-lines"></div>
+          <button id="add-payment-line" class="btn-split-pay" type="button" data-i18n="cashier.splitPayment"><span data-icon="card"></span> <span data-i18n="cashier.splitPayment">+ Split payment</span></button>
+          <div class="quick-cash" id="quick-cash">
+            <button data-amount="exact" type="button" data-i18n="cashier.exact">Exact</button>
+            <button data-amount="500" type="button">500</button>
+            <button data-amount="1000" type="button">1000</button>
+            <button data-amount="2000" type="button">2000</button>
+            <button data-amount="5000" type="button">5000</button>
+          </div>
+          <p class="hint-text" id="payment-remaining"></p>
+          <p class="change-due" id="change-due" hidden></p>
+        </div>
+
+        <div class="pos-actions">
+          <input type="text" id="hold-note" data-i18n="cashier.holdNotePlaceholder" placeholder="Hold note (optional, e.g. customer name)">
+          <div class="pos-actions-btns">
+            <button id="hold-btn" class="btn btn-ghost btn-sm btn-ico" type="button" data-i18n="cashier.hold"><span data-icon="clock"></span> Hold</button>
+            <button id="cancel-sale-btn" class="btn btn-danger btn-sm btn-ico" type="button" data-i18n="cashier.cancel"><span data-icon="trash"></span> Cancel</button>
+          </div>
+        </div>
+        <button id="checkout-btn" class="btn btn-lg checkout-btn" disabled><span data-icon="check"></span> <span id="checkout-btn-label" data-i18n="cashier.checkout">Checkout</span></button>
+        <p id="checkout-message"></p>
+      </div>
+
+      <!-- Held sales: below the cart so it's easy to see -->
+      <h2 class="sub-heading held-sales-heading" data-i18n="cashier.heldSales">Held Sales</h2>
+      <ul id="held-sales-list" class="simple-list"></ul>
+    </section>
+
+  </main>
+
+  <script src="icons.js"></script>
+  <script src="scanner.js"></script>
+  <script src="vendor/JsBarcode.all.min.js"></script>
+  <script src="i18n.js"></script>
+  <script src="print.js"></script>
+  <script src="escpos.js"></script>
+  <script src="cashier.js"></script>
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

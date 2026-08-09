@@ -1,0 +1,19 @@
+{
+  "name": "mizan-trial-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mizan Suite landing page + free trial key server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test ../test/trial.test.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
+  }
+}

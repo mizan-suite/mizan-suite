@@ -1,0 +1,268 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Settings</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="settings.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container">
+    <h1 data-i18n="settings.title">Settings</h1>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.appearance">Appearance</h2>
+      <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="field">
+          <label for="language-select" data-i18n="settings.language">Language</label>
+          <select id="language-select">
+            <option value="en" data-i18n="settings.languageEn">English</option>
+            <option value="fr" data-i18n="settings.languageFr">French</option>
+            <option value="ar" data-i18n="settings.languageAr">Arabic</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-top:0.9rem;">
+        <label data-i18n="settings.theme">Theme</label>
+        <div class="theme-picker" id="theme-picker">
+          <label class="theme-option">
+            <input type="radio" name="theme" value="green" checked>
+            <span class="theme-swatch" style="--sw:#1b6e5c;"></span>
+            <span data-i18n="settings.themeGreen">Green</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="theme" value="blue">
+            <span class="theme-swatch" style="--sw:#2563eb;"></span>
+            <span data-i18n="settings.themeBlue">Blue</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="theme" value="purple">
+            <span class="theme-swatch" style="--sw:#7c3aed;"></span>
+            <span data-i18n="settings.themePurple">Purple</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="theme" value="red">
+            <span class="theme-swatch" style="--sw:#b85c54;"></span>
+            <span data-i18n="settings.themeRed">Red</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="theme" value="orange">
+            <span class="theme-swatch" style="--sw:#c4833f;"></span>
+            <span data-i18n="settings.themeOrange">Orange</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="theme" value="teal">
+            <span class="theme-swatch" style="--sw:#3e928b;"></span>
+            <span data-i18n="settings.themeTeal">Teal</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="theme" value="pink">
+            <span class="theme-swatch" style="--sw:#c66a80;"></span>
+            <span data-i18n="settings.themePink">Pink</span>
+          </label>
+        </div>
+      </div>
+      <label style="display:flex; align-items:center; gap:0.6rem; margin-top:0.9rem;">
+        <input type="checkbox" id="dark-mode-toggle">
+        <span data-i18n="settings.darkMode">Dark mode</span>
+      </label>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.shopSection">Shop / Pharmacy</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="shop-name-input" data-i18n="settings.shopName">Shop name</label>
+          <input type="text" id="shop-name-input" data-i18n="settings.shopNamePlaceholder" placeholder="e.g. Mizan Suite">
+        </div>
+        <div class="field">
+          <label for="shop-address-input" data-i18n="settings.shopAddress">Address</label>
+          <input type="text" id="shop-address-input" data-i18n="settings.shopAddressPlaceholder" placeholder="Street, city">
+        </div>
+        <div class="field">
+          <label for="shop-phone-input" data-i18n="settings.shopPhone">Phone</label>
+          <input type="text" id="shop-phone-input" data-i18n="settings.shopPhonePlaceholder" placeholder="05 XX XX XX XX">
+        </div>
+        <div class="field">
+          <label data-i18n="settings.shopLogo">Logo</label>
+          <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+            <input type="file" id="shop-logo-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
+            <button type="button" id="shop-logo-btn" class="btn btn-outline" data-i18n="settings.shopLogoUpload">Choose logo</button>
+            <button type="button" id="shop-logo-remove" class="btn btn-close" data-i18n="settings.shopLogoRemove" hidden>Remove</button>
+            <img id="shop-logo-preview" alt="" hidden style="width:72px; height:72px; border-radius:10px; object-fit:contain; border:1px solid #ddd; background:#fff; padding:4px; box-sizing:border-box;">
+          </div>
+        </div>
+      </div>
+      <p class="hint-text" data-i18n="settings.shopHint">This name, address, phone and logo appear on cashier receipts, invoices, purchase-order factures and barcode labels.</p>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.printers">Printers</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="printer-name" data-i18n="settings.receiptPrinter">Receipt printer</label>
+          <div class="printer-row">
+            <select id="printer-name">
+              <option value="" data-i18n="settings.defaultPrinter">Default (ask me each time)</option>
+            </select>
+            <button id="test-receipt-btn" class="btn btn-sm btn-outline" type="button" data-i18n="settings.testPrinter">Test</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="label-printer-name" data-i18n="settings.labelPrinter">Label printer</label>
+          <div class="printer-row">
+            <select id="label-printer-name">
+              <option value="" data-i18n="settings.defaultPrinter">Default (ask me each time)</option>
+            </select>
+            <button id="test-label-btn" class="btn btn-sm btn-outline" type="button" data-i18n="settings.testPrinter">Test</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="a4-printer-name" data-i18n="settings.a4Printer">A4 printer (factures)</label>
+          <div class="printer-row">
+            <select id="a4-printer-name">
+              <option value="" data-i18n="settings.defaultPrinter">Default (ask me each time)</option>
+            </select>
+            <button id="test-a4-btn" class="btn btn-sm btn-outline" type="button" data-i18n="settings.testPrinter">Test</button>
+          </div>
+        </div>
+      </div>
+      <p class="hint-text" id="printer-test-result"></p>
+      <p class="hint-text" data-i18n="settings.printersHint">Cashier receipts and 80mm tickets print automatically to the receipt printer; A4 factures and invoices print to the A4 printer; barcode labels print to the label printer. Choose "Default" to pick a printer in the dialog each time.</p>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.scanner">Barcode Scanner</h2>
+      <label style="display:flex; align-items:center; gap:0.6rem;">
+        <input type="checkbox" id="scanner-auto-enter">
+        <span data-i18n="settings.scannerAuto">Scanner sends Enter automatically after each scan</span>
+      </label>
+      <p class="hint-text" data-i18n="settings.scannerHint">Most USB/Bluetooth barcode scanners type the code then press Enter - if yours does, leave this checked and scanning into the Cashier search box will add the item automatically.</p>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.margins">Pricing & Margins</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="default-margin-percent" data-i18n="settings.defaultMargin">Default Margin %</label>
+          <input type="number" id="default-margin-percent" min="0" max="1000" step="0.01" data-i18n="settings.defaultMarginPlaceholder" placeholder="e.g. 30 for 30%">
+        </div>
+      </div>
+      <p class="hint-text" data-i18n="settings.defaultMarginHint">When adding a product with a wholesale price but no sale price, this default margin % will be used to auto-calculate the sale price (sale = wholesale x (1 + margin/100)). Leave empty to disable.</p>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.printPreview">Print preview &amp; diagnostics</h2>
+      <p class="hint-text" data-i18n="settings.printPreviewHint">See exactly what each document looks like before you print - no paper needed. Use this to check receipts, invoices, factures and labels on any screen.</p>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+        <button type="button" id="preview-receipt-btn" class="btn" data-i18n="settings.previewReceipt">Preview receipt (80mm)</button>
+        <button type="button" id="preview-invoice-btn" class="btn" data-i18n="settings.previewInvoice">Preview invoice (A4)</button>
+        <button type="button" id="preview-po-btn" class="btn" data-i18n="settings.previewPo">Preview purchase facture (A4)</button>
+        <button type="button" id="preview-label-btn" class="btn" data-i18n="settings.previewLabel">Preview label</button>
+      </div>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.license">License</h2>
+      <p id="license-info" class="hint-text">...</p>
+      <div style="display:flex; align-items:center; gap:0.6rem; margin-top:0.5rem;">
+        <span id="license-machine" class="hint-text"></span>
+        <button type="button" id="copy-machine-btn" class="btn btn-sm" data-i18n="settings.copyMachineId">Copy</button>
+      </div>
+      <div id="license-upgrade" style="display:none; margin-top:0.9rem;">
+        <button type="button" id="upgrade-license-btn" class="btn" data-i18n="settings.upgrade">Upgrade to permanent license</button>
+        <div id="upgrade-box" style="display:none; margin-top:0.7rem; max-width:26rem;">
+          <label for="upgrade-key" data-i18n="settings.newKey">Enter the permanent license key you received from Mizan Suite</label>
+          <textarea id="upgrade-key" placeholder="MZN-..." rows="2" spellcheck="false" style="width:100%; font-family:Consolas,monospace; margin-top:0.3rem; box-sizing:border-box;"></textarea>
+          <button type="button" id="upgrade-apply-btn" class="btn btn-primary" data-i18n="settings.applyKey" style="margin-top:0.5rem; background:var(--accent, #1b6e5c); color:#fff; border:none;">Activate new key</button>
+          <p id="upgrade-msg" class="hint-text"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.accounts">Accounts & Security</h2>
+      <div id="accounts-area">
+        <p class="hint-text" data-i18n="settings.accountsLoading">Loading accounts...</p>
+      </div>
+      <p class="hint-text" data-i18n="settings.accountsHint">The owner has access to every page. For each cashier you choose exactly which pages they can use. If you forget a PIN, an owner can change it here.</p>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.auditTitle">Activity Log</h2>
+      <p class="hint-text" data-i18n="settings.auditHint">Security-relevant events: logins, account changes, settings edits, refunds, invoice deletion, backups and license changes. Visible to the owner only.</p>
+      <div style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.6rem;">
+        <button type="button" id="audit-refresh-btn" class="btn btn-outline" data-i18n="settings.auditRefresh">Refresh</button>
+        <select id="audit-filter" style="min-width:11rem;">
+          <option value="">-- Filter --</option>
+          <option value="login">Login</option>
+          <option value="login_failed">Failed login</option>
+          <option value="user_">Account changes</option>
+          <option value="settings_updated">Settings</option>
+          <option value="refund">Refunds</option>
+          <option value="exchange">Exchanges</option>
+          <option value="invoice_">Invoices</option>
+          <option value="backup_">Backups</option>
+          <option value="license_">License</option>
+        </select>
+      </div>
+      <ul id="audit-list" class="simple-list"><li class="hint-text" data-i18n="settings.auditLoading">Loading activity...</li></ul>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.backup">Backup & Data</h2>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1rem;">
+        <button type="button" id="create-backup-btn" class="btn" data-i18n="settings.createBackup">Create Backup</button>
+        <a id="download-backup-btn" class="btn" href="/api/backup/download" style="text-decoration:none; display:inline-block; padding:0.7rem 1.5rem;" data-i18n="settings.downloadData">Download Current Data</a>
+      </div>
+      <p class="hint-text" data-i18n="settings.backupHint">Backups are full copies of your database. Create one regularly and store it somewhere safe (USB / cloud).</p>
+      <h3 class="sub-heading" data-i18n="settings.savedBackups">Saved backups</h3>
+      <ul id="backup-list" class="simple-list"></ul>
+
+      <h3 class="sub-heading" data-i18n="settings.exportToUsb">Export to USB</h3>
+      <p class="hint-text" data-i18n="settings.exportUsbHint">Choose a USB drive, then pick a backup to copy onto it. Keep a copy off the computer so a lost PC never loses your data.</p>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center; margin-bottom:0.6rem;">
+        <select id="usb-drive-select" style="min-width:12rem;"></select>
+        <button type="button" id="usb-refresh-btn" class="btn" data-i18n="settings.refresh">Refresh</button>
+      </div>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center;">
+        <select id="usb-backup-select" style="min-width:16rem;"></select>
+        <button type="button" id="usb-export-btn" class="btn" data-i18n="settings.copy">Copy</button>
+      </div>
+      <p id="usb-message" style="margin-top:0.6rem;"></p>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.supportSection">Support & Help</h2>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+        <button type="button" id="contact-support-btn" class="btn" data-i18n="settings.contactSupport">Contact Mizan Suite support</button>
+        <button type="button" id="help-guide-btn" class="btn btn-outline" data-i18n="settings.howToUse">How to use this software</button>
+      </div>
+    </div>
+
+    <button id="save-settings-btn" class="btn" data-i18n="settings.saveSettings">Save Settings</button>
+    <p id="settings-message"></p>
+  </main>
+
+  <script src="i18n.js"></script>
+  <script src="print.js"></script>
+  <script src="escpos.js"></script>
+  <script src="vendor/JsBarcode.all.min.js"></script>
+  <script src="preview.js"></script>
+  <script src="settings.js"></script>
+  
+
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

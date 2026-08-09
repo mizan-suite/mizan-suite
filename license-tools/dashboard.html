@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mizan Suite License Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2b2b2b; background: #f4f7f6; line-height: 1.5; }
+    header { background: #1b6e5c; color: #fff; padding: 1rem 1.6rem; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.3rem; }
+    header .sub { font-size: 0.8rem; opacity: 0.85; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 1.4rem 1.6rem 3rem; }
+    .card { background: #fff; border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 1.4rem; }
+    .card h2 { font-size: 1rem; margin-bottom: 0.9rem; color: #1b6e5c; }
+    .form-row { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 0.25rem; }
+    .field label { font-size: 0.78rem; font-weight: 600; color: #555; }
+    input, button { font-family: inherit; }
+    select { font-family: inherit; padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; background: #fff; }
+    input { padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; }
+    input#client-name { width: 12rem; }
+    input#machine-id { width: 26rem; font-family: Consolas, monospace; }
+    input#expires { width: 9rem; }
+    .btn { border: none; border-radius: 6px; padding: 0.55rem 1.1rem; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .btn-primary { background: #1b6e5c; color: #fff; }
+    .btn-primary:hover { background: #155a4b; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; background: #eee; color: #333; }
+    .btn-sm:hover { background: #ddd; }
+    .btn-danger { background: #b3473b; color: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid #eee; vertical-align: top; }
+    th { color: #666; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+    .badge.active { background: #e4f5ec; color: #16603f; }
+    .badge.expiring { background: #fff3e0; color: #9a5b00; }
+    .badge.expired { background: #fdecea; color: #a33327; }
+    .badge.revoked { background: #eee; color: #666; }
+    .key-cell { font-family: Consolas, monospace; font-size: 0.72rem; word-break: break-all; color: #444; }
+    .hint { font-size: 0.75rem; color: #888; margin-top: 0.6rem; }
+    .msg { padding: 0.55rem 0.8rem; border-radius: 6px; font-size: 0.85rem; margin-top: 0.8rem; display: none; }
+    .msg.ok { display: block; background: #e4f5ec; color: #16603f; }
+    .msg.err { display: block; background: #fdecea; color: #a33327; }
+    .empty { color: #999; font-style: italic; padding: 1rem 0; }
+    #login { max-width: 380px; margin: 5rem auto; }
+    #login .card { padding: 2rem; }
+    #login h1 { font-size: 1.2rem; margin-bottom: 0.3rem; }
+    #login p { font-size: 0.8rem; color: #777; margin-bottom: 1rem; }
+    #login input { width: 100%; margin-bottom: 0.8rem; text-align: center; font-size: 1.2rem; letter-spacing: 0.3em; }
+    .logout { background: none; border: 1px solid rgba(255,255,255,0.5); color: #fff; }
+    .logout:hover { background: rgba(255,255,255,0.12); }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display:flex; align-items:center; gap:0.9rem;">
+      <img src="/logo.png" alt="Mizan Suite" style="height:2.2rem; width:auto; background:#fff; border-radius:8px; padding:0.22rem 0.5rem;">
+      <div>
+        <h1>Mizan Suite License Dashboard</h1>
+        <div class="sub">Mizan Suite offline license manager</div>
+      </div>
+    </div>
+    <div id="header-actions" style="display:none;">
+      <button class="btn logout" id="logout-btn">Log out</button>
+    </div>
+  </header>
+
+  <!-- Login -->
+  <div id="login">
+    <div class="card">
+      <img src="/logo.png" alt="Mizan Suite" style="display:block; max-width:230px; width:100%; height:auto; margin:0 auto 1.2rem;">
+      <h1>Enter your PIN</h1>
+      <p>The PIN was shown when you first started this dashboard. It is stored only as a hash on this PC.</p>
+      <input type="password" id="pin" placeholder="PIN" autocomplete="off" inputmode="numeric">
+      <button class="btn btn-primary" id="login-btn" style="width:100%;">Unlock</button>
+      <div class="msg" id="login-msg"></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="wrap" id="main" style="display:none;">
+    <div class="card">
+      <h2>Issue a new license</h2>
+      <div class="form-row">
+        <div class="field">
+          <label for="client-name">Client name</label>
+          <input type="text" id="client-name" placeholder="Pharmacy X">
+        </div>
+        <div class="field">
+          <label for="machine-id">Machine ID (from the client's activation screen)</label>
+          <input type="text" id="machine-id" placeholder="e.g. 6e98576b8b52...">
+        </div>
+        <div class="field">
+          <label for="expires-preset">Duration</label>
+          <select id="expires-preset">
+            <option value="">Permanent (no expiry)</option>
+            <option value="7">7 days</option>
+            <option value="15">15 days</option>
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+            <option value="180">6 months</option>
+            <option value="365">1 year</option>
+            <option value="custom">Custom date…</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="expires">Expiry date</label>
+          <input type="text" id="expires" placeholder="YYYY-MM-DD">
+        </div>
+        <button class="btn btn-primary" id="issue-btn">Issue</button>
+      </div>
+      <div class="msg" id="issue-msg"></div>
+      <div class="msg ok" id="new-key-box" style="display:none;">
+        <strong>License key — copy and send to the client:</strong>
+        <div class="key-cell" id="new-key" style="margin-top:0.3rem;"></div>
+        <button class="btn btn-sm" id="copy-key-btn" style="margin-top:0.5rem;">Copy</button>
+      </div>
+      <p class="hint">Client opens the app -> Activation screen -> Machine ID. Leave expiry empty for a permanent license.</p>
+    </div>
+
+    <div class="card">
+      <h2>All licenses</h2>
+      <table>
+        <thead>
+          <tr><th>Client</th><th>Machine ID</th><th>Issued</th><th>Expiry</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="licenses-body"></tbody>
+      </table>
+      <div class="msg" id="list-msg"></div>
+    </div>
+  </div>
+
+  <script>
+    let token = sessionStorage.getItem('mizan_dash_token') || '';
+
+    function setMsg(el, text, type) {
+      el.className = 'msg ' + (type || 'ok');
+      el.textContent = text;
+    }
+    function clearMsg(el) { el.className = 'msg'; el.textContent = ''; }
+
+    async function api(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const res = await fetch(path, { ...opts, headers });
+      if (res.status === 401) { logout(); throw new Error('Session expired - log in again'); }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    function login() { document.getElementById('login').style.display = 'block'; document.getElementById('main').style.display = 'none'; document.getElementById('header-actions').style.display = 'none'; }
+    function showMain() { document.getElementById('login').style.display = 'none'; document.getElementById('main').style.display = 'block'; document.getElementById('header-actions').style.display = 'block'; }
+
+    function logout() {
+      sessionStorage.removeItem('mizan_dash_token');
+      token = '';
+      login();
+    }
+
+    function badge(status, expires) {
+      if (status === 'revoked') return '<span class="badge revoked">Revoked</span>';
+      const days = expires ? Math.ceil((new Date(expires + 'T23:59:59').getTime() - Date.now()) / 86400000) : Infinity;
+      if (days <= 0) return '<span class="badge expired">Expired</span>';
+      if (days <= 30) return '<span class="badge expiring">Expires in ' + days + 'd</span>';
+      return '<span class="badge active">' + (expires ? 'Until ' + expires : 'Permanent') + '</span>';
+    }
+
+    async function loadLicenses() {
+      const body = document.getElementById('licenses-body');
+      clearMsg(document.getElementById('list-msg'));
+      try {
+        const licenses = await api('/api/licenses');
+        if (!licenses.length) {
+          body.innerHTML = '<tr><td colspan="6" class="empty">No licenses issued yet.</td></tr>';
+          return;
+        }
+        body.innerHTML = licenses.map(l => `
+          <tr>
+            <td><strong>${esc(l.client)}</strong></td>
+            <td class="key-cell" title="${esc(l.machineId || '')}">${esc((l.machineId || '(any machine)').slice(0, 24))}${(l.machineId && l.machineId.length > 24) ? '…' : ''}</td>
+            <td>${esc(l.issued || '')}</td>
+            <td>${esc(l.expires || '—')}</td>
+            <td>${badge(l.status, l.expires)}</td>
+            <td style="white-space:nowrap;">
+              ${l.status === 'revoked' ? '' : `<button class="btn btn-sm renew-btn" data-id="${l.id}">Renew</button>`}
+              ${l.status === 'revoked' ? '' : `<button class="btn btn-sm btn-danger revoke-btn" data-id="${l.id}">Revoke</button>`}
+              <button class="btn btn-sm showkey-btn" data-id="${l.id}">Key</button>
+              ${l.status === 'revoked' ? `<button class="btn btn-sm btn-danger del-btn" data-id="${l.id}">Delete</button>` : ''}
+            </td>
+          </tr>
+          <tr id="keyrow-${l.id}" style="display:none;">
+            <td colspan="6"><div class="key-cell"></div></td>
+          </tr>`).join('');
+      } catch (e) {
+        setMsg(document.getElementById('list-msg'), e.message, 'err');
+      }
+    }
+
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      const pin = document.getElementById('pin').value.trim();
+      const msg = document.getElementById('login-msg');
+      clearMsg(msg);
+      try {
+        const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+        const data = await res.json();
+        if (!res.ok) { setMsg(msg, data.error || 'Wrong PIN', 'err'); return; }
+        token = data.token;
+        sessionStorage.setItem('mizan_dash_token', token);
+        document.getElementById('pin').value = '';
+        showMain();
+        loadLicenses();
+      } catch (e) { setMsg(msg, e.message, 'err'); }
+    });
+    document.getElementById('pin').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-btn').click(); });
+
+    document.getElementById('expires-preset').addEventListener('change', (e) => {
+      const v = e.target.value;
+      const exp = document.getElementById('expires');
+      if (v === 'custom') { exp.value = ''; exp.focus(); }
+      else if (v === '') { exp.value = ''; }
+      else {
+        const d = new Date();
+        d.setDate(d.getDate() + parseInt(v, 10));
+        exp.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      }
+    });
+
+    document.getElementById('issue-btn').addEventListener('click', async () => {
+      const client = document.getElementById('client-name').value.trim();
+      const machineId = document.getElementById('machine-id').value.trim();
+      const expires = document.getElementById('expires').value.trim();
+      const msg = document.getElementById('issue-msg');
+      clearMsg(msg);
+      document.getElementById('new-key-box').style.display = 'none';
+      try {
+        const rec = await api('/api/licenses', { method: 'POST', body: JSON.stringify({ client, machineId, expires }) });
+        document.getElementById('new-key').textContent = rec.key;
+        document.getElementById('new-key-box').style.display = 'block';
+        setMsg(msg, 'License issued to ' + client + '.', 'ok');
+        document.getElementById('client-name').value = '';
+        document.getElementById('machine-id').value = '';
+        document.getElementById('expires').value = '';
+        document.getElementById('expires-preset').value = '';
+        loadLicenses();
+      } catch (e) { setMsg(msg, e.message, 'err'); }
+    });
+
+    document.getElementById('copy-key-btn').addEventListener('click', () => {
+      const txt = document.getElementById('new-key').textContent;
+      navigator.clipboard.writeText(txt).then(() => setMsg(document.getElementById('issue-msg'), 'Key copied to clipboard.', 'ok'))
+        .catch(() => setMsg(document.getElementById('issue-msg'), 'Copy failed - select the key manually.', 'err'));
+    });
+
+    document.getElementById('licenses-body').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const msg = document.getElementById('list-msg');
+      clearMsg(msg);
+      try {
+        if (btn.classList.contains('showkey-btn')) {
+          const row = document.getElementById('keyrow-' + id);
+          if (row._loaded) {
+            row.style.display = row.style.display === 'none' ? '' : 'none';
+            return;
+          }
+          const data = await api('/api/licenses/' + id + '/key');
+          row.querySelector('.key-cell').textContent = data.key || '(no key stored)';
+          row._loaded = true;
+          row.style.display = '';
+          return;
+        }
+        if (btn.classList.contains('revoke-btn')) {
+          if (!confirm('Revoke this license? The stored key stays usable until it expires - tell the client you are not renewing.')) return;
+          await api('/api/licenses/' + id + '/revoke', { method: 'POST' });
+          loadLicenses();
+          return;
+        }
+        if (btn.classList.contains('del-btn')) {
+          if (!confirm('Permanently delete this license from the list? This cannot be undone.')) return;
+          await api('/api/licenses/' + id, { method: 'DELETE' });
+          loadLicenses();
+          return;
+        }
+        if (btn.classList.contains('renew-btn')) {
+          const expiry = prompt('New expiry (YYYY-MM-DD) or leave empty for permanent:', '');
+          if (expiry === null) return;
+          await api('/api/licenses/' + id + '/renew', { method: 'POST', body: JSON.stringify({ expires: expiry.trim() }) });
+          loadLicenses();
+        }
+      } catch (e) { setMsg(msg, e.message, 'err'); }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', logout);
+
+    if (token) { showMain(); loadLicenses().catch(() => login()); }
+    else login();
+  </script>
+</body>
+</html>

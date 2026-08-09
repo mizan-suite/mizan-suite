@@ -1,0 +1,222 @@
+/* themes.css - accent colour themes.
+   Applied via <body data-theme="green|blue|purple">, set by theme.js (and
+   changed live from Settings). Each theme just swaps the accent variables
+   declared in style.css's :root block, so every button, active tab, link,
+   header gradient and dark-mode accent recolours automatically.
+
+   The --dark-* variables tint the whole dark-mode palette (backgrounds, panels,
+   borders, text) so Dark Mode matches the chosen theme instead of always being
+   green. Defaults below are the original green theme; Blue and Purple override
+   them below. */
+
+:root {
+  --dark-bg: #14201c;
+  --dark-panel: #1c2b26;
+  --dark-raise: #24382f;
+  --dark-raise-soft: #16231e;
+  --dark-border: #3a5449;
+  --dark-border-soft: #2f463c;
+  --dark-sidebar: #0f241c;
+  --dark-alert-hover: #1d3c32;
+  --dark-muted: #9db8ae;
+  --dark-text: #e6ede9;
+  --dark-text-soft: #d4ded9;
+  --dark-text-soft2: #cfdcd6;
+}
+
+[data-theme="green"] {
+  --accent: #1b6e5c;
+  --accent-strong: #155a4a;
+  --accent-light: #2a9d7f;
+  --accent-bright: #7fd9b9;
+  --accent-tint: #f0faf7;
+}
+
+[data-theme="blue"] {
+  --accent: #2563eb;
+  --accent-strong: #1e40af;
+  --accent-light: #60a5fa;
+  --accent-bright: #93c5fd;
+  --accent-tint: #eef4fd;
+
+  --dark-bg: #0f172a;
+  --dark-panel: #172338;
+  --dark-raise: #1e2d4a;
+  --dark-raise-soft: #121a2e;
+  --dark-border: #2f4268;
+  --dark-border-soft: #243350;
+  --dark-sidebar: #0b101f;
+  --dark-alert-hover: #1b2a4a;
+  --dark-muted: #9fb0cf;
+  --dark-text: #e7edf8;
+  --dark-text-soft: #d0d9ea;
+  --dark-text-soft2: #c3cfe5;
+}
+
+[data-theme="purple"] {
+  --accent: #7c3aed;
+  --accent-strong: #5b21b6;
+  --accent-light: #a78bfa;
+  --accent-bright: #c4b5fd;
+  --accent-tint: #f5f0fc;
+
+  --dark-bg: #160f24;
+  --dark-panel: #221836;
+  --dark-raise: #2d2047;
+  --dark-raise-soft: #1a1128;
+  --dark-border: #453268;
+  --dark-border-soft: #352654;
+  --dark-sidebar: #100a1a;
+  --dark-alert-hover: #322049;
+  --dark-muted: #b3a2ce;
+  --dark-text: #f0ebf8;
+  --dark-text-soft: #ddd2ee;
+  --dark-text-soft2: #d1c3e6;
+}
+
+[data-theme="red"] {
+  --accent: #b85c54;
+  --accent-strong: #9a4a43;
+  --accent-light: #d18b83;
+  --accent-bright: #e5bcb6;
+  --accent-tint: #faf0ee;
+
+  --dark-bg: #1d1412;
+  --dark-panel: #271a17;
+  --dark-raise: #342320;
+  --dark-raise-soft: #1f1614;
+  --dark-border: #523a35;
+  --dark-border-soft: #412e2a;
+  --dark-sidebar: #140e0c;
+  --dark-alert-hover: #3c2a26;
+  --dark-muted: #c2a7a1;
+  --dark-text: #f8f1ef;
+  --dark-text-soft: #ebddda;
+  --dark-text-soft2: #e1cfcb;
+}
+
+[data-theme="orange"] {
+  --accent: #c4833f;
+  --accent-strong: #9f6b30;
+  --accent-light: #dda06d;
+  --accent-bright: #edcd9d;
+  --accent-tint: #faf3e8;
+
+  --dark-bg: #1d1710;
+  --dark-panel: #271f15;
+  --dark-raise: #342a1c;
+  --dark-raise-soft: #211a12;
+  --dark-border: #52422e;
+  --dark-border-soft: #40331f;
+  --dark-sidebar: #131009; 
+  --dark-alert-hover: #3b301f;
+  --dark-muted: #c8b29b;
+  --dark-text: #f9f3ec;
+  --dark-text-soft: #ecdfd0;
+  --dark-text-soft2: #e2d2bf;
+}
+
+[data-theme="teal"] {
+  --accent: #3e928b;
+  --accent-strong: #337873;
+  --accent-light: #70b7b0;
+  --accent-bright: #a8d8d2;
+  --accent-tint: #eef6f4;
+
+  --dark-bg: #0e1d1c;
+  --dark-panel: #152726;
+  --dark-raise: #1d3432;
+  --dark-raise-soft: #12201f;
+  --dark-border: #304f4c;
+  --dark-border-soft: #263e3b;
+  --dark-sidebar: #0a1514;
+  --dark-alert-hover: #223d3a;
+  --dark-muted: #a7c3bf;
+  --dark-text: #ebf4f2;
+  --dark-text-soft: #d5e6e3;
+  --dark-text-soft2: #c9dcd8;
+}
+
+[data-theme="pink"] {
+  --accent: #c66a80;
+  --accent-strong: #a5566c;
+  --accent-light: #dc97a8;
+  --accent-bright: #ecc4cf;
+  --accent-tint: #faf1f3;
+
+  --dark-bg: #1e1519;
+  --dark-panel: #281c21;
+  --dark-raise: #35262b;
+  --dark-raise-soft: #201719;
+  --dark-border: #513541;
+  --dark-border-soft: #402b34;
+  --dark-sidebar: #140d10;
+  --dark-alert-hover: #3c2a30;
+  --dark-muted: #c6acb2;
+  --dark-text: #f7f2f3;
+  --dark-text-soft: #e9dadd;
+  --dark-text-soft2: #dfccd0;
+}
+
+/* ---------- Settings theme picker ---------- */
+.theme-picker {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+.theme-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid #d3dde0;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+  color: #2b2b2b;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.theme-option:hover {
+  border-color: var(--accent, #1b6e5c);
+}
+
+.theme-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-option.selected {
+  border-color: var(--accent, #1b6e5c);
+  background: var(--accent-tint, #f0faf7);
+  box-shadow: 0 0 0 1px var(--accent, #1b6e5c) inset;
+}
+
+.theme-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sw, #888);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode: keep the picker readable. */
+html.dark-mode .theme-option {
+  background: var(--dark-raise, #24382f);
+  border-color: var(--dark-border, #3a5449);
+  color: var(--dark-text, #e6ede9);
+}
+
+html.dark-mode .theme-option:hover,
+html.dark-mode .theme-option.selected {
+  border-color: var(--accent, #1b6e5c);
+  background: var(--dark-panel, #1c2b26);
+}
+
+html.dark-mode .theme-swatch {
+  border-color: rgba(255, 255, 255, 0.25);
+}

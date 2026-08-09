@@ -1,0 +1,125 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Clients</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="clients.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container">
+    <div class="dashboard-header-row">
+      <h1 data-i18n="clients.title">Clients &amp; Loyalty</h1>
+    </div>
+
+    <!-- Loyalty rules -->
+    <form id="loyalty-form" class="product-form">
+      <h2 data-i18n="clients.loyaltyRules">Loyalty Points Rules</h2>
+      <div class="form-grid">
+        <input type="number" id="loyalty-earn-per" data-i18n="clients.spendPerPoint" placeholder="Spend (DA) to earn 1 point" step="1" min="1">
+        <input type="number" id="loyalty-worth" data-i18n="clients.pointValue" placeholder="Value of 1 point (DA)" step="0.01" min="0">
+      </div>
+      <p class="hint-text" data-i18n="clients.loyaltyHint">Example: "spend 10 DA per point" and "1 point = 1 DA off" means a 500 DA purchase earns 50 points and gives 50 DA off later.</p>
+      <button type="submit" class="btn" data-i18n="clients.saveRules">Save Rules</button>
+    </form>
+
+    <!-- Add / edit client -->
+    <form id="client-form" class="product-form">
+      <h2 id="client-form-title" data-i18n="clients.addClient">Add Client</h2>
+      <div class="form-grid">
+        <input type="text" id="client-name" data-i18n="clients.nameRequired" placeholder="Name*" required>
+        <input type="text" id="client-phone" data-i18n="clients.phone" placeholder="Phone">
+        <input type="email" id="client-email" data-i18n="clients.email" placeholder="Email">
+        <input type="text" id="client-address" data-i18n="clients.address" placeholder="Address">
+        <input type="text" id="client-notes" data-i18n="clients.notes" placeholder="Notes">
+      </div>
+      <button type="submit" class="btn" data-i18n="clients.saveClient">Save Client</button>
+      <button type="button" id="client-form-cancel" class="btn-link" style="display:none;" data-i18n="clients.cancelEdit">Cancel edit</button>
+    </form>
+
+    <!-- Clients table -->
+    <div class="dashboard-header-row" style="margin-bottom:0.8rem;">
+      <h2 style="margin-bottom:0;" data-i18n="clients.clients">Clients</h2>
+      <input type="text" id="client-search" data-i18n="clients.searchPlaceholder" placeholder="Search by name or phone..." style="padding:0.6rem 0.8rem; border:1px solid #d8d8d8; border-radius:6px; min-width:260px;">
+    </div>
+    <table class="product-table">
+      <thead>
+        <tr>
+          <th data-i18n="clients.thName">Name</th>
+          <th data-i18n="clients.thPhone">Phone</th>
+          <th data-i18n="clients.thPoints">Points</th>
+          <th data-i18n="clients.thSpent">Total Spent</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="client-list">
+        <!-- Rows are inserted here by JavaScript -->
+      </tbody>
+    </table>
+    <div id="client-pagination" class="pagination-bar" hidden>
+      <span id="client-page-info" class="page-info"></span>
+      <div class="pagination-actions">
+        <button type="button" id="client-page-prev" class="btn btn-outline btn-sm" data-i18n="clients.prevPage">Previous</button>
+        <span id="client-page-num" class="page-num"></span>
+        <button type="button" id="client-page-next" class="btn btn-outline btn-sm" data-i18n="clients.nextPage">Next</button>
+      </div>
+    </div>
+
+    <!-- Client detail -->
+    <div id="client-detail" class="panel panel-wide" style="display:none; margin-top:1.5rem;">
+      <div class="dashboard-header-row">
+        <h2 id="detail-name" style="margin-bottom:0;">Client</h2>
+        <span id="detail-points" class="badge badge-ok" style="font-size:0.9rem;"></span>
+      </div>
+
+      <div class="panel-grid" style="margin-bottom:1rem;">
+        <div class="panel">
+          <h2 data-i18n="clients.purchaseHistory">Purchase History</h2>
+          <div style="max-height:280px; overflow-y:auto;">
+            <table class="product-table">
+              <thead><tr><th data-i18n="clients.thSale">Sale #</th><th data-i18n="clients.thDate">Date</th><th data-i18n="clients.thTotal">Total</th><th data-i18n="clients.thPointsEarned">Points earned</th></tr></thead>
+              <tbody id="detail-sales"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 data-i18n="clients.pointsLog">Points Log</h2>
+          <div style="max-height:280px; overflow-y:auto;">
+            <table class="product-table">
+              <thead><tr><th data-i18n="clients.thDate">Date</th><th data-i18n="clients.thType">Type</th><th data-i18n="clients.thAmount">Amount</th><th data-i18n="clients.thReason">Reason</th></tr></thead>
+              <tbody id="detail-points-log"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <form id="adjust-points-form" class="product-form" style="box-shadow:none; padding:0;">
+        <div class="form-grid" style="grid-template-columns: 1fr 2fr auto;">
+          <input type="number" id="adjust-points-amount" data-i18n="clients.adjustPoints" placeholder="+/- points" step="1">
+          <input type="text" id="adjust-points-reason" data-i18n="clients.reasonPlaceholder" placeholder="Reason (e.g. correction)">
+          <button type="submit" class="btn" data-i18n="clients.adjust">Adjust</button>
+        </div>
+      </form>
+      <button id="detail-close" class="btn-link" data-i18n="clients.close">Close</button>
+    </div>
+  </main>
+
+  <script src="i18n.js"></script>
+  <script src="clients.js"></script>
+  
+
+
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

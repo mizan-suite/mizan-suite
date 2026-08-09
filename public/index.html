@@ -1,0 +1,426 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Inventory</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="inv.title">
+
+  <div id="app-sidebar"></div>
+
+  <main class="container inv-layout">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+      <h1 style="margin:0;" data-i18n="inv.title">Inventory</h1>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+        <button type="button" id="add-product-btn" class="btn btn-ico" data-i18n="inv.addProduct">
+          <span data-icon="plus"></span> Add Product
+        </button>
+        <button type="button" id="import-invoice-btn" class="btn btn-outline btn-ico" data-i18n="inv.importInvoice">
+          <span data-icon="filetext"></span> Import Invoice
+        </button>
+        <button type="button" id="import-catalog-btn" class="btn btn-outline btn-ico" data-i18n="inv.importCatalog">
+          <span data-icon="filetext"></span> Import Product List
+        </button>
+      </div>
+    </div>
+
+    <!-- Search bar with scan option: type to filter the stock list live, or scan
+         a barcode (USB scanner or camera) to jump straight to that product. -->
+    <div class="scanner-bar">
+      <span data-icon="scan" class="scanner-bar-icon"></span>
+      <input type="text" id="search-input" data-i18n="inv.searchPlaceholder" placeholder="Search by name, barcode or category..." autocomplete="off">
+      <button type="button" id="search-camera-btn" class="btn btn-ico btn-outline" data-i18n="inv.camera" data-i18n-title="inv.cameraTitle" title="Scan a barcode with the camera to find it in the list">
+        <span data-icon="camera"></span> Camera
+      </button>
+      <button type="button" id="search-clear-btn" class="btn btn-outline btn-sm" data-i18n="inv.clear" data-i18n-title="inv.clearTitle" title="Clear the search" hidden>Clear</button>
+    </div>
+
+    <div class="inv-grid">
+
+      <!-- Current stock -->
+      <div class="inv-table-col">
+        <h2 data-i18n="inv.currentStock">Current Stock</h2>
+
+        <!-- Filter menu: collapsible panel with category / status / quantity /
+             price / page-size filters. The toggle shows how many filters are
+             active, and "Clear" resets them all. -->
+        <div class="filter-menu">
+          <div class="filter-menu-head">
+            <button type="button" id="filter-toggle-btn" class="btn btn-outline btn-sm btn-ico" data-i18n="inv.filters" aria-expanded="false">
+              <span data-icon="filter"></span> <span data-i18n="inv.filters">Filters</span>
+            </button>
+            <span id="filter-active-badge" class="filter-badge" hidden></span>
+            <span id="filter-count" class="filter-count" hidden></span>
+          </div>
+          <div id="filter-menu-panel" class="filter-menu-panel" hidden>
+            <div class="filter-grid">
+              <label class="filter-field">
+                <span data-i18n="inv.category">Category</span>
+                <select id="category-filter">
+                  <option value="" data-i18n="inv.allCategories">All categories</option>
+                </select>
+              </label>
+              <label class="filter-field">
+                <span data-i18n="inv.status">Status</span>
+                <select id="status-filter">
+                  <option value="" data-i18n="inv.allStatuses">All statuses</option>
+                  <option value="ok" data-i18n="inv.statusInStock">In stock</option>
+                  <option value="low" data-i18n="inv.statusLow">Low stock</option>
+                  <option value="out" data-i18n="inv.statusOut">Out of stock</option>
+                  <option value="over" data-i18n="inv.statusOver">Over stock</option>
+                  <option value="expired" data-i18n="inv.statusExpired">Expired</option>
+                  <option value="expiring" data-i18n="inv.statusExpiring">Expiring soon</option>
+                </select>
+              </label>
+              <label class="filter-field">
+                <span data-i18n="inv.qtyRange">Stock quantity</span>
+                <div class="filter-minmax">
+                  <input type="number" id="qty-min-filter" min="0" step="1" data-i18n="inv.qtyMin" placeholder="Min">
+                  <span class="filter-sep">&ndash;</span>
+                  <input type="number" id="qty-max-filter" min="0" step="1" data-i18n="inv.qtyMax" placeholder="Max">
+                </div>
+              </label>
+              <label class="filter-field">
+                <span data-i18n="inv.price">Price</span>
+                <div class="filter-minmax">
+                  <select id="price-field-filter">
+                    <option value="sale_price" data-i18n="inv.salePrice">Sale price</option>
+                    <option value="cost_price" data-i18n="inv.costPrice">Cost price</option>
+                    <option value="wholesale_price" data-i18n="inv.wholesalePrice">Wholesale price</option>
+                  </select>
+                </div>
+              </label>
+              <label class="filter-field">
+                <span>&nbsp;</span>
+                <div class="filter-minmax">
+                  <input type="number" id="price-min-filter" min="0" step="0.01" data-i18n="inv.priceMin" placeholder="Min">
+                  <span class="filter-sep">&ndash;</span>
+                  <input type="number" id="price-max-filter" min="0" step="0.01" data-i18n="inv.priceMax" placeholder="Max">
+                </div>
+              </label>
+              <label class="filter-field">
+                <span data-i18n="inv.perPage">Per page</span>
+                <select id="per-page-filter">
+                  <option value="100" selected>100</option>
+                  <option value="250">250</option>
+                  <option value="500">500</option>
+                </select>
+              </label>
+            </div>
+            <div class="filter-actions">
+              <button type="button" id="filter-clear-btn" class="btn btn-outline btn-sm" data-i18n="inv.clearFilters">Clear filters</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="bulk-bar" class="bulk-bar" hidden>
+          <span id="bulk-count" class="bulk-count">0 selected</span>
+          <span class="bulk-actions">
+            <button type="button" id="bulk-edit-btn" class="btn btn-outline btn-sm btn-ico"><span data-icon="pencil"></span> <span data-i18n="inv.bulkEdit">Bulk Edit</span></button>
+            <button type="button" id="bulk-delete-btn" class="btn btn-outline btn-sm btn-ico danger"><span data-icon="trash"></span> <span data-i18n="inv.bulkDelete">Delete Selected</span></button>
+            <button type="button" id="bulk-clear-btn" class="btn-link btn-sm"><span data-i18n="inv.clearSelection">Clear</span></button>
+          </span>
+        </div>
+        <div class="table-wrap">
+          <table class="product-table">
+            <thead>
+              <tr>
+                <th class="chk-col"><input type="checkbox" id="select-all-chk" data-i18n-aria-label="inv.selectAll" aria-label="Select all products"></th>
+                <th data-i18n="inv.thName">Name</th>
+                <th data-i18n="inv.thCategory">Category</th>
+                <th data-i18n="inv.thBarcode">Barcode</th>
+                <th data-i18n="inv.thCost">Cost</th>
+                <th data-i18n="inv.thPrice">Price</th>
+                <th data-i18n="inv.thWholesale">Wholesale</th>
+                <th data-i18n="inv.thQty">Qty</th>
+                <th data-i18n="inv.thMinMax">Min / Max</th>
+                <th data-i18n="inv.thExpiry">Expiry</th>
+                <th data-i18n="inv.thStatus">Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="product-list">
+              <!-- Rows are inserted here by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+        <div id="pagination-bar" class="pagination-bar" hidden>
+          <span id="page-info" class="page-info"></span>
+          <div class="pagination-actions">
+            <button type="button" id="page-prev-btn" class="btn btn-outline btn-sm" data-i18n="inv.prevPage">Previous</button>
+            <span id="page-num" class="page-num"></span>
+            <button type="button" id="page-next-btn" class="btn btn-outline btn-sm" data-i18n="inv.nextPage">Next</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Add product modal: opens from the "Add Product" button instead of being
+       permanently shown on the page. Same form as before, just in a popup. -->
+  <div id="add-modal" class="scanner-modal" hidden>
+    <div class="scanner-box" style="max-width:560px; width:94%; max-height:92vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin-bottom:0;" data-i18n="inv.addProduct">Add Product</h2>
+        <button type="button" id="add-close" class="btn-ico btn-outline" aria-label="Close" data-i18n-aria-label="inv.close"><span data-icon="x"></span></button>
+      </div>
+      <form id="product-form" class="product-form">
+        <div class="form-grid">
+          <div class="field span2">
+            <label for="barcode" data-i18n="inv.barcodeLabel">Barcode</label>
+            <div class="scan-row">
+              <input type="text" id="barcode" autocomplete="off">
+              <button type="button" id="scan-camera-btn" class="btn btn-ico btn-outline" data-i18n-title="inv.scanTitle" title="Scan the barcode with the camera">
+                <span data-icon="camera"></span>
+              </button>
+            </div>
+          </div>
+          <div class="field span2">
+            <label for="extra-barcodes" data-i18n="inv.extraBarcodes">Extra barcodes (same product, e.g. variants)</label>
+            <div class="scan-row">
+              <input type="text" id="extra-barcodes" data-i18n="inv.extraBarcodesPlaceholder" placeholder="Comma separated" autocomplete="off">
+              <button type="button" id="extra-scan-btn" class="btn btn-ico btn-outline" data-i18n-title="inv.extraScanTitle" title="Scan extra barcodes with the camera - keeps scanning, each scan is added">
+                <span data-icon="camera"></span>
+              </button>
+            </div>
+          </div>
+          <div class="field span2">
+            <label for="name" data-i18n="inv.name">Product name *</label>
+            <input type="text" id="name" required>
+          </div>
+          <div class="field">
+            <label for="expiry_date" data-i18n="inv.expiryDate">Expiry date</label>
+            <input type="date" id="expiry_date">
+          </div>
+          <div class="field">
+            <label for="category" data-i18n="inv.category">Category</label>
+            <input type="text" id="category">
+          </div>
+          <div class="field">
+            <label for="quantity" data-i18n="inv.quantity">Quantity</label>
+            <input type="number" id="quantity" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="cost_price" data-i18n="inv.costPrice">Cost price</label>
+            <input type="number" id="cost_price" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="sale_price" data-i18n="inv.salePrice">Sale price</label>
+            <input type="number" id="sale_price" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="wholesale_price" data-i18n="inv.wholesalePrice">Wholesale price</label>
+            <input type="number" id="wholesale_price" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="marge_percent" data-i18n="inv.margePercent">Marge %</label>
+            <input type="number" id="marge_percent" min="0" max="1000" step="0.01" placeholder="e.g. 30">
+          </div>
+          <div class="field">
+            <label for="marge_amount" data-i18n="inv.margeAmount">Marge (DA)</label>
+            <input type="number" id="marge_amount" min="0" step="0.01" placeholder="e.g. 15">
+          </div>
+          <div class="field">
+            <label for="min_stock" data-i18n="inv.minStock">Min storage</label>
+            <input type="number" id="min_stock" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="max_stock" data-i18n="inv.maxStock">Max storage</label>
+            <input type="number" id="max_stock" min="0" step="1">
+          </div>
+        </div>
+        <div style="display:flex; gap:0.6rem;">
+          <button type="submit" class="btn btn-ico" style="flex:1;" data-i18n="inv.addProduct"><span data-icon="plus"></span> Add Product</button>
+          <button type="button" id="add-cancel" class="btn btn-outline" data-i18n="settings.cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit product modal: every field can be edited, including barcodes with the camera -->
+  <div id="edit-modal" class="scanner-modal" hidden>
+    <div class="scanner-box">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin-bottom:0;" data-i18n="inv.editProduct">Edit Product</h2>
+        <button type="button" id="edit-close" class="btn-ico btn-outline" aria-label="Close" data-i18n-aria-label="inv.close"><span data-icon="x"></span></button>
+      </div>
+      <div class="edit-fields">
+        <label for="edit-name" data-i18n="inv.editName">Name *</label>
+        <input type="text" id="edit-name">
+
+        <label for="edit-barcode" data-i18n="inv.barcodeLabel">Barcode</label>
+        <div class="scan-row">
+          <input type="text" id="edit-barcode" autocomplete="off" style="flex:1; min-width:0;">
+          <button type="button" id="edit-scan-btn" class="btn btn-ico btn-outline" data-i18n-title="inv.scanTitle" title="Scan the barcode with the camera">
+            <span data-icon="camera"></span>
+          </button>
+        </div>
+
+        <label for="edit-extra-barcodes" data-i18n="inv.editExtraBarcodes">Extra barcodes (comma separated)</label>
+        <div class="scan-row">
+          <input type="text" id="edit-extra-barcodes" data-i18n="inv.editExtraBarcodesPlaceholder" placeholder="e.g. 1234567890123, 9876543210987" autocomplete="off" style="flex:1; min-width:0;">
+          <button type="button" id="edit-extra-scan-btn" class="btn btn-ico btn-outline" data-i18n-title="inv.extraScanTitle" title="Scan extra barcodes with the camera - keeps scanning">
+            <span data-icon="camera"></span>
+          </button>
+        </div>
+
+        <label for="edit-expiry_date" data-i18n="inv.expiryDate">Expiry date</label>
+        <input type="date" id="edit-expiry_date">
+
+        <label for="edit-category" data-i18n="inv.category">Category</label>
+        <input type="text" id="edit-category">
+
+        <label for="edit-quantity" data-i18n="inv.quantity">Quantity</label>
+        <input type="number" id="edit-quantity" min="0" step="1">
+
+        <label for="edit-cost_price" data-i18n="inv.costPrice">Cost price</label>
+        <input type="number" id="edit-cost_price" min="0" step="0.01">
+
+        <label for="edit-sale_price" data-i18n="inv.salePrice">Sale price</label>
+        <input type="number" id="edit-sale_price" min="0" step="0.01">
+
+        <label for="edit-wholesale_price" data-i18n="inv.wholesalePrice">Wholesale price</label>
+        <input type="number" id="edit-wholesale_price" min="0" step="0.01">
+
+        <label for="edit-marge_percent" data-i18n="inv.margePercent">Marge %</label>
+        <input type="number" id="edit-marge_percent" min="0" max="1000" step="0.01" placeholder="e.g. 30">
+
+        <label for="edit-marge_amount" data-i18n="inv.margeAmount">Marge (DA)</label>
+        <input type="number" id="edit-marge_amount" min="0" step="0.01" placeholder="e.g. 15">
+
+        <label for="edit-min_stock" data-i18n="inv.minStock">Min storage</label>
+        <input type="number" id="edit-min_stock" min="0" step="1">
+
+        <label for="edit-max_stock" data-i18n="inv.maxStock">Max storage</label>
+        <input type="number" id="edit-max_stock" min="0" step="1">
+      </div>
+      <div style="display:flex; gap:0.6rem;">
+        <button type="button" id="edit-save" class="btn" style="flex:1;" data-i18n="inv.saveChanges">Save Changes</button>
+        <button type="button" id="edit-cancel" class="btn btn-outline" style="flex:1;" data-i18n="settings.cancel">Cancel</button>
+      </div>
+      <p id="edit-msg" class="hint-text"></p>
+    </div>
+  </div>
+
+  <!-- Bulk edit modal: fill only the fields to change - they apply to every
+       selected product. Empty fields are left untouched on each product. -->
+  <div id="bulk-edit-modal" class="scanner-modal" hidden>
+    <div class="scanner-box" style="max-width:560px; width:94%; max-height:92vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin-bottom:0;" data-i18n="inv.bulkEditTitle">Bulk Edit</h2>
+        <button type="button" id="bulk-edit-close" class="btn-ico btn-outline" aria-label="Close" data-i18n-aria-label="inv.close"><span data-icon="x"></span></button>
+      </div>
+      <p class="hint-text" id="bulk-edit-msg"></p>
+      <div class="edit-fields">
+        <label for="bulk-category" data-i18n="inv.category">Category</label>
+        <input type="text" id="bulk-category" autocomplete="off">
+
+        <label for="bulk-cost_price" data-i18n="inv.costPrice">Cost price</label>
+        <input type="number" id="bulk-cost_price" min="0" step="0.01">
+
+        <label for="bulk-sale_price" data-i18n="inv.salePrice">Sale price</label>
+        <input type="number" id="bulk-sale_price" min="0" step="0.01">
+
+        <label for="bulk-wholesale_price" data-i18n="inv.wholesalePrice">Wholesale price</label>
+        <input type="number" id="bulk-wholesale_price" min="0" step="0.01">
+
+        <label for="bulk-marge_percent" data-i18n="inv.margePercent">Marge %</label>
+        <input type="number" id="bulk-marge_percent" min="0" max="1000" step="0.01" placeholder="e.g. 30">
+
+        <label for="bulk-quantity" data-i18n="inv.quantity">Quantity</label>
+        <input type="number" id="bulk-quantity" min="0" step="1">
+
+        <label for="bulk-min_stock" data-i18n="inv.minStock">Min storage</label>
+        <input type="number" id="bulk-min_stock" min="0" step="1">
+
+        <label for="bulk-max_stock" data-i18n="inv.maxStock">Max storage</label>
+        <input type="number" id="bulk-max_stock" min="0" step="1">
+
+        <label for="bulk-expiry_date" data-i18n="inv.expiryDate">Expiry date</label>
+        <input type="date" id="bulk-expiry_date">
+      </div>
+      <div style="display:flex; gap:0.6rem; margin-top:0.6rem;">
+        <button type="button" id="bulk-edit-save" class="btn" style="flex:1;" data-i18n="inv.applyToSelected">Apply to Selected</button>
+        <button type="button" id="bulk-edit-cancel" class="btn btn-outline" style="flex:1;" data-i18n="settings.cancel">Cancel</button>
+      </div>
+      <p id="bulk-edit-result" class="hint-text"></p>
+    </div>
+  </div>
+
+  <!-- Import invoice modal: upload an Excel/CSV facture, review the column map,
+       then insert the products into inventory -->
+  <div id="import-modal" class="scanner-modal" hidden>
+    <div class="scanner-box" style="max-width:720px; width:94%; max-height:90vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin-bottom:0;" id="import-modal-title" data-i18n="inv.importInvoice">Import Invoice</h2>
+        <button type="button" id="import-close" class="btn-ico btn-outline" aria-label="Close" data-i18n-aria-label="inv.close"><span data-icon="x"></span></button>
+      </div>
+
+      <!-- Step 1: pick file -->
+      <div id="import-step-1">
+        <p class="hint-text" id="import-step1-hint" data-i18n="inv.importHint">Upload your supplier invoice as an Excel (.xlsx) or CSV file. The products, prices, barcodes and expiry dates are read and added to inventory automatically.</p>
+        <div class="field" style="margin-bottom:0.7rem;">
+          <label for="import-supplier" data-i18n="inv.importSupplier">Supplier (who is this invoice from?)</label>
+          <input type="text" id="import-supplier" list="import-supplier-list" data-i18n="inv.importSupplierPlaceholder" autocomplete="off" placeholder="e.g. UPSA, Sanofi, Pileje...">
+          <datalist id="import-supplier-list"></datalist>
+        </div>
+        <input type="file" id="import-file" accept=".xlsx,.xls,.csv,.txt,.pdf,.jpg,.jpeg,.png,.webp,.bmp,image/*">
+        <p class="hint-text" id="import-msg"></p>
+        <div style="display:flex; gap:0.6rem;">
+          <button id="import-parse-btn" class="btn" type="button" data-i18n="inv.importRead">Read File</button>
+          <button id="import-cancel-btn" class="btn btn-outline" type="button" data-i18n="settings.cancel">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Step 2: review mapping + preview -->
+      <div id="import-step-2" hidden>
+        <h3 class="sub-heading" data-i18n="inv.columnMapping">Column mapping</h3>
+        <div id="import-mapping" class="import-map-grid"></div>
+        <div class="field" style="margin-bottom:0.7rem;">
+          <label for="import-merge-mode" data-i18n="inv.importMergeMode">If a product already exists in stock:</label>
+          <select id="import-merge-mode">
+            <option value="add-qty" data-i18n="inv.importMergeAddQty">Add quantity to the existing product</option>
+            <option value="update" data-i18n="inv.importMergeUpdate">Update product with the invoice values</option>
+            <option value="skip" data-i18n="inv.importMergeSkip">Skip the duplicate (do nothing)</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0.7rem; display:flex; align-items:center; gap:0.5rem;">
+          <input type="checkbox" id="import-record-purchase" checked>
+          <label for="import-record-purchase" data-i18n="inv.importRecordPurchase" style="margin:0;">Record this purchase in the "total spent" / purchase history</label>
+        </div>
+        <h3 class="sub-heading"><span data-i18n="inv.previewLabel">Preview (first 10 rows of</span> <span id="import-rowcount">0</span>)</h3>
+        <div class="table-wrap" style="max-height:220px; overflow:auto;">
+          <table class="product-table">
+            <thead id="import-preview-head"></thead>
+            <tbody id="import-preview-body"></tbody>
+          </table>
+        </div>
+        <p class="hint-text" id="import-msg2"></p>
+        <div style="display:flex; gap:0.6rem; margin-top:0.6rem;">
+          <button id="import-do-btn" class="btn" type="button" data-i18n="inv.importDo">Import Products</button>
+          <button id="import-back-btn" class="btn btn-outline" type="button" data-i18n="inv.importBack">Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/qrcode.js"></script>
+  <script src="icons.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+  <script src="scanner.js"></script>
+  
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

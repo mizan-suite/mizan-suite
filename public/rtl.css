@@ -1,0 +1,120 @@
+/* rtl.css - right-to-left overrides for the Arabic interface.
+   Loaded on every page. When <html dir="rtl"> is active (Arabic selected),
+   flexbox/grid rows and text alignment flip so the layout reads right-to-left.
+   Most modern layouts (flex, grid) mirror automatically; this file only fixes
+   the handful of hard-coded left/right rules. */
+
+html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Sidebar sits on the right side in RTL, content pushes left. */
+html[dir="rtl"] #app-sidebar {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid #e3e3e3;
+}
+
+html[dir="rtl"] body.has-sidebar {
+  margin-left: 0;
+  margin-right: 220px;
+}
+
+@media (max-width: 768px) {
+  html[dir="rtl"] body.has-sidebar {
+    margin-right: 0;
+  }
+}
+
+html[dir="rtl"] .login-body,
+html[dir="rtl"] .login-card,
+html[dir="rtl"] .scan-box,
+html[dir="rtl"] .scanner-box,
+html[dir="rtl"] .receipt-box {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] input[type="text"],
+html[dir="rtl"] input[type="number"],
+html[dir="rtl"] input[type="password"],
+html[dir="rtl"] input[type="search"],
+html[dir="rtl"] select,
+html[dir="rtl"] textarea {
+  text-align: right;
+}
+
+/* Keep pagination prev/next order natural for RTL readers. */
+html[dir="rtl"] .pagination-bar {
+  flex-direction: row;
+}
+
+html[dir="rtl"] .page-info {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+/* Row actions (3-dot menus, edit buttons) anchor to the left in RTL. */
+html[dir="rtl"] .row-actions {
+  text-align: left;
+}
+
+html[dir="rtl"] .cart-item,
+html[dir="rtl"] .cart-detail-item,
+html[dir="rtl"] .pd-row {
+  direction: rtl;
+}
+
+html[dir="rtl"] .qty-controls {
+  flex-direction: row;
+}
+
+/* Stat-card icons are absolutely positioned at right; in RTL the label text is
+   right-aligned so the icon would sit on top of it. Anchor it to the left. */
+html[dir="rtl"] .sc-icon {
+  right: auto;
+  left: 0.9rem;
+}
+
+html[dir="rtl"] .badge {
+  margin-right: 0;
+  margin-left: 0.4rem;
+}
+
+/* Toasts stack bottom-right in LTR; mirror to bottom-left in RTL. */
+html[dir="rtl"] .toast-stack {
+  right: auto;
+  left: 1.2rem;
+}
+
+/* Settings kebab dropdowns anchor to the container's right edge in LTR; in RTL
+   the button is mirrored to the left, so anchor to the left edge instead so the
+   menu opens back into the row instead of off the left side of the screen. */
+html[dir="rtl"] .dropdown-menu {
+  right: auto;
+  left: 0;
+}
+
+/* Hero notification badge mirrors to the left of the bell tile in RTL. */
+html[dir="rtl"] .hq-tile .notif-badge {
+  right: auto;
+  left: -6px;
+}
+
+/* Print preview: ESC/POS raw text reads left-to-right regardless of language. */
+html[dir="rtl"] .raw-pre {
+  direction: ltr;
+  text-align: left;
+}
+
+/* Invoice header title block aligns left in RTL (brand block sits on the right). */
+html[dir="rtl"] .inv-title {
+  text-align: left;
+}
+
+html[dir="rtl"] .inv-totals {
+  margin-left: 0;
+  margin-right: auto;
+}

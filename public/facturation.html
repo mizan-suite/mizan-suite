@@ -1,0 +1,128 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Suite - Facturation</title>
+  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="rtl.css">
+</head>
+<body data-i18n-title="facturation.title">
+  <div id="app-sidebar"></div>
+  <main class="container">
+    <h1 data-i18n="facturation.title">Facturation</h1>
+    <p class="hint-text" data-i18n="facturation.subtitle">History of billing documents. Open any recent sale, invoice or supplier purchase order to print it again (A4 or thermal 80mm).</p>
+
+    <section class="fact-section" id="fact-section-sales">
+      <h2 class="fact-heading">
+        <span data-i18n="facturation.recentTransactions">Recent Transactions</span>
+        <button type="button" class="btn btn-outline btn-sm fact-toggle" data-target="fact-section-sales" data-i18n="facturation.hide">Hide</button>
+      </h2>
+      <div class="fact-body">
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th data-i18n="facturation.thNumber">N&deg;</th>
+              <th data-i18n="facturation.thSale">Sale</th>
+              <th data-i18n="facturation.thClient">Client</th>
+              <th data-i18n="facturation.thDate">Date</th>
+              <th data-i18n="facturation.thTotal">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="sale-list">
+            <tr><td colspan="6"><p class="empty-cart-msg" style="margin:0;" data-i18n="facturation.loading">Loading...</p></td></tr>
+          </tbody>
+        </table>
+        <div id="sale-pagination" class="pagination-bar" hidden>
+          <span id="sale-page-info" class="page-info"></span>
+          <div class="pagination-actions">
+            <button type="button" id="sale-page-prev" class="btn btn-outline btn-sm" data-i18n="facturation.prevPage">Previous</button>
+            <span id="sale-page-num" class="page-num"></span>
+            <button type="button" id="sale-page-next" class="btn btn-outline btn-sm" data-i18n="facturation.nextPage">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="fact-section" id="fact-section-invoices">
+      <h2 class="fact-heading">
+        <span data-i18n="facturation.invoices">Invoices</span>
+        <button type="button" class="btn btn-outline btn-sm fact-toggle" data-target="fact-section-invoices" data-i18n="facturation.hide">Hide</button>
+      </h2>
+      <div class="fact-body">
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th data-i18n="facturation.thNumber">N&deg;</th>
+              <th data-i18n="facturation.thInvoice">Invoice</th>
+              <th data-i18n="facturation.thClient">Client</th>
+              <th data-i18n="facturation.thDate">Date</th>
+              <th data-i18n="facturation.thTotal">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="invoice-list">
+            <tr><td colspan="6"><p class="empty-cart-msg" style="margin:0;" data-i18n="facturation.loading">Loading...</p></td></tr>
+          </tbody>
+        </table>
+        <div id="invoice-pagination" class="pagination-bar" hidden>
+          <span id="invoice-page-info" class="page-info"></span>
+          <div class="pagination-actions">
+            <button type="button" id="invoice-page-prev" class="btn btn-outline btn-sm" data-i18n="facturation.prevPage">Previous</button>
+            <span id="invoice-page-num" class="page-num"></span>
+            <button type="button" id="invoice-page-next" class="btn btn-outline btn-sm" data-i18n="facturation.nextPage">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="fact-section" id="fact-section-pos">
+      <h2 class="fact-heading">
+        <span data-i18n="facturation.purchaseOrders">Supplier Purchase Orders</span>
+        <button type="button" class="btn btn-outline btn-sm fact-toggle" data-target="fact-section-pos" data-i18n="facturation.hide">Hide</button>
+      </h2>
+      <div class="fact-body">
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th data-i18n="facturation.thNumber">N&deg;</th>
+              <th data-i18n="facturation.thPO">PO</th>
+              <th data-i18n="facturation.thSupplier">Supplier</th>
+              <th data-i18n="facturation.thDate">Date</th>
+              <th data-i18n="facturation.thTotal">Total</th>
+              <th data-i18n="facturation.thStatus">Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="po-list">
+            <tr><td colspan="7"><p class="empty-cart-msg" style="margin:0;" data-i18n="facturation.loading">Loading...</p></td></tr>
+          </tbody>
+        </table>
+        <div id="po-pagination" class="pagination-bar" hidden>
+          <span id="po-page-info" class="page-info"></span>
+          <div class="pagination-actions">
+            <button type="button" id="po-page-prev" class="btn btn-outline btn-sm" data-i18n="facturation.prevPage">Previous</button>
+            <span id="po-page-num" class="page-num"></span>
+            <button type="button" id="po-page-next" class="btn btn-outline btn-sm" data-i18n="facturation.nextPage">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+  <script src="icons.js"></script>
+  <script src="i18n.js"></script>
+  <script src="print.js"></script>
+  <script src="facturation.js"></script>
+  <script src="scanner.js"></script>
+  <script src="auth.js"></script>
+  <script src="branding.js"></script>
+  <script src="support.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>
