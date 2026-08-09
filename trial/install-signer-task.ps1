@@ -34,13 +34,15 @@ $EnvFile = Join-Path $PSScriptRoot "signer.env.json"
 # Load existing env file (if any) and overlay the new values.
 $envObj = @{}
 if (Test-Path -LiteralPath $EnvFile) {
-  $envObj = Get-Content -LiteralPath $EnvFile -Raw | ConvertFrom-Json -AsHashtable
+  $parsed = Get-Content -LiteralPath $EnvFile -Raw | ConvertFrom-Json
+  foreach ($p in $parsed.PSObject.Properties) { $envObj[$p.Name] = $p.Value }
 }
 $envObj.MIZAN_SERVER = $ServerUrl
 $envObj.MIZAN_SIGNER_TOKEN = $SignerToken
 $envObj.RESEND_API_KEY = $ResendApiKey
 $envObj.NOTIFY_EMAIL = $NotifyEmail
 ($envObj | ConvertTo-Json) | Set-Content -LiteralPath $EnvFile -Encoding UTF8
+[System.IO.File]::WriteAllText($EnvFile, ($envObj | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "Wrote $EnvFile"
 
 # Register the task. Runs `node trial/signer.js --once` every $EveryMinutes min.
@@ -50,7 +52,7 @@ $action = New-ScheduledTaskAction -Execute (Get-Command node).Source `
 
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
   -RepetitionInterval (New-TimeSpan -Minutes $EveryMinutes) `
-  -RepetitionDuration ([TimeSpan]::MaxValue)
+  -RepetitionDuration ([TimeSpan]::FromDays(3650))
 
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
 

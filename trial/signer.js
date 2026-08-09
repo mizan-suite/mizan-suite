@@ -33,7 +33,9 @@ const path = require('path');
 // Windows Task Scheduler definition. Created by install-signer-task.ps1.
 function loadEnvFile() {
   try {
-    const obj = JSON.parse(fs.readFileSync(path.join(__dirname, 'signer.env.json'), 'utf8'));
+    let raw = fs.readFileSync(path.join(__dirname, 'signer.env.json'), 'utf8');
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
+    const obj = JSON.parse(raw);
     for (const k of Object.keys(obj)) {
       if (process.env[k] === undefined && typeof obj[k] === 'string') process.env[k] = obj[k];
     }
