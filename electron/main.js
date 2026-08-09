@@ -285,9 +285,9 @@ ipcMain.handle('license:activate-finished', () => {
   startServerProcess();
 });
 
-// URL of the vendor's trial server (landing page + /api/trial). Set
-// MIZAN_TRIAL_URL before building to point at your deployed host.
-const TRIAL_URL = (process.env.MIZAN_TRIAL_URL || 'http://localhost:3000').replace(/\/+$/, '');
+// URL of the vendor's trial server (landing page + /api/trial). Packaged builds
+// default to the deployed host; override with MIZAN_TRIAL_URL for local testing.
+const TRIAL_URL = (process.env.MIZAN_TRIAL_URL || 'https://mizan-suite.onrender.com').replace(/\/+$/, '');
 const TRIAL_TIMEOUT_MS = 20000;
 
 // Requests a free trial key for this computer from the vendor's server. Returns
