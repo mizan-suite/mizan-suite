@@ -109,20 +109,25 @@
     .feature p { font-size: .93rem; color: var(--muted); }
 
     /* screenshots */
-    .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.3rem; }
+    .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.3rem; }
     .shot {
-      background: var(--card); border: 2px dashed #b9c9ea; border-radius: var(--radius);
-      min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem;
-      color: #7a93bd; font-size: .9rem; position: relative; overflow: hidden;
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      overflow: hidden; cursor: zoom-in; transition: transform .15s ease, box-shadow .15s ease;
     }
-    .shot .mock {
-      width: 70%; height: 4px; background: #dbe4f5; border-radius: 4px;
-      box-shadow: 0 9px 0 0 #dbe4f5, 0 18px 0 0 #dbe4f5;
-      opacity: .7;
+    .shot:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(37,99,235,.14); }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot .shot-label { padding: .7rem .9rem; color: var(--blue-dark); font-size: .88rem; font-weight: 600; text-align: center; background: var(--blue-tint); }
+
+    /* lightbox */
+    .lightbox {
+      position: fixed; inset: 0; background: rgba(10,18,40,.9); display: none;
+      align-items: center; justify-content: center; z-index: 999; padding: 2rem;
     }
-    .chip {
-      position: absolute; top: .8rem; right: .8rem; background: var(--blue-tint); color: var(--blue-dark);
-      font-size: .72rem; font-weight: 600; padding: .2rem .6rem; border-radius: 999px;
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+    .lightbox .lb-close {
+      position: absolute; top: 1rem; right: 1.4rem; background: none; border: none;
+      color: #fff; font-size: 2.4rem; cursor: pointer; line-height: 1;
     }
 
     /* how it works */
@@ -253,11 +258,25 @@
 
     <section class="wrap">
       <h2 class="section-title">Voyez-le en action</h2>
-      <p class="section-sub">Captures d&rsquo;écran bientôt disponibles &mdash; les écrans de caisse, d&rsquo;inventaire et de rapports.</p>
+      <p class="section-sub">Cliquez sur une capture pour l&rsquo;agrandir &mdash; caisse, inventaire, clients, rapports et plus encore.</p>
       <div class="shots">
-        <div class="shot"><span class="chip">Bientôt</span><div class="mock"></div>Encaissement</div>
-        <div class="shot"><span class="chip">Bientôt</span><div class="mock"></div>Inventaire</div>
-        <div class="shot"><span class="chip">Bientôt</span><div class="mock"></div>Rapports</div>
+        <div class="shot"><img src="/screenshots/shot01.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Encaissement</div></div>
+        <div class="shot"><img src="/screenshots/shot02.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Inventaire</div></div>
+        <div class="shot"><img src="/screenshots/shot03.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Clients &amp; fidélité</div></div>
+        <div class="shot"><img src="/screenshots/shot04.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Tableau de bord</div></div>
+        <div class="shot"><img src="/screenshots/shot05.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Statistiques</div></div>
+        <div class="shot"><img src="/screenshots/shot06.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Rapports</div></div>
+        <div class="shot"><img src="/screenshots/shot07.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Finances</div></div>
+        <div class="shot"><img src="/screenshots/shot08.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Stock</div></div>
+        <div class="shot"><img src="/screenshots/shot09.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Péremption</div></div>
+        <div class="shot"><img src="/screenshots/shot10.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Réapprovisionnement</div></div>
+        <div class="shot"><img src="/screenshots/shot11.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Achats</div></div>
+        <div class="shot"><img src="/screenshots/shot12.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Dettes</div></div>
+        <div class="shot"><img src="/screenshots/shot13.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Remboursements</div></div>
+        <div class="shot"><img src="/screenshots/shot14.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Étiquettes</div></div>
+        <div class="shot"><img src="/screenshots/shot15.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Facturation</div></div>
+        <div class="shot"><img src="/screenshots/shot16.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Paramètres</div></div>
+        <div class="shot"><img src="/screenshots/shot17.png" alt="Capture d'écran Mizan Suite" loading="lazy"><div class="shot-label">Connexion</div></div>
       </div>
     </section>
 
@@ -339,5 +358,28 @@
     <div><a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a></div>
     <div style="margin-top:.4rem">&copy; 2026 Mizan Suite. Tous droits réservés.</div>
   </footer>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-label="Aperçu de la capture d'écran">
+    <button class="lb-close" aria-label="Fermer">&times;</button>
+    <img alt="Capture d'écran agrandie">
+  </div>
+
+  <script>
+    (function () {
+      var lb = document.getElementById('lightbox');
+      var lbImg = lb.querySelector('img');
+      var close = lb.querySelector('.lb-close');
+      document.querySelectorAll('.shots .shot img').forEach(function (img) {
+        img.addEventListener('click', function () {
+          lbImg.src = img.getAttribute('src');
+          lb.classList.add('open');
+        });
+      });
+      function hide() { lb.classList.remove('open'); lbImg.removeAttribute('src'); }
+      close.addEventListener('click', hide);
+      lb.addEventListener('click', function (e) { if (e.target === lb) hide(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+    })();
+  </script>
 </body>
 </html>
