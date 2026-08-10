@@ -191,6 +191,47 @@
     .price-box .price-includes { display: block; margin-top: .7rem; font-size: .95rem; color: var(--muted); max-width: 34rem; margin-left: auto; margin-right: auto; }
 
     .price-box .cta-line { color: var(--muted); font-size: .92rem; }
+
+    /* ---------- limited-time offer ---------- */
+    .offer-badge {
+      display: inline-block; background: #f59e0b; color: #fff; font-weight: 700;
+      font-size: .78rem; letter-spacing: .05em; text-transform: uppercase;
+      padding: .32rem .85rem; border-radius: 999px; margin-bottom: .9rem;
+      animation: pulse-badge 1.6s infinite;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,.55); }
+      50% { box-shadow: 0 0 0 9px rgba(245,158,11,0); }
+    }
+    .price-row { display: flex; align-items: baseline; justify-content: center; gap: .9rem; flex-wrap: wrap; }
+    .price-old { font-size: 1.3rem; color: #9aa5b1; text-decoration: line-through; }
+    .price-save {
+      font-size: .82rem; font-weight: 700; color: #fff; background: #dc2626;
+      padding: .22rem .7rem; border-radius: 999px;
+    }
+    .countdown {
+      display: flex; gap: .55rem; justify-content: center; align-items: center;
+      margin: 1.5rem auto 1.7rem; max-width: 390px;
+    }
+    .countdown .cd-box {
+      flex: 1; background: var(--blue-darker); color: #fff; border-radius: 12px;
+      padding: .65rem .3rem; text-align: center; box-shadow: 0 4px 14px rgba(30,58,138,.28);
+    }
+    .countdown .cd-num { font-size: 1.7rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .countdown .cd-label { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; opacity: .85; }
+    .countdown .cd-sep { font-size: 1.4rem; font-weight: 800; color: var(--blue-light); }
+    .offer-line { font-weight: 600; color: #b45309; margin-top: .3rem; font-size: .95rem; }
+    .offer-ended { display: none; font-weight: 700; color: #dc2626; margin-top: .6rem; }
+    .offer-cta {
+      display: inline-block; margin-top: 1.4rem; background: var(--blue); color: #fff;
+      font-weight: 700; padding: .95rem 2.2rem; border-radius: 10px; text-decoration: none;
+      font-size: 1.02rem; box-shadow: 0 6px 18px rgba(37,99,235,.35);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .offer-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(37,99,235,.5); }
+    @media (max-width: 420px) {
+      .countdown .cd-num { font-size: 1.35rem; }
+    }
     /* faq */
     .faq { max-width: 760px; margin: 0 auto; }
     .faq details {
@@ -333,12 +374,29 @@
     <section class="wrap">
       <h2 class="section-title">Tarif simple</h2>
       <div class="price-box">
+        <span class="offer-badge">Offre de lancement</span>
         <div class="amount">Achat unique</div>
         <p class="sub">Payez une fois, possédez-le pour toujours. Mises à jour et support inclus.</p>
         <div class="price-main">
-          <span class="price-new">60&nbsp;000&nbsp;DA</span>
-          <span class="price-includes">Achat unique &mdash; installation &amp; mise en place sur site gratuites, 3 mois de support gratuit (correctifs de bugs), priorité sur vos demandes de fonctionnalités</span>
+          <div class="price-row">
+            <span class="price-old">60&nbsp;000&nbsp;DA</span>
+            <span class="price-new">45&nbsp;000&nbsp;DA</span>
+            <span class="price-save">-25%</span>
+          </div>
+          <span class="price-includes">Installation &amp; mise en place sur site gratuites, 3 mois de support gratuit (correctifs de bugs), priorité sur vos demandes de fonctionnalités</span>
         </div>
+        <div class="countdown" id="offer-countdown">
+          <div class="cd-box"><div class="cd-num" id="cd-days">7</div><div class="cd-label">Jours</div></div>
+          <div class="cd-sep">:</div>
+          <div class="cd-box"><div class="cd-num" id="cd-hours">00</div><div class="cd-label">Heures</div></div>
+          <div class="cd-sep">:</div>
+          <div class="cd-box"><div class="cd-num" id="cd-min">00</div><div class="cd-label">Min</div></div>
+          <div class="cd-sep">:</div>
+          <div class="cd-box"><div class="cd-num" id="cd-sec">00</div><div class="cd-label">Sec</div></div>
+        </div>
+        <p class="offer-line">Offre limitée &mdash; le prix revient à 60&nbsp;000&nbsp;DA à la fin du compte &agrave; rebours.</p>
+        <p class="offer-ended" id="offer-ended">Cette offre est terminée &mdash; contactez-nous pour le tarif en vigueur.</p>
+        <a class="offer-cta" href="/download">Profiter de l&rsquo;offre &mdash; Télécharger</a>
         <ul>
           <li>Toutes les fonctionnalités incluses</li>
           <li>Produits &amp; clients illimités</li>
@@ -509,6 +567,33 @@
         else scale = clamp(scale / 1.12, 1, 4);
         applyTransform();
       }, { passive: false });
+
+      // ---------- limited-time offer countdown (7 days from first visit) ----------
+      var cd = document.getElementById('offer-countdown');
+      var ended = document.getElementById('offer-ended');
+      var offerLine = document.querySelector('.offer-line');
+      var deadline = 0;
+      try { deadline = parseInt(localStorage.getItem('mizan_offer_deadline'), 10) || 0; } catch (e) {}
+      if (!deadline) {
+        deadline = Date.now() + 7 * 24 * 60 * 60 * 1000;
+        try { localStorage.setItem('mizan_offer_deadline', deadline); } catch (e) {}
+      }
+      function pad2(n) { return (n < 10 ? '0' : '') + n; }
+      function tickOffer() {
+        var diff = deadline - Date.now();
+        if (diff <= 0) {
+          cd.style.display = 'none';
+          if (offerLine) offerLine.style.display = 'none';
+          ended.style.display = 'block';
+          return;
+        }
+        document.getElementById('cd-days').textContent = Math.floor(diff / 86400000);
+        document.getElementById('cd-hours').textContent = pad2(Math.floor(diff % 86400000 / 3600000));
+        document.getElementById('cd-min').textContent = pad2(Math.floor(diff % 3600000 / 60000));
+        document.getElementById('cd-sec').textContent = pad2(Math.floor(diff % 60000 / 1000));
+      }
+      tickOffer();
+      setInterval(tickOffer, 1000);
     })();
   </script>
 </body>
