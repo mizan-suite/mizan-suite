@@ -2,6 +2,7 @@
 ledger.json
 queue.json
 signer.env.json
+run-signer-hidden.vbs
 *.log
 .env
 node_modules/
