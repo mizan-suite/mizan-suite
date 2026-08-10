@@ -29,6 +29,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const SCHEDULE_PATH = process.env.MIZAN_SCHEDULE_PATH || path.join(__dirname, 'schedule.json');
+
 // Optional local secret file (trial/signer.env.json). Keeps tokens out of the
 // Windows Task Scheduler definition. Created by install-signer-task.ps1.
 function loadEnvFile() {
@@ -48,6 +50,7 @@ const core = require('./core.js');
 const SERVER = (process.env.MIZAN_SERVER || 'http://localhost:3000').replace(/\/+$/, '');
 const TOKEN = (process.env.MIZAN_SIGNER_TOKEN || '').trim();
 const POLL_MS = parseInt(process.env.MIZAN_POLL_MS, 10) || 60000;
+const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS, 10) || 14;
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || 'mizansuite@gmail.com';
 const FROM = process.env.VISITOR_EMAIL_FROM || 'Mizan Suite <onboarding@resend.dev>';
@@ -81,6 +84,105 @@ async function api(pathname, init) {
   });
   if (!res.ok) throw new Error(`GET ${pathname} -> ${res.status}`);
   return res.json();
+}
+
+// --- Follow-up email schedule (local file, gitignored) -----------------------
+// After a trial is issued we schedule a Day-3 "getting started" email and a
+// Day-12 "trial ending" email. On every poll we send whatever is due.
+function loadSchedule() {
+  try {
+    const raw = fs.readFileSync(SCHEDULE_PATH, 'utf8');
+    const obj = JSON.parse(raw);
+    return Array.isArray(obj.emails) ? obj.emails : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSchedule(emails) {
+  try {
+    fs.writeFileSync(SCHEDULE_PATH, JSON.stringify({ emails }, null, 2));
+  } catch (e) {
+    log('WARN: could not save schedule:', e.message);
+  }
+}
+
+function upsertSchedule(email, machineId) {
+  const emails = loadSchedule();
+  const existing = emails.find((e) => e.machineId === machineId);
+  if (existing) return;
+  emails.push({
+    machineId,
+    email,
+    startedAt: Date.now(),
+    sent: { day3: false, day12: false }
+  });
+  saveSchedule(emails);
+}
+
+async function sendDueEmails() {
+  const emails = loadSchedule();
+  if (!emails.length) return;
+  let changed = false;
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const KEEP_DAYS = TRIAL_DAYS + 3;
+  for (const entry of emails) {
+    const daysSince = (now - entry.startedAt) / DAY;
+    const expired = daysSince > KEEP_DAYS && entry.sent.day3 && entry.sent.day12;
+    if (expired) {
+      changed = true;
+      entry._drop = true;
+      continue;
+    }
+    if (!entry.sent.day3 && daysSince >= 3) {
+      try {
+        const sent = await sendEmail({
+          to: entry.email,
+          subject: 'Mizan Suite - 3 conseils pour bien démarrer',
+          text: [
+            `Bonjour, vous avez install\u00e9 Mizan Suite il y a quelques jours.`,
+            '',
+            '3 conseils pour en tirer le meilleur :',
+            '1. Ajoutez d\u2019abord vos produits via la liste fournisseur (Excel) pour ne rien ressaisir.',
+            '2. Scannez les codes-barres avec la webcam du PC, pas besoin de lecteur.',
+            '3. Faites votre caisse de fin de journ\u00e9e chaque soir : rapports, ventes et stocks sont pr\u00eats en un clic.',
+            '',
+            'Besoin d\u2019aide ? R\u00e9pondez simplement \u00e0 cet e-mail.'
+          ].join('\n')
+        });
+        if (!sent.skipped) entry.sent.day3 = true;
+        changed = true;
+      } catch (err) {
+        log('Day-3 email failed for', entry.email, ':', err.message);
+      }
+    }
+    if (!entry.sent.day12 && daysSince >= 12) {
+      try {
+        const sent = await sendEmail({
+          to: entry.email,
+          subject: 'Mizan Suite - votre essai se termine bient\u00f4t',
+          text: [
+            `Bonjour, votre essai Mizan Suite expire bient\u00f4t (${TRIAL_DAYS} jours au total).`,
+            '',
+            `Vos donn\u00e9es restent en s\u00e9curit\u00e9 sur votre PC. Pour continuer, prenez la licence de lancement :`,
+            '',
+            `Achat unique 45 000 DA (-25% au lieu de 60 000 DA).`,
+            'Garantie 7 jours satisfait ou rembours\u00e9.',
+            '',
+            'Commandez en r\u00e9pondant \u00e0 cet e-mail ou via @mizansuite sur Instagram.'
+          ].join('\n')
+        });
+        if (!sent.skipped) entry.sent.day12 = true;
+        changed = true;
+      } catch (err) {
+        log('Day-12 email failed for', entry.email, ':', err.message);
+      }
+    }
+  }
+  if (changed) {
+    saveSchedule(emails.filter((e) => !e._drop));
+  }
 }
 
 // Signs one queued request, emails the visitor + the shop owner, and marks it done.
@@ -133,12 +235,18 @@ async function handleRequest(req) {
         `This key is locked to this computer and expires ${result.payload.expires}.`,
         '',
         `Trial key expires: ${result.payload.expires}`,
-        'Questions? Reply to this email and we will help.'
+        'Questions? Reply to this email and we will help.',
+        '',
+        'P.S. Vous connaissez une autre pharmacie ? Recommandez Mizan Suite : vous et',
+        'votre contact obtenez chacun une remise sur la licence. Dites-nous qui vous a',
+        'recommand\u00e9 lorsque vous commandez.'
       ].join('\n')
     });
   } catch (err) {
     log('Visitor email failed:', err.message);
   }
+
+  upsertSchedule(req.email, req.machineId);
 
   await api('/api/signer/done', {
     method: 'POST',
@@ -158,6 +266,11 @@ async function pollOnce() {
     } catch (err) {
       log(`Failed to handle request ${req.id}:`, err.message);
     }
+  }
+  try {
+    await sendDueEmails();
+  } catch (err) {
+    log('sendDueEmails failed:', err.message);
   }
 }
 

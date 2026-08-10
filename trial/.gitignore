@@ -1,6 +1,7 @@
 // Ignore runtime data + local secrets when publishing/tooling.
 ledger.json
 queue.json
+schedule.json
 signer.env.json
 run-signer-hidden.vbs
 *.log

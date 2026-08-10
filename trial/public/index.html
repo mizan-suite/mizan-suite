@@ -12,6 +12,18 @@
   <meta property="og:description" content="Ventes, inventaire, lecture de codes-barres, factures et points de fidélité - tout ce dont votre commerce a besoin, sur votre propre ordinateur. Essai gratuit de 14 jours.">
   <meta property="og:image" content="/mizan-logo.png">
   <meta name="twitter:card" content="summary">
+  <!-- Meta Pixel (tracking for Instagram/Facebook ads). Replace VOTRE_PIXEL_ID
+       with the ID from Meta Events Manager when you have it. -->
+  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', 'VOTRE_PIXEL_ID');
+    fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=VOTRE_PIXEL_ID&ev=PageView&noscript=1" /></noscript>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -222,6 +234,9 @@
     .countdown .cd-sep { font-size: 1.4rem; font-weight: 800; color: var(--blue-light); }
     .offer-line { font-weight: 600; color: #b45309; margin-top: .3rem; font-size: .95rem; }
     .offer-ended { display: none; font-weight: 700; color: #dc2626; margin-top: .6rem; }
+    .offer-guarantee { margin-top: .7rem; font-weight: 700; color: var(--blue); font-size: .98rem; }
+    .multi-store { margin-top: .9rem; font-size: .92rem; color: var(--muted); }
+    .multi-store b { color: var(--blue); }
     .offer-cta {
       display: inline-block; margin-top: 1.4rem; background: var(--blue); color: #fff;
       font-weight: 700; padding: .95rem 2.2rem; border-radius: 10px; text-decoration: none;
@@ -397,12 +412,14 @@
         <p class="offer-line">Offre limitée &mdash; le prix revient à 60&nbsp;000&nbsp;DA à la fin du compte &agrave; rebours.</p>
         <p class="offer-ended" id="offer-ended">Cette offre est terminée &mdash; contactez-nous pour le tarif en vigueur.</p>
         <a class="offer-cta" href="/download">Profiter de l&rsquo;offre &mdash; Télécharger</a>
+        <p class="offer-guarantee">Garantie 7 jours satisfait ou remboursé</p>
         <ul>
           <li>Toutes les fonctionnalités incluses</li>
           <li>Produits &amp; clients illimités</li>
           <li>Mises à jour gratuites</li>
           <li>Pas d&rsquo;abonnement mensuel, pas de verrouillage cloud</li>
         </ul>
+        <p class="multi-store">Vous avez plusieurs magasins ? 2&egrave;me licence &agrave; <b>-50%</b>.</p>
         <p class="cta-line">Contactez-nous pour commander &mdash; <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a> &nbsp;&bull;&nbsp; <a href="https://www.instagram.com/mizansuite/?utm_source=ig_web_button_share_sheet" target="_blank" rel="noopener">@mizansuite</a></p>
       </div>
     </section>
@@ -429,6 +446,10 @@
         <details>
           <summary>Que se passe-t-il après l&rsquo;essai ?</summary>
           <p>Vos données restent en sécurité sur votre PC. Achetez une licence pour continuer à utiliser le logiciel, ou désinstallez simplement.</p>
+        </details>
+        <details>
+          <summary>Combien d&rsquo;utilisateurs / de postes puis-je avoir ?</summary>
+          <p>Une licence couvre le logiciel sur le PC de votre caisse. Vous avez plusieurs magasins ? La 2&egrave;me licence est &agrave; -50% &mdash; contactez-nous.</p>
         </details>
         <details>
           <summary>Puis-je migrer depuis un autre logiciel ?</summary>
