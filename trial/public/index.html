@@ -151,8 +151,16 @@
     .price-box ul { list-style: none; margin: 1.4rem 0 1.8rem; text-align: left; display: inline-block; }
     .price-box li { padding: .35rem 0; font-size: .95rem; }
     .price-box li::before { content: "✓"; color: var(--blue); font-weight: 700; margin-right: .55rem; }
-    .price-box .cta-line { color: var(--muted); font-size: .92rem; }
 
+    .price-box .price-main { margin: 1.2rem 0 .4rem; }
+
+    .price-box .price-old { font-size: 1.1rem; color: var(--muted); text-decoration: line-through; margin-right: .8rem; }
+
+    .price-box .price-new { font-size: 2.6rem; font-weight: 800; color: var(--blue); }
+
+    .price-box .price-offer { display: block; margin-top: .5rem; font-size: .92rem; font-weight: 600; color: var(--blue-dark); background: var(--blue-tint); border: 1px solid var(--blue-light); border-radius: 999px; padding: .3rem 1rem; }
+
+    .price-box .cta-line { color: var(--muted); font-size: .92rem; }
     /* faq */
     .faq { max-width: 760px; margin: 0 auto; }
     .faq details {
@@ -283,13 +291,18 @@
       <div class="price-box">
         <div class="amount">Achat unique</div>
         <p class="sub">Payez une fois, possédez-le pour toujours. Mises à jour et support inclus.</p>
+        <div class="price-main">
+          <span class="price-old">60&nbsp;000&nbsp;DA</span>
+          <span class="price-new">20&nbsp;000&nbsp;DA</span>
+          <span class="price-offer">Offre de lancement &mdash; les 5 premiers clients seulement</span>
+        </div>
         <ul>
           <li>Toutes les fonctionnalités incluses</li>
           <li>Produits &amp; clients illimités</li>
           <li>Mises à jour gratuites</li>
           <li>Pas d&rsquo;abonnement mensuel, pas de verrouillage cloud</li>
         </ul>
-        <p class="cta-line">Contactez-nous pour le devis de votre pharmacie &mdash; <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a></p>
+        <p class="cta-line">Contactez-nous pour commander &mdash; <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a></p>
       </div>
     </section>
 
