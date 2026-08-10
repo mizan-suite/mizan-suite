@@ -1,28 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mizan Suite - Pharmacy Management Software for Windows</title>
-  <meta name="description" content="Mizan Suite is the all-in-one pharmacy management software for Windows. Sales, inventory, barcode scanning, invoices, loyalty points and more. Free 14-day trial, no card required.">
-  <meta name="theme-color" content="#145a4b">
+  <title>Mizan Suite - Logiciel de gestion de pharmacie pour Windows</title>
+  <meta name="description" content="Mizan Suite est le logiciel de gestion de pharmacie tout-en-un pour Windows. Ventes, inventaire, lecture de codes-barres, factures, points de fidélité et plus. Essai gratuit de 14 jours, sans carte bancaire.">
+  <meta name="theme-color" content="#1e40af">
   <link rel="icon" type="image/png" href="/mizan-logo.png">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Mizan Suite - Pharmacy Management Software">
-  <meta property="og:description" content="Sales, inventory, barcode scanning, invoices and loyalty points - everything a pharmacy needs, on your own computer. Free 14-day trial.">
+  <meta property="og:title" content="Mizan Suite - Logiciel de gestion de pharmacie">
+  <meta property="og:description" content="Ventes, inventaire, lecture de codes-barres, factures et points de fidélité - tout ce dont une pharmacie a besoin, sur votre propre ordinateur. Essai gratuit de 14 jours.">
   <meta property="og:image" content="/mizan-logo.png">
   <meta name="twitter:card" content="summary">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --green: #1b6e5c;
-      --green-dark: #145a4b;
-      --green-light: #4fc3a1;
-      --ink: #24302d;
-      --muted: #5c6b66;
-      --bg: #f6faf8;
+      --blue: #2563eb;
+      --blue-dark: #1e40af;
+      --blue-darker: #1e3a8a;
+      --blue-light: #60a5fa;
+      --blue-tint: #eef4fd;
+      --ink: #1f2937;
+      --muted: #5b6770;
+      --bg: #f6f9fd;
       --card: #ffffff;
-      --line: #e3ece8;
+      --line: #e2eaf5;
       --radius: 14px;
     }
     html { scroll-behavior: smooth; }
@@ -33,7 +35,7 @@
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
     }
-    a { color: var(--green); }
+    a { color: var(--blue); }
 
     /* ---------- nav ---------- */
     .nav {
@@ -43,26 +45,26 @@
       background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
     }
-    .nav .brand { display: flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.15rem; color: var(--green-dark); }
+    .nav .brand { display: flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.15rem; color: var(--blue-dark); }
     .nav .brand img { height: 34px; width: 34px; object-fit: contain; border-radius: 8px; }
-    .nav .brand span { color: var(--green); }
+    .nav .brand span { color: var(--blue); }
     .nav .btn-sm {
-      background: var(--green); color: #fff; border: none; cursor: pointer;
+      background: var(--blue); color: #fff; border: none; cursor: pointer;
       font-weight: 600; font-size: .9rem; padding: .55rem 1.1rem; border-radius: 8px;
       text-decoration: none; transition: background .15s;
     }
-    .nav .btn-sm:hover { background: var(--green-dark); }
+    .nav .btn-sm:hover { background: var(--blue-dark); }
 
     /* ---------- hero ---------- */
     .hero {
-      background: linear-gradient(150deg, #1d725e 0%, var(--green-dark) 60%, #0f463a 100%);
+      background: linear-gradient(150deg, #3b82f6 0%, var(--blue-dark) 60%, #172b78 100%);
       color: #fff; text-align: center;
       padding: clamp(3.5rem, 9vw, 6.5rem) 1.5rem clamp(4rem, 10vw, 7rem);
       position: relative; overflow: hidden;
     }
     .hero::after {
       content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(600px 300px at 50% 0%, rgba(255,255,255,.08), transparent 70%);
+      background: radial-gradient(600px 300px at 50% 0%, rgba(255,255,255,.1), transparent 70%);
     }
     .hero .logo-mark { height: 84px; width: 84px; object-fit: contain; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
     .hero h1 {
@@ -75,7 +77,7 @@
     }
     .cta { margin-top: 2.2rem; display: flex; gap: .9rem; justify-content: center; flex-wrap: wrap; }
     .btn-download {
-      background: #fff; color: var(--green-dark); font-weight: 700;
+      background: #fff; color: var(--blue-dark); font-weight: 700;
       padding: 1rem 2.4rem; border-radius: 10px; text-decoration: none; font-size: 1.08rem;
       box-shadow: 0 8px 24px rgba(0,0,0,.22); transition: transform .15s, box-shadow .15s;
     }
@@ -87,39 +89,39 @@
 
     /* ---------- sections ---------- */
     .wrap { max-width: 1080px; margin: 0 auto; padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.2rem, 4vw, 2rem); }
-    .section-title { text-align: center; font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .5rem; color: var(--green-dark); letter-spacing: -.4px; }
+    .section-title { text-align: center; font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .5rem; color: var(--blue-dark); letter-spacing: -.4px; }
     .section-sub { text-align: center; color: var(--muted); max-width: 40em; margin: 0 auto 2.2rem; font-size: .98rem; }
 
     /* features */
     .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.3rem; }
     .feature {
       background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 1.5rem 1.4rem; box-shadow: 0 2px 10px rgba(20,90,75,.05);
+      padding: 1.5rem 1.4rem; box-shadow: 0 2px 10px rgba(37,99,235,.05);
       transition: transform .15s, box-shadow .15s;
     }
-    .feature:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(20,90,75,.1); }
+    .feature:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(37,99,235,.1); }
     .feature .icon {
       width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      background: #e5f4ef; color: var(--green); margin-bottom: .9rem;
+      background: var(--blue-tint); color: var(--blue); margin-bottom: .9rem;
     }
     .feature .icon svg { width: 22px; height: 22px; }
-    .feature h3 { color: var(--green-dark); font-size: 1.05rem; margin-bottom: .35rem; }
+    .feature h3 { color: var(--blue-dark); font-size: 1.05rem; margin-bottom: .35rem; }
     .feature p { font-size: .93rem; color: var(--muted); }
 
     /* screenshots */
     .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.3rem; }
     .shot {
-      background: var(--card); border: 2px dashed #c4d9d2; border-radius: var(--radius);
+      background: var(--card); border: 2px dashed #b9c9ea; border-radius: var(--radius);
       min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem;
-      color: #7a9c90; font-size: .9rem; position: relative; overflow: hidden;
+      color: #7a93bd; font-size: .9rem; position: relative; overflow: hidden;
     }
     .shot .mock {
-      width: 70%; height: 4px; background: #e2ece7; border-radius: 4px;
-      box-shadow: 0 9px 0 0 #e2ece7, 0 18px 0 0 #e2ece7;
+      width: 70%; height: 4px; background: #dbe4f5; border-radius: 4px;
+      box-shadow: 0 9px 0 0 #dbe4f5, 0 18px 0 0 #dbe4f5;
       opacity: .7;
     }
     .chip {
-      position: absolute; top: .8rem; right: .8rem; background: #e5f4ef; color: var(--green-dark);
+      position: absolute; top: .8rem; right: .8rem; background: var(--blue-tint); color: var(--blue-dark);
       font-size: .72rem; font-weight: 600; padding: .2rem .6rem; border-radius: 999px;
     }
 
@@ -127,28 +129,28 @@
     .howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; counter-reset: step; }
     .step {
       background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 1.5rem 1.3rem; box-shadow: 0 2px 10px rgba(20,90,75,.05); position: relative;
+      padding: 1.5rem 1.3rem; box-shadow: 0 2px 10px rgba(37,99,235,.05); position: relative;
     }
     .step::before {
       counter-increment: step; content: counter(step);
-      width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: #fff;
+      width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: #fff;
       display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .95rem;
       margin-bottom: .8rem;
     }
-    .step b { display: block; margin-bottom: .25rem; color: var(--green-dark); }
+    .step b { display: block; margin-bottom: .25rem; color: var(--blue-dark); }
     .step p { font-size: .92rem; color: var(--muted); }
 
     /* pricing */
     .price-box {
       max-width: 460px; margin: 0 auto; text-align: center;
       background: var(--card); border: 1px solid var(--line); border-radius: 18px;
-      padding: 2.4rem 2rem; box-shadow: 0 6px 24px rgba(20,90,75,.08);
+      padding: 2.4rem 2rem; box-shadow: 0 6px 24px rgba(37,99,235,.08);
     }
-    .price-box .amount { font-size: 2.2rem; font-weight: 700; color: var(--green-dark); }
+    .price-box .amount { font-size: 2.2rem; font-weight: 700; color: var(--blue-dark); }
     .price-box .sub { color: var(--muted); margin-top: .6rem; font-size: .98rem; }
     .price-box ul { list-style: none; margin: 1.4rem 0 1.8rem; text-align: left; display: inline-block; }
     .price-box li { padding: .35rem 0; font-size: .95rem; }
-    .price-box li::before { content: "✓"; color: var(--green); font-weight: 700; margin-right: .55rem; }
+    .price-box li::before { content: "✓"; color: var(--blue); font-weight: 700; margin-right: .55rem; }
     .price-box .cta-line { color: var(--muted); font-size: .92rem; }
 
     /* faq */
@@ -157,17 +159,17 @@
       background: var(--card); border: 1px solid var(--line); border-radius: 12px;
       padding: 1rem 1.2rem; margin-bottom: .8rem;
     }
-    .faq summary { cursor: pointer; font-weight: 600; color: var(--green-dark); list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
-    .faq summary::after { content: "+"; color: var(--green); font-size: 1.2rem; }
+    .faq summary { cursor: pointer; font-weight: 600; color: var(--blue-dark); list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
+    .faq summary::after { content: "+"; color: var(--blue); font-size: 1.2rem; }
     .faq details[open] summary::after { content: "−"; }
     .faq p { color: var(--muted); font-size: .94rem; padding-top: .6rem; }
 
     /* footer */
     footer {
-      background: var(--green-dark); color: #d6e7e0; text-align: center;
+      background: var(--blue-dark); color: #dbe4f5; text-align: center;
       padding: 2.2rem 1rem; font-size: .87rem; margin-top: 1rem;
     }
-    footer a { color: var(--green-light); }
+    footer a { color: var(--blue-light); }
     footer .brand-line { font-weight: 700; font-size: 1rem; margin-bottom: .5rem; color: #fff; }
 
     @media (max-width: 560px) {
@@ -177,146 +179,146 @@
 </head>
 <body>
   <nav class="nav">
-    <div class="brand"><img src="/mizan-logo.png" alt="Mizan Suite logo">Mizan<span>Suite</span></div>
-    <a class="btn-sm" href="/download">Download</a>
+    <div class="brand"><img src="/mizan-logo.png" alt="Logo Mizan Suite">Mizan<span>Suite</span></div>
+    <a class="btn-sm" href="/download">Télécharger</a>
   </nav>
 
   <header class="hero">
-    <img class="logo-mark" src="/mizan-logo.png" alt="Mizan Suite logo">
-    <h1>Run your pharmacy, not your paperwork</h1>
-    <p class="tagline">Sales, inventory, barcode scanning, invoices, loyalty points and reporting &mdash; everything a pharmacy needs, on your own computer.</p>
+    <img class="logo-mark" src="/mizan-logo.png" alt="Logo Mizan Suite">
+    <h1>Gérez votre pharmacie, pas vos papiers</h1>
+    <p class="tagline">Ventes, inventaire, lecture de codes-barres, factures, points de fidélité et rapports &mdash; tout ce dont une pharmacie a besoin, sur votre propre ordinateur.</p>
     <div class="cta">
-      <a class="btn-download" href="/download">Download free trial</a>
+      <a class="btn-download" href="/download">Télécharger l&rsquo;essai gratuit</a>
     </div>
-    <p class="sub-note">Windows &middot; Free 14-day trial &middot; No card required</p>
+    <p class="sub-note">Windows &middot; Essai gratuit de 14 jours &middot; Sans carte bancaire</p>
     <div class="trust">
       <span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        Works offline
+        Fonctionne hors ligne
       </span>
       <span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        Your data stays on your PC
+        Vos données restent sur votre PC
       </span>
       <span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        One-time price
+        Achat unique
       </span>
     </div>
   </header>
 
   <main>
     <section class="wrap">
-      <h2 class="section-title">Why Mizan Suite?</h2>
-      <p class="section-sub">Built for real pharmacies: quick at the till, clear in the back office, and no monthly subscription hanging over your head.</p>
+      <h2 class="section-title">Pourquoi Mizan Suite ?</h2>
+      <p class="section-sub">Conçu pour les vraies pharmacies : rapide à la caisse, clair à l&rsquo;arrière-boutique, et sans abonnement mensuel à payer.</p>
       <div class="features">
         <div class="feature">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l7-7 7 7"/><path d="M6 10v9h12v-9"/></svg></div>
-          <h3>Fast checkout</h3>
-          <p>Scan barcodes, take payments and print receipts in seconds &mdash; even handle split and part payments.</p>
+          <h3>Encaissement rapide</h3>
+          <p>Scannez les codes-barres, encaissez et imprimez les reçus en quelques secondes &mdash; même les paiements partagés.</p>
         </div>
         <div class="feature">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M9 3v18M3 9h18"/></svg></div>
-          <h3>Smart inventory</h3>
-          <p>Track stock levels, expiry dates and reorder alerts automatically so nothing runs out silently.</p>
+          <h3>Inventaire intelligent</h3>
+          <p>Suivez les stocks, les dates de péremption et les alertes de réapprovisionnement automatiquement, sans rien laisser manquer.</p>
         </div>
         <div class="feature">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg></div>
-          <h3>Barcode scanning</h3>
-          <p>Webcam-based scanning &mdash; no expensive scanner hardware required. USB scanners work too.</p>
+          <h3>Lecture de codes-barres</h3>
+          <p>Scanner via la webcam &mdash; aucun lecteur coûteux requis. Les lecteurs USB fonctionnent aussi.</p>
         </div>
         <div class="feature">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg></div>
-          <h3>Loyalty points</h3>
-          <p>Built-in customer points and rewards that bring shoppers back to your counter.</p>
+          <h3>Points de fidélité</h3>
+          <p>Points clients et récompenses intégrés pour faire revenir vos clients à votre comptoir.</p>
         </div>
         <div class="feature">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-7"/></svg></div>
-          <h3>Sales reports</h3>
-          <p>Clear daily, monthly, category and profit reports &mdash; with invoices, refunds and debts handled too.</p>
+          <h3>Rapports de ventes</h3>
+          <p>Des rapports clairs quotidiens, mensuels, par catégorie et de bénéfices &mdash; factures, remboursements et dettes inclus.</p>
         </div>
         <div class="feature">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
-          <h3>Offline &amp; private</h3>
-          <p>Your data stays on your computer. No cloud subscription, no internet needed to work.</p>
+          <h3>Hors ligne et privé</h3>
+          <p>Vos données restent sur votre ordinateur. Pas d&rsquo;abonnement cloud, pas d&rsquo;internet nécessaire pour travailler.</p>
         </div>
       </div>
     </section>
 
     <section class="wrap">
-      <h2 class="section-title">See it in action</h2>
-      <p class="section-sub">Screenshots coming soon &mdash; the checkout, inventory and reports screens.</p>
+      <h2 class="section-title">Voyez-le en action</h2>
+      <p class="section-sub">Captures d&rsquo;écran bientôt disponibles &mdash; les écrans de caisse, d&rsquo;inventaire et de rapports.</p>
       <div class="shots">
-        <div class="shot"><span class="chip">Soon</span><div class="mock"></div>Checkout</div>
-        <div class="shot"><span class="chip">Soon</span><div class="mock"></div>Inventory</div>
-        <div class="shot"><span class="chip">Soon</span><div class="mock"></div>Reports</div>
+        <div class="shot"><span class="chip">Bientôt</span><div class="mock"></div>Encaissement</div>
+        <div class="shot"><span class="chip">Bientôt</span><div class="mock"></div>Inventaire</div>
+        <div class="shot"><span class="chip">Bientôt</span><div class="mock"></div>Rapports</div>
       </div>
     </section>
 
     <section class="wrap">
-      <h2 class="section-title">How the free trial works</h2>
-      <p class="section-sub">Up and running in about three minutes. One key per computer, no credit card.</p>
+      <h2 class="section-title">Comment fonctionne l&rsquo;essai gratuit</h2>
+      <p class="section-sub">Installé en trois minutes environ. Une clé par ordinateur, sans carte bancaire.</p>
       <div class="howto">
         <div class="step">
-          <b>Download</b>
-          <p>Grab the Windows installer from the button above.</p>
+          <b>Télécharger</b>
+          <p>Récupérez le programme d&rsquo;installation Windows avec le bouton ci-dessus.</p>
         </div>
         <div class="step">
-          <b>Install &amp; open</b>
-          <p>The activation screen shows this computer&rsquo;s Machine ID.</p>
+          <b>Installer &amp; ouvrir</b>
+          <p>L&rsquo;écran d&rsquo;activation affiche l&rsquo;identifiant machine de cet ordinateur.</p>
         </div>
         <div class="step">
-          <b>Start free trial</b>
-          <p>Enter your email and your 14-day trial key arrives in your inbox.</p>
+          <b>Démarrer l&rsquo;essai gratuit</b>
+          <p>Entrez votre e-mail et votre clé d&rsquo;essai de 14 jours arrive dans votre boîte de réception.</p>
         </div>
         <div class="step">
-          <b>Paste &amp; activate</b>
-          <p>Paste the key, click Activate and start selling.</p>
+          <b>Coller &amp; activer</b>
+          <p>Collez la clé, cliquez sur Activer et commencez à vendre.</p>
         </div>
       </div>
     </section>
 
     <section class="wrap">
-      <h2 class="section-title">Simple pricing</h2>
+      <h2 class="section-title">Tarif simple</h2>
       <div class="price-box">
-        <div class="amount">One-time purchase</div>
-        <p class="sub">Pay once, own it forever. Includes updates and support.</p>
+        <div class="amount">Achat unique</div>
+        <p class="sub">Payez une fois, possédez-le pour toujours. Mises à jour et support inclus.</p>
         <ul>
-          <li>All features included</li>
-          <li>Unlimited products &amp; customers</li>
-          <li>Free updates</li>
-          <li>No monthly fee, no cloud lock-in</li>
+          <li>Toutes les fonctionnalités incluses</li>
+          <li>Produits &amp; clients illimités</li>
+          <li>Mises à jour gratuites</li>
+          <li>Pas d&rsquo;abonnement mensuel, pas de verrouillage cloud</li>
         </ul>
-        <p class="cta-line">Contact us for your pharmacy&rsquo;s quote &mdash; <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a></p>
+        <p class="cta-line">Contactez-nous pour le devis de votre pharmacie &mdash; <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a></p>
       </div>
     </section>
 
     <section class="wrap">
-      <h2 class="section-title">Questions</h2>
+      <h2 class="section-title">Questions fréquentes</h2>
       <div class="faq">
         <details open>
-          <summary>Does the trial need a credit card?</summary>
-          <p>No. Just download, install and get your key by email. No card, no payment details.</p>
+          <summary>L&rsquo;essai nécessite-t-il une carte bancaire ?</summary>
+          <p>Non. Téléchargez, installez et recevez votre clé par e-mail. Ni carte, ni coordonnées de paiement.</p>
         </details>
         <details>
-          <summary>Is my data stored online?</summary>
-          <p>No. Everything is stored on your own computer. There is no cloud account and no subscription.</p>
+          <summary>Mes données sont-elles stockées en ligne ?</summary>
+          <p>Non. Tout est stocké sur votre propre ordinateur. Il n&rsquo;y a ni compte cloud ni abonnement.</p>
         </details>
         <details>
-          <summary>Do I need internet to use the software?</summary>
-          <p>No. Only the one-time trial activation needs internet. After that you can work fully offline.</p>
+          <summary>Ai-je besoin d&rsquo;internet pour utiliser le logiciel ?</summary>
+          <p>Non. Seule l&rsquo;activation unique de l&rsquo;essai nécessite internet. Ensuite, vous travaillez entièrement hors ligne.</p>
         </details>
         <details>
-          <summary>Do I need a barcode scanner?</summary>
-          <p>No. Mizan Suite can scan barcodes with any webcam, and also works with USB scanners and even just typing codes by hand.</p>
+          <summary>Ai-je besoin d&rsquo;un lecteur de codes-barres ?</summary>
+          <p>Non. Mizan Suite peut scanner les codes-barres avec n&rsquo;importe quelle webcam, fonctionne aussi avec les lecteurs USB et même en saisissant les codes à la main.</p>
         </details>
         <details>
-          <summary>What happens after the trial?</summary>
-          <p>Your data is safe and stays on your PC. Buy a license to keep using it, or just uninstall.</p>
+          <summary>Que se passe-t-il après l&rsquo;essai ?</summary>
+          <p>Vos données restent en sécurité sur votre PC. Achetez une licence pour continuer à utiliser le logiciel, ou désinstallez simplement.</p>
         </details>
         <details>
-          <summary>Can I migrate from another software?</summary>
-          <p>Yes. You can import product lists and supplier invoices from Excel files.</p>
+          <summary>Puis-je migrer depuis un autre logiciel ?</summary>
+          <p>Oui. Vous pouvez importer vos listes de produits et vos factures fournisseurs à partir de fichiers Excel.</p>
         </details>
       </div>
     </section>
@@ -325,7 +327,7 @@
   <footer>
     <div class="brand-line">Mizan Suite</div>
     <div><a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a></div>
-    <div style="margin-top:.4rem">&copy; 2026 Mizan Suite. All rights reserved.</div>
+    <div style="margin-top:.4rem">&copy; 2026 Mizan Suite. Tous droits réservés.</div>
   </footer>
 </body>
 </html>

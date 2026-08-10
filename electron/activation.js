@@ -9,13 +9,13 @@ const trialBtn = document.getElementById('trial-btn');
 const trialEmail = document.getElementById('trial-email');
 
 const REASONS = {
-  no_key: 'No license is installed on this computer yet.',
-  invalid_key: 'That does not look like a valid license key.',
-  invalid_signature: 'This license key is not valid for this software.',
-  expired: 'This license has expired. Contact your software provider for a renewed key.',
-  wrong_machine: 'This license key belongs to a different computer.',
-  clock_rollback: 'The computer clock was moved backwards. Correct the date and time, then restart the app.',
-  unknown: 'This license could not be verified.'
+  no_key: 'Aucune licence n\'est installée sur cet ordinateur pour le moment.',
+  invalid_key: 'Ceci ne ressemble pas à une clé de licence valide.',
+  invalid_signature: 'Cette clé de licence n\'est pas valide pour ce logiciel.',
+  expired: 'Cette licence a expiré. Contactez votre fournisseur de logiciel pour une nouvelle clé.',
+  wrong_machine: 'Cette clé de licence appartient à un autre ordinateur.',
+  clock_rollback: 'L\'horloge de l\'ordinateur a été reculée. Corrigez la date et l\'heure, puis redémarrez l\'application.',
+  unknown: 'Cette licence n\'a pas pu être vérifiée.'
 };
 
 function showStatus(message, type) {
@@ -28,13 +28,13 @@ function reasonText(reason) {
 }
 
 const TRIAL_REASONS = {
-  no_key: 'No license is installed on this computer yet.',
-  bad_email: 'Please enter a valid email address.',
-  already_tried: 'This computer already has a trial key. Check your inbox, or contact the software provider for a license.',
-  too_many: 'Too many requests. Please wait a few minutes and try again.',
-  missing_machine: 'Could not read this computer\'s Machine ID. Please restart the app.',
-  network: 'Could not reach the trial server. Check your internet connection and try again.',
-  unknown: 'Something went wrong requesting your trial. Please try again or contact the software provider.'
+  no_key: 'Aucune licence n\'est installée sur cet ordinateur pour le moment.',
+  bad_email: 'Veuillez saisir une adresse e-mail valide.',
+  already_tried: 'Cet ordinateur a déjà une clé d\'essai. Vérifiez votre boîte de réception, ou contactez le fournisseur du logiciel pour une licence.',
+  too_many: 'Trop de demandes. Veuillez patienter quelques minutes et réessayer.',
+  missing_machine: 'Impossible de lire l\'identifiant machine de cet ordinateur. Redémarrez l\'application.',
+  network: 'Impossible de contacter le serveur d\'essai. Vérifiez votre connexion internet et réessayez.',
+  unknown: 'Une erreur est survenue lors de la demande d\'essai. Réessayez ou contactez le fournisseur du logiciel.'
 };
 
 function trialReasonText(reason) {
@@ -44,20 +44,20 @@ function trialReasonText(reason) {
 async function init() {
   try {
     const machineId = await window.mizanLicense.getMachineId();
-    machineInput.value = machineId || '(unavailable)';
+    machineInput.value = machineId || '(indisponible)';
 
     const status = await window.mizanLicense.getStatus();
     if (status.status === 'ok') {
-      showStatus('This software is already activated.', 'ok');
+      showStatus('Ce logiciel est déjà activé.', 'ok');
       activateBtn.classList.add('disabled');
       licenseInput.disabled = true;
     } else if (status.status === 'expired' || status.status === 'wrong_machine' || status.status === 'clock_rollback' || status.status === 'invalid') {
       showStatus(reasonText(status.reason), 'error');
     } else {
-      showStatus('Activate this software to start using it.', 'warn');
+      showStatus('Activez ce logiciel pour commencer à l\'utiliser.', 'warn');
     }
   } catch (e) {
-    showStatus('Could not read the activation state. Please restart the app.', 'error');
+    showStatus('Impossible de lire l\'état d\'activation. Redémarrez l\'application.', 'error');
   }
 }
 
@@ -68,7 +68,7 @@ document.getElementById('copy-btn').addEventListener('click', async () => {
     machineInput.select();
     document.execCommand('copy');
   }
-  showStatus('Machine ID copied.', 'ok');
+  showStatus('Identifiant machine copié.', 'ok');
 });
 
 document.getElementById('quit-btn').addEventListener('click', async () => {
@@ -77,44 +77,44 @@ document.getElementById('quit-btn').addEventListener('click', async () => {
 
 activateBtn.addEventListener('click', async () => {
   const key = licenseInput.value.trim();
-  if (!key) return showStatus('Paste your license key first.', 'warn');
+  if (!key) return showStatus('Collez d\'abord votre clé de licence.', 'warn');
 
   activateBtn.classList.add('disabled');
-  activateBtn.textContent = 'Verifying...';
+  activateBtn.textContent = 'Vérification...';
   try {
     const result = await window.mizanLicense.activate(key);
     if (result.ok) {
-      showStatus('Activation successful. The app will open now.', 'ok');
+      showStatus('Activation réussie. L\'application va s\'ouvrir.', 'ok');
       licenseInput.value = '';
       activateBtn.classList.remove('disabled');
-      activateBtn.textContent = 'Activate';
+      activateBtn.textContent = 'Activer';
       // Give the user a moment to see the confirmation, then let main proceed.
       setTimeout(() => {
-        showStatus('Opening the app...', 'ok');
+        showStatus('Ouverture de l\'application...', 'ok');
         window.mizanLicense.activateFinished();
       }, 900);
     } else {
       showStatus(reasonText(result.reason), 'error');
       activateBtn.classList.remove('disabled');
-      activateBtn.textContent = 'Activate';
+      activateBtn.textContent = 'Activer';
     }
   } catch (e) {
-    showStatus('Activation failed unexpectedly. Please try again.', 'error');
+    showStatus('Échec inattendu de l\'activation. Réessayez.', 'error');
     activateBtn.classList.remove('disabled');
-    activateBtn.textContent = 'Activate';
+    activateBtn.textContent = 'Activer';
   }
 });
 
 trialBtn.addEventListener('click', async () => {
   const email = trialEmail.value.trim();
-  if (!email) return showStatus('Enter your email to get the free trial key.', 'warn');
+  if (!email) return showStatus('Entrez votre e-mail pour obtenir la clé d\'essai gratuit.', 'warn');
 
   trialBtn.classList.add('disabled');
-  trialBtn.textContent = 'Requesting trial...';
+  trialBtn.textContent = 'Demande d\'essai...';
   try {
     const result = await window.mizanLicense.requestTrial(email);
     if (result.ok) {
-      showStatus('Trial requested! Check your email for the key, then paste it below and click Activate.', 'ok');
+      showStatus('Essai demandé ! Vérifiez votre e-mail pour la clé, puis collez-la ci-dessous et cliquez sur Activer.', 'ok');
       trialEmail.value = '';
     } else {
       showStatus(trialReasonText(result.reason), 'error');
@@ -123,7 +123,7 @@ trialBtn.addEventListener('click', async () => {
     showStatus(trialReasonText('network'), 'error');
   } finally {
     trialBtn.classList.remove('disabled');
-    trialBtn.textContent = 'Start free trial';
+    trialBtn.textContent = 'Démarrer l\'essai gratuit';
   }
 });
 

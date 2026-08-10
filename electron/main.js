@@ -173,15 +173,15 @@ app.whenReady().then(async () => {
   //    the data folder name changed,
   // 2) otherwise the database bundled with the installer.
   // When running from the source folder (npm start / node server.js) we keep
-  // using the project's own parapharmacy.db exactly as before.
+  // using the project's own mizan.db exactly as before.
   if (app.isPackaged) {
     const userData = app.getPath('userData');
-    const dbPath = path.join(userData, 'parapharmacy.db');
+    const dbPath = path.join(userData, 'mizan.db');
     if (!fs.existsSync(dbPath)) {
       const candidates = [
         path.join(app.getPath('appData'), 'parapharmacy-app', 'parapharmacy.db'),
         path.join(app.getPath('appData'), 'AK Parapharmacie', 'parapharmacy.db'),
-        path.join(__dirname, '..', 'parapharmacy.db')
+        path.join(__dirname, '..', 'mizan.db')
       ];
       for (const source of candidates) {
         try {

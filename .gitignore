@@ -12,7 +12,7 @@ trial/queue.json
 trial/signer.env.json
 dist/
 node_modules/
-parapharmacy.db*
+mizan.db*
 backups/
 ssl/
 *.log

@@ -1,6 +1,6 @@
 // database.js
 // This file sets up our SQLite database and applies schema migrations.
-// SQLite stores everything in a single file (parapharmacy.db) - no server needed.
+// SQLite stores everything in a single file (mizan.db) - no server needed.
 
 // Node has a built-in SQLite module since v22 - no extra install/compilation needed.
 const { DatabaseSync } = require('node:sqlite');
@@ -10,7 +10,7 @@ const fs = require('fs');
 // "node server.js" (cwd = project folder) or via Electron (cwd can differ).
 // When run from a packaged Electron app, electron/main.js sets PARAVIE_DB_PATH
 // to the app's userData folder, because the app folder itself is read-only.
-const DB_PATH = process.env.PARAVIE_DB_PATH || path.join(__dirname, 'parapharmacy.db');
+const DB_PATH = process.env.PARAVIE_DB_PATH || path.join(__dirname, 'mizan.db');
 
 let db = new DatabaseSync(DB_PATH);
 

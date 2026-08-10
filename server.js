@@ -3485,7 +3485,7 @@ app.post('/api/settings', (req, res) => {
 // ---------- BACKUP ----------
 
 const BACKUP_DIR = process.env.PARAVIE_DATA_DIR || path.join(__dirname, 'backups');
-const DB_PATH = process.env.PARAVIE_DB_PATH || path.join(__dirname, 'parapharmacy.db');
+const DB_PATH = process.env.PARAVIE_DB_PATH || path.join(__dirname, 'mizan.db');
 const BACKUP_KEEP = 14; // auto-backups: how many most-recent to keep (manual ones are never pruned)
 
 // Make a timestamped snapshot of the live database into the backup folder.
@@ -3496,7 +3496,7 @@ const BACKUP_KEEP = 14; // auto-backups: how many most-recent to keep (manual on
 // Returns { file, size } or throws.
 function createBackup(manual = false) {
   if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
-  const prefix = manual ? 'manual-' : 'parapharmacy-';
+  const prefix = manual ? 'manual-' : 'mizan-';
   // VACUUM INTO refuses to overwrite, so if two backups land in the same second
   // (rapid manual clicks / tests), bump the name with a counter.
   let target = null;
@@ -3517,7 +3517,7 @@ function pruneOldBackups() {
   try {
     if (!fs.existsSync(BACKUP_DIR)) return;
     const files = fs.readdirSync(BACKUP_DIR)
-      .filter(f => f.startsWith('parapharmacy-') && f.endsWith('.db'))
+      .filter(f => f.startsWith('mizan-') && f.endsWith('.db'))
       .map(f => ({ f, t: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
       .sort((a, b) => b.t - a.t);
     for (const f of files.slice(BACKUP_KEEP)) {
@@ -3593,9 +3593,9 @@ app.post('/api/backup', (req, res) => {
 
 // GET - download the live database, or a specific backup via ?file=name.db
 app.get('/api/backup/download', (req, res) => {
-  const file = req.query.file || 'parapharmacy.db';
+  const file = req.query.file || 'mizan.db';
   const safe = path.basename(file); // prevent path traversal
-  const p = safe === 'parapharmacy.db' ? DB_PATH : path.join(BACKUP_DIR, safe);
+  const p = safe === 'mizan.db' ? DB_PATH : path.join(BACKUP_DIR, safe);
   if (!fs.existsSync(p)) return res.status(404).json({ error: 'Backup not found' });
   res.download(p);
 });
@@ -3607,7 +3607,7 @@ app.post('/api/backup/restore', (req, res) => {
   try {
     const file = (req.body && req.body.file) || '';
     const safe = path.basename(file); // prevent path traversal
-    if (!safe || safe === 'parapharmacy.db') {
+    if (!safe || safe === 'mizan.db') {
       return res.status(400).json({ error: 'Invalid backup file' });
     }
     const backupPath = path.join(BACKUP_DIR, safe);
@@ -3702,7 +3702,7 @@ app.get('/api/drives', (req, res) => {
 });
 
 // POST - copy a backup file to an external drive / folder.
-// body: { file: 'parapharmacy-...db', dest: 'E:\\' or 'E:\\Backups' or a full path }
+// body: { file: 'mizan-...db', dest: 'E:\\' or 'E:\\Backups' or a full path }
 app.post('/api/backup/export', (req, res) => {
   try {
     const file = (req.body && req.body.file) || '';
@@ -3710,7 +3710,7 @@ app.post('/api/backup/export', (req, res) => {
     const safe = path.basename(file);
     if (!safe) return res.status(400).json({ error: 'Invalid backup file' });
     if (!dest) return res.status(400).json({ error: 'Destination is required' });
-    const src = safe === 'parapharmacy.db' ? DB_PATH : path.join(BACKUP_DIR, safe);
+    const src = safe === 'mizan.db' ? DB_PATH : path.join(BACKUP_DIR, safe);
     if (!fs.existsSync(src)) return res.status(404).json({ error: 'Backup not found' });
 
     // A bare drive letter (e.g. "E:") becomes the drive root.

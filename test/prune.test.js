@@ -39,9 +39,9 @@ test.after(() => {
 });
 
 test('pruneOldBackups keeps only the most recent auto-backups', () => {
-  makeFiles('parapharmacy-', BACKUP_KEEP + 5);
+  makeFiles('mizan-', BACKUP_KEEP + 5);
   pruneOldBackups();
-  const left = fs.readdirSync(dir).filter(f => f.startsWith('parapharmacy-'));
+  const left = fs.readdirSync(dir).filter(f => f.startsWith('mizan-'));
   assert.strictEqual(left.length, BACKUP_KEEP);
 });
 
@@ -55,6 +55,6 @@ test('pruneOldBackups never removes manual backups', () => {
   pruneOldBackups();
   const manualAfter = fs.readdirSync(dir).filter(f => f.startsWith('manual-'));
   assert.deepStrictEqual(manualAfter.sort(), manualBefore.sort());
-  const autoAfter = fs.readdirSync(dir).filter(f => f.startsWith('parapharmacy-'));
+  const autoAfter = fs.readdirSync(dir).filter(f => f.startsWith('mizan-'));
   assert.strictEqual(autoAfter.length, BACKUP_KEEP);
 });

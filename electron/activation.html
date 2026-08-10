@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self'">
@@ -9,7 +9,7 @@
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
       color: #2b2b2b;
-      background: #f7f9f8;
+      background: #f4f7fb;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -26,11 +26,11 @@
     .logo {
       font-size: 1.6rem;
       font-weight: bold;
-      color: #1b6e5c;
+      color: #1e40af;
       text-align: center;
       margin-bottom: 0.2rem;
     }
-    .logo span { color: #4fc3a1; }
+    .logo span { color: #2563eb; }
     .sub {
       text-align: center;
       color: #666;
@@ -71,11 +71,11 @@
       font-weight: 600;
       cursor: pointer;
     }
-    .btn-primary { background: #1b6e5c; color: #fff; width: 100%; margin-top: 1.2rem; }
-    .btn-primary:hover { background: #155a4b; }
+    .btn-primary { background: #2563eb; color: #fff; width: 100%; margin-top: 1.2rem; }
+    .btn-primary:hover { background: #1e40af; }
     .btn-small { background: #eee; color: #333; padding: 0.5rem 0.9rem; font-size: 0.8rem; }
     .btn-small:hover { background: #ddd; }
-    .btn-link { background: none; color: #1b6e5c; text-decoration: underline; padding: 0.4rem; }
+    .btn-link { background: none; color: #2563eb; text-decoration: underline; padding: 0.4rem; }
     .hint { color: #888; font-size: 0.8rem; margin-top: 1.1rem; line-height: 1.45; }
     .hint b { color: #555; }
     .or { color: #999; font-size: .85rem; }
@@ -87,41 +87,41 @@
 <body>
   <div class="card">
     <div class="logo">Mizan Suite</div>
-    <p class="sub">Software activation</p>
+    <p class="sub">Activation du logiciel</p>
 
     <div id="status-box" class="status-box"></div>
 
-    <label for="machine-id">Machine ID (send this to your software provider)</label>
+    <label for="machine-id">Identifiant machine (envoyez-le à votre fournisseur)</label>
     <div class="machine">
       <input type="text" id="machine-id" readonly>
-      <button type="button" id="copy-btn" class="btn-small">Copy</button>
+      <button type="button" id="copy-btn" class="btn-small">Copier</button>
     </div>
 
-    <label for="license-key">License key</label>
-    <textarea id="license-key" placeholder="Paste your license key here (MZN-... )" spellcheck="false"></textarea>
+    <label for="license-key">Clé de licence</label>
+    <textarea id="license-key" placeholder="Collez votre clé de licence ici (MZN-... )" spellcheck="false"></textarea>
 
-    <label for="trial-email">Your email (for the free trial key)</label>
-    <input type="text" id="trial-email" placeholder="you@example.com" autocomplete="off">
+    <label for="trial-email">Votre e-mail (pour la clé d&rsquo;essai gratuit)</label>
+    <input type="text" id="trial-email" placeholder="vous@exemple.com" autocomplete="off">
 
-    <button type="button" id="trial-btn" class="btn-primary">Start free trial</button>
+    <button type="button" id="trial-btn" class="btn-primary">Démarrer l&rsquo;essai gratuit</button>
 
     <div style="text-align:center; margin-top:1rem;">
-      <span class="or">- or paste your key below -</span>
+      <span class="or">- ou collez votre clé ci-dessous -</span>
     </div>
 
-    <button type="button" id="activate-btn" class="btn-primary">Activate</button>
+    <button type="button" id="activate-btn" class="btn-primary">Activer</button>
     <div style="text-align:center; margin-top:0.6rem;">
-      <button type="button" id="quit-btn" class="btn-link">Quit</button>
+      <button type="button" id="quit-btn" class="btn-link">Quitter</button>
     </div>
 
     <p class="hint">
-      <b>How to activate:</b><br>
-      1. Click <b>Start free trial</b> and enter your email - a 14-day key is sent to your inbox.<br>
-      2. Or copy the <b>Machine ID</b> above and send it to your software provider.<br>
-      3. Paste the <b>license key</b> above and click <b>Activate</b>.
+      <b>Comment activer :</b><br>
+      1. Cliquez sur <b>Démarrer l&rsquo;essai gratuit</b> et entrez votre e-mail - une clé de 14 jours est envoyée à votre boîte de réception.<br>
+      2. Ou copiez l&rsquo;<b>identifiant machine</b> ci-dessus et envoyez-le à votre fournisseur.<br>
+      3. Collez la <b>clé de licence</b> ci-dessus et cliquez sur <b>Activer</b>.
     </p>
 
-    <p class="footer">Mizan Suite &middot; License: one computer per key</p>
+    <p class="footer">Mizan Suite &middot; Licence : une clé par ordinateur</p>
   </div>
 
   <script src="activation.js"></script>

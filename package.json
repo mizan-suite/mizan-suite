@@ -22,7 +22,7 @@
       "ocr.js",
       "pdf.js",
       "ocr/**/*",
-      "parapharmacy.db",
+      "mizan.db",
       "electron/**/*",
       "public/**/*",
       "node_modules/**/*",

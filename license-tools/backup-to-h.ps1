@@ -59,8 +59,8 @@ $items += @{
   Target = 'license-tools/trial-public.key'
 }
 $items += @{
-  Source = Join-Path $root 'parapharmacy.db'
-  Target = 'parapharmacy.db'
+  Source = Join-Path $root 'mizan.db'
+  Target = 'mizan.db'
 }
 
 $missing = $items | Where-Object { -not (Test-Path $_.Source) }
