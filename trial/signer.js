@@ -237,7 +237,7 @@ async function handleRequest(req) {
         `Trial key expires: ${result.payload.expires}`,
         'Questions? Reply to this email and we will help.',
         '',
-        'P.S. Vous connaissez une autre pharmacie ? Recommandez Mizan Suite : vous et',
+        'P.S. Vous connaissez un autre commerce ? Recommandez Mizan Suite : vous et',
         'votre contact obtenez chacun une remise sur la licence. Dites-nous qui vous a',
         'recommand\u00e9 lorsque vous commandez.'
       ].join('\n')
