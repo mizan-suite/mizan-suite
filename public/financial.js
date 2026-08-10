@@ -11,6 +11,11 @@ const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, c
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[ch]));
 
+// Reads a CSS variable from the active theme (matches the dashboard's pattern).
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function periodLabels() {
   return {
     daily: I18N.t('financial.today'), weekly: I18N.t('financial.thisWeek'),
@@ -58,7 +63,7 @@ async function loadReport() {
 
   const netEl = document.getElementById('period-net');
   netEl.textContent = data.current.netProfit.toFixed(2) + ' DA';
-  netEl.style.color = data.current.netProfit >= 0 ? '#1b6e5c' : '#c0392b';
+  netEl.style.color = data.current.netProfit >= 0 ? cssVar('--accent') || '#1b6e5c' : '#c0392b';
 
   // Expenses by category
   const catEl = document.getElementById('expense-categories');
@@ -74,14 +79,20 @@ async function loadReport() {
   const ctx = document.getElementById('financial-chart');
   if (financialChart) financialChart.destroy();
 
+  // Chart colors come from the active theme so they always match the app's
+  // accent colour (green/blue/purple/...), like the dashboard charts.
+  const accent = cssVar('--accent') || '#1b6e5c';
+  const accentLight = cssVar('--accent-light') || '#2a9d7f';
+  const accentBright = cssVar('--accent-bright') || '#7fd9b9';
+
   financialChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: series.map(s => s.label),
       datasets: [
-        { label: I18N.t('financial.income'), data: series.map(s => s.income), backgroundColor: '#4fc3a1' },
+        { label: I18N.t('financial.income'), data: series.map(s => s.income), backgroundColor: accentLight },
         { label: I18N.t('financial.expenses'), data: series.map(s => s.expenses), backgroundColor: '#e74c3c' },
-        { label: I18N.t('financial.netProfit'), data: series.map(s => s.netProfit), backgroundColor: '#1b6e5c' }
+        { label: I18N.t('financial.netProfit'), data: series.map(s => s.netProfit), backgroundColor: accent }
       ]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }

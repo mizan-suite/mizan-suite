@@ -72,6 +72,11 @@ const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, c
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[ch]));
 
+// Reads a CSS variable from the active theme (matches the dashboard's pattern).
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function analyticsParams() {
   const params = new URLSearchParams();
   const from = document.getElementById('custom-from').value;
@@ -114,14 +119,19 @@ async function loadAnalytics() {
   listConfig.never.page = 1;
   renderAnalyticsList(listConfig.never);
 
+  // Chart colors come from the active theme so they always match the app's
+  // accent colour (green/blue/purple/...), like the dashboard charts.
+  const accent = cssVar('--accent') || '#1b6e5c';
+  const accentLight = cssVar('--accent-light') || '#2a9d7f';
+
   // ---------- Monthly comparison chart ----------
   new Chart(document.getElementById('monthly-chart'), {
     type: 'bar',
     data: {
       labels: [data.monthlyComparison.lastMonth.label, data.monthlyComparison.thisMonth.label],
       datasets: [
-        { label: I18N.t('analytics.income'), data: [data.monthlyComparison.lastMonth.income, data.monthlyComparison.thisMonth.income], backgroundColor: '#4fc3a1' },
-        { label: I18N.t('analytics.profit'), data: [data.monthlyComparison.lastMonth.profit, data.monthlyComparison.thisMonth.profit], backgroundColor: '#1b6e5c' }
+        { label: I18N.t('analytics.income'), data: [data.monthlyComparison.lastMonth.income, data.monthlyComparison.thisMonth.income], backgroundColor: accentLight },
+        { label: I18N.t('analytics.profit'), data: [data.monthlyComparison.lastMonth.profit, data.monthlyComparison.thisMonth.profit], backgroundColor: accent }
       ]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
@@ -133,8 +143,8 @@ async function loadAnalytics() {
     data: {
       labels: [data.yearlyComparison.lastYear.label, data.yearlyComparison.thisYear.label],
       datasets: [
-        { label: I18N.t('analytics.income'), data: [data.yearlyComparison.lastYear.income, data.yearlyComparison.thisYear.income], backgroundColor: '#4fc3a1' },
-        { label: I18N.t('analytics.profit'), data: [data.yearlyComparison.lastYear.profit, data.yearlyComparison.thisYear.profit], backgroundColor: '#1b6e5c' }
+        { label: I18N.t('analytics.income'), data: [data.yearlyComparison.lastYear.income, data.yearlyComparison.thisYear.income], backgroundColor: accentLight },
+        { label: I18N.t('analytics.profit'), data: [data.yearlyComparison.lastYear.profit, data.yearlyComparison.thisYear.profit], backgroundColor: accent }
       ]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
@@ -148,7 +158,7 @@ async function loadAnalytics() {
       datasets: [{
         label: I18N.t('analytics.revenue'),
         data: data.salesByCategory.map(c => c.revenue),
-        backgroundColor: '#1b6e5c'
+        backgroundColor: accent
       }]
     },
     options: {
