@@ -14,3 +14,11 @@ contextBridge.exposeInMainWorld('akPrint', {
   // cannot rasterize. -> { ok, error? }
   printRaw: (options) => ipcRenderer.invoke('print:raw', options)
 });
+
+// Fixes the Electron Windows bug where inputs become untypable after an
+// alert()/confirm() dialog closes (delete works, typing doesn't). The renderer
+// calls this after each native dialog; the main process blurs/refocuses the
+// window to restore its focus chain.
+contextBridge.exposeInMainWorld('akFocusFix', {
+  run: () => ipcRenderer.send('focus-fix')
+});

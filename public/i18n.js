@@ -3665,3 +3665,36 @@ document.addEventListener('DOMContentLoaded', () => {
   I18N.apply();
   I18N.load();
 });
+
+// Workaround for a long-standing Electron bug on Windows (issues #19977,
+// #20821, #31917, #41603): after a native alert()/confirm() dialog closes, the
+// window's focus chain breaks and inputs accept Backspace/Delete but ignore
+// typed characters until the user alt-tabs away and back. This wraps both
+// dialogs to ask the main process to blur/refocus the window afterwards. In a
+// plain browser (no Electron preload) the bridge does not exist and this is a
+// harmless no-op, so behavior stays identical everywhere.
+(function () {
+  if (typeof window === 'undefined') return;
+  const fixFocus = () => {
+    try {
+      if (window.akFocusFix && typeof window.akFocusFix.run === 'function') {
+        window.akFocusFix.run();
+      }
+    } catch (e) { /* ignore - non-Electron or preload unavailable */ }
+  };
+
+  const nativeAlert = window.alert;
+  const nativeConfirm = window.confirm;
+
+  window.alert = function (message) {
+    const result = nativeAlert.call(window, message);
+    fixFocus();
+    return result;
+  };
+
+  window.confirm = function (message) {
+    const result = nativeConfirm.call(window, message);
+    fixFocus();
+    return result;
+  };
+})();

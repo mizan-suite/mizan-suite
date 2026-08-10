@@ -393,6 +393,20 @@ function writeToPrinter(target, buffer) {
   });
 }
 
+// Workaround for a long-standing Electron bug on Windows (issues #19977,
+// #20821, #31917, #41603): after a native alert()/confirm() dialog closes, the
+// BrowserWindow's focus chain breaks. Inputs keep accepting Backspace/Delete,
+// but typed characters are ignored until the user alt-tabs away and back (or
+// reloads the page). Blurring and refocusing the window from the main process
+// restores it. The renderer calls this right after every alert()/confirm().
+ipcMain.on('focus-fix', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    win.blur();
+    win.focus();
+  }
+});
+
 // Catch anything else that would otherwise crash silently
 process.on('uncaughtException', (err) => {
   log(`UNCAUGHT EXCEPTION: ${err.message}\n${err.stack}`);
