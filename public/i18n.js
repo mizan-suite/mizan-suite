@@ -3511,7 +3511,21 @@ const I18N = (function () {
         val = val.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
       });
     }
-    return val;
+    // Some dictionary values are written with HTML entities (e.g. '&amp;' for
+    // '&'). They are safe when injected via innerHTML but show up literally
+    // when assigned with textContent (which I18N.apply() uses). Decode the
+    // common entities so both paths render correctly.
+    return val
+      .replace(/&nbsp;/g, '\u00a0')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&rarr;/g, '→')
+      .replace(/&mdash;/g, '—')
+      .replace(/&rsquo;/g, '\u2019')
+      .replace(/&ndash;/g, '–');
   }
 
   function paymentMethod(code) {
