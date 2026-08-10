@@ -1,7 +1,7 @@
 {
   "name": "MIZAN - Mobile",
   "short_name": "MIZAN",
-  "description": "Follow your pharmacy from your phone: sales, purchases, stock and alerts.",
+  "description": "Follow your shop from your phone: sales, purchases, stock and alerts.",
   "start_url": "mobile.html",
   "scope": ".",
   "display": "standalone",

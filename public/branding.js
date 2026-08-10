@@ -1,7 +1,7 @@
 // branding.js - configurable shop identity (name / address / phone / logo) used
 // on printed documents: cashier receipts, invoices, purchase-order factures and
 // barcode labels. Reads the shop_* settings from the server and caches them so
-// every printable document can show the pharmacy's own brand.
+// every printable document can show the shop's own brand.
 (function () {
   const DEFAULT_NAME = 'Mizan Suite';
 
