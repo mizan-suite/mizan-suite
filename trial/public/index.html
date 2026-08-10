@@ -125,7 +125,7 @@
     }
     .lightbox.open { display: flex; }
     .lightbox .lb-stage { display: flex; flex-direction: column; align-items: center; gap: .7rem; }
-    .lightbox img { max-width: 100%; max-height: 82vh; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); user-select: none; }
+    .lightbox img { max-width: 100%; max-height: 82vh; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); user-select: none; transition: transform .18s ease; }
     .lightbox .lb-caption { color: #fff; font-size: .95rem; letter-spacing: .01em; }
     .lightbox .lb-close {
       position: absolute; top: 1rem; right: 1.4rem; background: none; border: none;
@@ -146,14 +146,16 @@
       .lightbox .lb-next { right: .4rem; }
     }
     @media (max-width: 720px) {
+      .lightbox { padding: .5rem; }
+      .lightbox img { max-height: 92vh; }
       .shots {
         display: flex; overflow-x: auto; gap: 1rem;
         margin: 0 -1rem; padding: 0 1rem 1rem;
         scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
       }
       .shots .shot { flex: 0 0 86%; scroll-snap-align: center; }
-      .lightbox img { max-height: 88vh; }
     }
+    .lightbox.lb-zooming img { transition: none; }
 
     /* how it works */
     .howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; counter-reset: step; }
@@ -407,13 +409,7 @@
       var labels = Array.prototype.slice.call(document.querySelectorAll('.shots .shot .shot-label'));
       var idx = 0;
 
-      function show(i) {
-        idx = (i + imgs.length) % imgs.length;
-        lbImg.src = imgs[idx].getAttribute('src');
-        caption.textContent = (idx + 1) + ' / ' + imgs.length +
-          (labels[idx] && labels[idx].textContent ? ' — ' + labels[idx].textContent : '');
-      }
-      function hide() { lb.classList.remove('open'); lbImg.removeAttribute('src'); }
+      function hide() { lb.classList.remove('open'); lbImg.removeAttribute('src'); resetZoom(); }
 
       imgs.forEach(function (img, i) {
         img.addEventListener('click', function () { show(i); lb.classList.add('open'); });
@@ -429,21 +425,90 @@
         else if (e.key === 'ArrowRight') show(idx + 1);
       });
 
-      var startX = 0, startY = 0, tracking = false;
+      var scale = 1, tx = 0, ty = 0;
+      var pinchStart = null, panStart = null, swipeStart = null, lastTap = 0;
+      function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+      function applyTransform() {
+        lbImg.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+      }
+      function resetZoom() { scale = 1; tx = 0; ty = 0; lbImg.style.transform = ''; }
+      function show(i) {
+        idx = (i + imgs.length) % imgs.length;
+        lbImg.src = imgs[idx].getAttribute('src');
+        resetZoom();
+        caption.textContent = (idx + 1) + ' / ' + imgs.length +
+          (labels[idx] && labels[idx].textContent ? ' — ' + labels[idx].textContent : '');
+      }
+
       lb.addEventListener('touchstart', function (e) {
-        var t = e.changedTouches[0];
-        startX = t.clientX; startY = t.clientY; tracking = true;
+        if (e.touches.length === 2) {
+          pinchStart = {
+            dist: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY),
+            scale: scale
+          };
+          swipeStart = null; panStart = null;
+          lb.classList.add('lb-zooming');
+        } else if (e.touches.length === 1) {
+          var t = e.changedTouches[0];
+          if (scale > 1) {
+            panStart = { x: t.clientX, y: t.clientY, tx: tx, ty: ty };
+            swipeStart = null;
+            lb.classList.add('lb-zooming');
+          } else {
+            swipeStart = { x: t.clientX, y: t.clientY, t: Date.now() };
+            panStart = null;
+          }
+        }
       }, { passive: true });
-      lb.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+
+      lb.addEventListener('touchmove', function (e) {
+        if (e.touches.length === 2 && pinchStart) {
+          e.preventDefault();
+          var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+          scale = clamp(pinchStart.scale * (d / pinchStart.dist), 1, 4);
+          applyTransform();
+        } else if (e.touches.length === 1 && panStart) {
+          e.preventDefault();
+          var t = e.touches[0];
+          tx = panStart.tx + (t.clientX - panStart.x);
+          ty = panStart.ty + (t.clientY - panStart.y);
+          applyTransform();
+        } else if (e.touches.length === 1 && swipeStart) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+
       lb.addEventListener('touchend', function (e) {
-        if (!tracking) return;
-        tracking = false;
         var t = e.changedTouches[0];
-        var dx = t.clientX - startX, dy = t.clientY - startY;
-        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-          if (dx < 0) show(idx + 1); else show(idx - 1);
+        if (e.touches.length < 2) { pinchStart = null; }
+        if (e.touches.length === 0) {
+          lb.classList.remove('lb-zooming');
+          if (panStart) { panStart = null; return; }
+          if (swipeStart) {
+            var dx = t.clientX - swipeStart.x, dy = t.clientY - swipeStart.y;
+            var dt = Date.now() - swipeStart.t;
+            var isTap = dt < 300 && Math.hypot(dx, dy) < 15;
+            if (isTap) {
+              var now = Date.now();
+              if (now - lastTap < 300) {
+                if (scale > 1) resetZoom();
+                else { scale = 3; applyTransform(); }
+                lastTap = 0;
+              } else { lastTap = now; }
+            } else if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+              if (dx < 0) show(idx + 1); else show(idx - 1);
+            }
+            swipeStart = null;
+          }
         }
       });
+
+      lb.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        if (e.deltaY < 0) scale = clamp(scale * 1.12, 1, 4);
+        else scale = clamp(scale / 1.12, 1, 4);
+        applyTransform();
+      }, { passive: false });
     })();
   </script>
 </body>
