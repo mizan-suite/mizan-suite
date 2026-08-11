@@ -5,7 +5,7 @@
 // This tool runs ONLY on YOUR computer. It:
 //   1. On first run, creates the keypair (private.key / public.key) in this folder.
 //   2. Lets you issue a license key for one client with:
-//        node generate-license.js --client "Pharmacy X" --machine-id "<hash>" [--expires 2027-08-01]
+//        node generate-license.js --client "Pharmacy X" --machine-id "<hash>" [--expires 2027-08-01] [--tier basic|pro]
 //
 // The license key is printed to the console. Send it to the client manually
 // (WhatsApp / email). It locks the app to one machine via --machine-id.
@@ -13,6 +13,7 @@
 // Usage:
 //   node generate-license.js --client "Client Name" --machine-id "<hash>"
 //   node generate-license.js --client "Client Name" --machine-id "<hash>" --expires 2027-08-01
+//   node generate-license.js --client "Client Name" --machine-id "<hash>" --tier basic
 //   node generate-license.js --help
 //
 // Safety:
@@ -55,7 +56,7 @@ function usage() {
 Mizan Suite license generator
 =======================
 Issue a key:
-  node generate-license.js --client "Pharmacy X" --machine-id "<hash>" [--expires 2027-08-01]
+  node generate-license.js --client "Pharmacy X" --machine-id "<hash>" [--expires 2027-08-01] [--tier basic|pro]
 
 Machine ID: ask the client to open the app -> Activation screen -> copy the machine ID,
 or read it from their PC. Leave --machine-id empty string "" to issue a machine-free key.
@@ -67,12 +68,13 @@ Other:
 }
 
 function parseArgs(argv) {
-  const args = { client: null, machineId: null, expires: null };
+  const args = { client: null, machineId: null, expires: null, tier: 'pro' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--client') args.client = argv[++i];
     else if (a === '--machine-id') args.machineId = argv[++i];
     else if (a === '--expires') args.expires = argv[++i];
+    else if (a === '--tier') args.tier = argv[++i];
     else if (a === '--export-public') args.exportPublic = true;
     else if (a === '--help' || a === '-h') args.help = true;
   }
@@ -98,16 +100,20 @@ function main() {
     process.exit(1);
   }
 
+  const tier = args.tier === 'basic' ? 'basic' : 'pro';
+
   const { secretKey } = loadOrCreateKeypair();
 
   // Build the payload. Fields:
   //   client     - shop/client display name (shown as "Licensed to").
   //   machineId  - hardware fingerprint, or null for a machine-free key.
+  //   tier       - 'basic' (cashier + inventory) or 'pro' (full access, default).
   //   expires    - optional expiry "YYYY-MM-DD", or null for a permanent key.
   //   issued     - today's date, informational.
   const payload = {
     client: String(args.client).trim(),
     machineId: args.machineId && String(args.machineId).trim() ? String(args.machineId).trim() : null,
+    tier,
     expires: args.expires || null,
     issued: new Date().toISOString().slice(0, 10)
   };

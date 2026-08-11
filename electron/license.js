@@ -159,6 +159,12 @@ function lastValidTime(userDataDir) {
   }
 }
 
+// Edition of an issued license. Missing tier = full access (backward compat:
+// every key issued before tiers existed, plus all trial keys, are PRO).
+function tierOf(payload) {
+  return payload && payload.tier === 'basic' ? 'basic' : 'pro';
+}
+
 // Full app-level check used at every launch:
 //   1. no stored license                      -> needs activation
 //   2. signature/format bad                   -> invalid
@@ -177,7 +183,7 @@ function checkLicenseStatus(userDataDir, nowMs = Date.now(), publicKeyOverride) 
       // Grace period on hardware change.
       const last = lastValidTime(userDataDir);
       if (last !== null && nowMs - last <= GRACE_MS && nowMs >= last) {
-        return { status: 'ok', reason: 'machine_grace', client: result.payload ? result.payload.client : null, payload: result.payload };
+        return { status: 'ok', reason: 'machine_grace', client: result.payload ? result.payload.client : null, payload: result.payload, tier: tierOf(result.payload) };
       }
       return { status: 'wrong_machine', reason: 'wrong_machine', client: result.payload ? result.payload.client : null };
     }
@@ -193,7 +199,7 @@ function checkLicenseStatus(userDataDir, nowMs = Date.now(), publicKeyOverride) 
   }
 
   touchLastValid(userDataDir, nowMs);
-  return { status: 'ok', reason: 'valid', client: result.payload.client, payload: result.payload };
+  return { status: 'ok', reason: 'valid', client: result.payload.client, payload: result.payload, tier: tierOf(result.payload) };
 }
 
 module.exports = {

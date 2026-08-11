@@ -185,11 +185,21 @@
     .step p { font-size: .92rem; color: var(--muted); }
 
     /* pricing */
+    .price-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.4rem;
+      max-width: 880px;
+      margin: 0 auto;
+    }
     .price-box {
       max-width: 460px; margin: 0 auto; text-align: center;
       background: var(--card); border: 1px solid var(--line); border-radius: 18px;
       padding: 2.4rem 2rem; box-shadow: 0 6px 24px rgba(37,99,235,.08);
+      position: relative;
     }
+    .price-box-pro { border-color: var(--blue); box-shadow: 0 10px 30px rgba(37,99,235,.18); }
+    .price-sub { text-align: center; color: var(--muted); max-width: 44rem; margin: 0 auto 1.6rem; }
     .price-box .amount { font-size: 2.2rem; font-weight: 700; color: var(--blue-dark); }
     .price-box .sub { color: var(--muted); margin-top: .6rem; font-size: .98rem; }
     .price-box ul { list-style: none; margin: 1.4rem 0 1.8rem; text-align: left; display: inline-block; }
@@ -200,43 +210,16 @@
 
     .price-box .price-new { font-size: 3rem; font-weight: 800; color: var(--blue); }
 
-    .price-box .price-includes { display: block; margin-top: .7rem; font-size: .95rem; color: var(--muted); max-width: 34rem; margin-left: auto; margin-right: auto; }
-
     .price-box .cta-line { color: var(--muted); font-size: .92rem; }
 
-    /* ---------- limited-time offer ---------- */
     .offer-badge {
-      display: inline-block; background: #f59e0b; color: #fff; font-weight: 700;
-      font-size: .78rem; letter-spacing: .05em; text-transform: uppercase;
-      padding: .32rem .85rem; border-radius: 999px; margin-bottom: .9rem;
-      animation: pulse-badge 1.6s infinite;
+      display: inline-block; background: var(--blue-tint); color: var(--blue-dark);
+      font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase;
+      padding: .3rem .9rem; border-radius: 999px; margin-bottom: .6rem;
     }
-    @keyframes pulse-badge {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,.55); }
-      50% { box-shadow: 0 0 0 9px rgba(245,158,11,0); }
-    }
+    .offer-badge.badge-pro { background: #f5b301; color: #263238; }
     .price-row { display: flex; align-items: baseline; justify-content: center; gap: .9rem; flex-wrap: wrap; }
-    .price-old { font-size: 1.3rem; color: #9aa5b1; text-decoration: line-through; }
-    .price-save {
-      font-size: .82rem; font-weight: 700; color: #fff; background: #dc2626;
-      padding: .22rem .7rem; border-radius: 999px;
-    }
-    .countdown {
-      display: flex; gap: .55rem; justify-content: center; align-items: center;
-      margin: 1.5rem auto 1.7rem; max-width: 390px;
-    }
-    .countdown .cd-box {
-      flex: 1; background: var(--blue-darker); color: #fff; border-radius: 12px;
-      padding: .65rem .3rem; text-align: center; box-shadow: 0 4px 14px rgba(30,58,138,.28);
-    }
-    .countdown .cd-num { font-size: 1.7rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-    .countdown .cd-label { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; opacity: .85; }
-    .countdown .cd-sep { font-size: 1.4rem; font-weight: 800; color: var(--blue-light); }
-    .offer-line { font-weight: 600; color: #b45309; margin-top: .3rem; font-size: .95rem; }
-    .offer-ended { display: none; font-weight: 700; color: #dc2626; margin-top: .6rem; }
-    .offer-guarantee { margin-top: .7rem; font-weight: 700; color: var(--blue); font-size: .98rem; }
-    .multi-store { margin-top: .9rem; font-size: .92rem; color: var(--muted); }
-    .multi-store b { color: var(--blue); }
+    .price-includes-solo { max-width: 46rem; text-align: center; margin: 1.4rem auto 0; }
     .offer-cta {
       display: inline-block; margin-top: 1.4rem; background: var(--blue); color: #fff;
       font-weight: 700; padding: .95rem 2.2rem; border-radius: 10px; text-decoration: none;
@@ -244,9 +227,6 @@
       transition: transform .15s, box-shadow .15s;
     }
     .offer-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(37,99,235,.5); }
-    @media (max-width: 420px) {
-      .countdown .cd-num { font-size: 1.35rem; }
-    }
     /* faq */
     .faq { max-width: 760px; margin: 0 auto; }
     .faq details {
@@ -388,40 +368,51 @@
 
     <section class="wrap">
       <h2 class="section-title">Tarif simple</h2>
-      <div class="price-box">
-        <span class="offer-badge">Offre de lancement</span>
-        <div class="amount">Achat unique</div>
-        <p class="sub">Payez une fois, possédez-le pour toujours. Mises à jour et support inclus.</p>
-        <div class="price-main">
-          <div class="price-row">
-            <span class="price-old">60&nbsp;000&nbsp;DA</span>
-            <span class="price-new">45&nbsp;000&nbsp;DA</span>
-            <span class="price-save">-25%</span>
+      <p class="price-sub">Paiement unique, propriété à vie. Mises à jour et support inclus. Chaque licence couvre une machine.</p>
+      <div class="price-grid">
+        <div class="price-box">
+          <span class="offer-badge">Basic</span>
+          <div class="amount">Achat unique</div>
+          <div class="price-main">
+            <div class="price-row">
+              <span class="price-new">35&nbsp;000&nbsp;DA</span>
+            </div>
           </div>
-          <span class="price-includes">Installation &amp; mise en place sur site gratuites, 3 mois de support gratuit (correctifs de bugs), priorité sur vos demandes de fonctionnalités</span>
+          <p class="sub">L&rsquo;essentiel pour démarrer et vendre au quotidien.</p>
+          <ul>
+            <li>Encaissement &amp; reçus de vente</li>
+            <li>Inventaire &amp; produits</li>
+            <li>Étiquettes de prix</li>
+            <li>Gestion du stock</li>
+            <li>Remboursements &amp; échanges</li>
+          </ul>
+          <a class="offer-cta" href="/download">Essayer gratuitement 14 jours</a>
+          <p class="cta-line">Commander — <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a> &nbsp;&bull;&nbsp; <a href="https://www.instagram.com/mizansuite/?utm_source=ig_web_button_share_sheet" target="_blank" rel="noopener">@mizansuite</a></p>
         </div>
-        <div class="countdown" id="offer-countdown">
-          <div class="cd-box"><div class="cd-num" id="cd-days">7</div><div class="cd-label">Jours</div></div>
-          <div class="cd-sep">:</div>
-          <div class="cd-box"><div class="cd-num" id="cd-hours">00</div><div class="cd-label">Heures</div></div>
-          <div class="cd-sep">:</div>
-          <div class="cd-box"><div class="cd-num" id="cd-min">00</div><div class="cd-label">Min</div></div>
-          <div class="cd-sep">:</div>
-          <div class="cd-box"><div class="cd-num" id="cd-sec">00</div><div class="cd-label">Sec</div></div>
+
+        <div class="price-box price-box-pro">
+          <span class="offer-badge badge-pro">PRO</span>
+          <div class="amount">Achat unique</div>
+          <div class="price-main">
+            <div class="price-row">
+              <span class="price-new">60&nbsp;000&nbsp;DA</span>
+            </div>
+          </div>
+          <p class="sub">La gestion complète de votre commerce, sans limites.</p>
+          <ul>
+            <li>Tout ce que contient Basic</li>
+            <li>Achats &amp; fournisseurs</li>
+            <li>Péremption &amp; réapprovisionnement</li>
+            <li>Dettes &amp; clients + fidélité</li>
+            <li>Facturation &amp; devis</li>
+            <li>Finances, rapports &amp; statistiques</li>
+          </ul>
+          <a class="offer-cta" href="/download">Essayer gratuitement 14 jours</a>
+          <p class="cta-line">Commander — <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a> &nbsp;&bull;&nbsp; <a href="https://www.instagram.com/mizansuite/?utm_source=ig_web_button_share_sheet" target="_blank" rel="noopener">@mizansuite</a></p>
         </div>
-        <p class="offer-line">Offre limitée &mdash; le prix revient à 60&nbsp;000&nbsp;DA à la fin du compte &agrave; rebours.</p>
-        <p class="offer-ended" id="offer-ended">Cette offre est terminée &mdash; contactez-nous pour le tarif en vigueur.</p>
-        <a class="offer-cta" href="/download">Profiter de l&rsquo;offre &mdash; Télécharger</a>
-        <p class="offer-guarantee">Garantie 7 jours satisfait ou remboursé</p>
-        <ul>
-          <li>Toutes les fonctionnalités incluses</li>
-          <li>Produits &amp; clients illimités</li>
-          <li>Mises à jour gratuites</li>
-          <li>Pas d&rsquo;abonnement mensuel, pas de verrouillage cloud</li>
-        </ul>
-        <p class="multi-store">Vous avez plusieurs magasins ? 2&egrave;me licence &agrave; <b>-50%</b>.</p>
-        <p class="cta-line">Contactez-nous pour commander &mdash; <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a> &nbsp;&bull;&nbsp; <a href="https://www.instagram.com/mizansuite/?utm_source=ig_web_button_share_sheet" target="_blank" rel="noopener">@mizansuite</a></p>
       </div>
+      <p class="price-includes price-includes-solo">Installation &amp; mise en place sur site gratuites, 3 mois de support gratuit (correctifs de bugs), priorité sur vos demandes de fonctionnalités. Vous avez plusieurs magasins ? 2&egrave;me licence &agrave; <b>-50%</b>.</p>
+      <p class="price-includes price-includes-solo">Garantie 7 jours satisfait ou remboursé.</p>
     </section>
 
     <section class="wrap">
@@ -588,33 +579,6 @@
         else scale = clamp(scale / 1.12, 1, 4);
         applyTransform();
       }, { passive: false });
-
-      // ---------- limited-time offer countdown (7 days from first visit) ----------
-      var cd = document.getElementById('offer-countdown');
-      var ended = document.getElementById('offer-ended');
-      var offerLine = document.querySelector('.offer-line');
-      var deadline = 0;
-      try { deadline = parseInt(localStorage.getItem('mizan_offer_deadline'), 10) || 0; } catch (e) {}
-      if (!deadline) {
-        deadline = Date.now() + 7 * 24 * 60 * 60 * 1000;
-        try { localStorage.setItem('mizan_offer_deadline', deadline); } catch (e) {}
-      }
-      function pad2(n) { return (n < 10 ? '0' : '') + n; }
-      function tickOffer() {
-        var diff = deadline - Date.now();
-        if (diff <= 0) {
-          cd.style.display = 'none';
-          if (offerLine) offerLine.style.display = 'none';
-          ended.style.display = 'block';
-          return;
-        }
-        document.getElementById('cd-days').textContent = Math.floor(diff / 86400000);
-        document.getElementById('cd-hours').textContent = pad2(Math.floor(diff % 86400000 / 3600000));
-        document.getElementById('cd-min').textContent = pad2(Math.floor(diff % 3600000 / 60000));
-        document.getElementById('cd-sec').textContent = pad2(Math.floor(diff % 60000 / 1000));
-      }
-      tickOffer();
-      setInterval(tickOffer, 1000);
     })();
   </script>
 </body>

@@ -100,6 +100,51 @@ test('checkLicenseStatus: unlicensed -> licensed -> expiry states', () => {
   assert.strictEqual(exp.status, 'expired');
 });
 
+test('a key without a tier field counts as PRO (backward compat)', () => {
+  const dir = makeUserDataDir();
+  const key = makeKey(GOOD_PAYLOAD); // no tier field
+  license.saveLicense(dir, key);
+  license.touchLastValid(dir, new Date('2026-08-07').getTime());
+
+  const ok = license.checkLicenseStatus(dir, new Date('2026-08-07').getTime(), TEST_PUB);
+  assert.strictEqual(ok.status, 'ok');
+  assert.strictEqual(ok.tier, 'pro');
+});
+
+test('a basic-tier key is reported as basic', () => {
+  const dir = makeUserDataDir();
+  const key = makeKey({ ...GOOD_PAYLOAD, tier: 'basic' });
+  license.saveLicense(dir, key);
+  license.touchLastValid(dir, new Date('2026-08-07').getTime());
+
+  const ok = license.checkLicenseStatus(dir, new Date('2026-08-07').getTime(), TEST_PUB);
+  assert.strictEqual(ok.status, 'ok');
+  assert.strictEqual(ok.tier, 'basic');
+});
+
+test('an explicit pro-tier key is reported as pro', () => {
+  const dir = makeUserDataDir();
+  const key = makeKey({ ...GOOD_PAYLOAD, tier: 'pro' });
+  license.saveLicense(dir, key);
+  license.touchLastValid(dir, new Date('2026-08-07').getTime());
+
+  const ok = license.checkLicenseStatus(dir, new Date('2026-08-07').getTime(), TEST_PUB);
+  assert.strictEqual(ok.status, 'ok');
+  assert.strictEqual(ok.tier, 'pro');
+});
+
+test('machine-grace keeps the license tier', () => {
+  const dir = makeUserDataDir();
+  const key = makeKey({ client: 'Basic Grace', machineId: 'abc123', tier: 'basic', expires: '2030-01-01', issued: '2026-08-07' });
+  license.saveLicense(dir, key);
+  license.touchLastValid(dir, new Date('2026-08-07').getTime());
+
+  const grace = license.checkLicenseStatus(dir, new Date('2026-08-08').getTime(), TEST_PUB);
+  assert.strictEqual(grace.status, 'ok');
+  assert.strictEqual(grace.reason, 'machine_grace');
+  assert.strictEqual(grace.tier, 'basic');
+});
+
 test('machine change gets a short grace period', () => {
   const dir = makeUserDataDir();
   // Machine-bound to 'abc123', which never equals real hardware -> machine mismatch.

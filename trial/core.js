@@ -89,6 +89,7 @@ function issueTrial({ machineId, email }) {
   const payload = {
     client: email.trim(), // trial "Licensed to" = the email used to get it
     machineId: mid,
+    tier: 'pro', // a trial unlocks the full feature set (upsell path)
     expires: expires.toISOString().slice(0, 10),
     issued: now.toISOString().slice(0, 10)
   };

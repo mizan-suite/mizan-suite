@@ -31,6 +31,7 @@ test('issues a 14-day trial key that verifies with the app verifier', () => {
   assert.strictEqual(v.ok, true, 'trial key must pass the app license check');
   assert.strictEqual(v.payload.client, 'one@example.com');
   assert.strictEqual(v.payload.machineId, mid);
+  assert.strictEqual(v.payload.tier, 'pro', 'a trial unlocks the full PRO feature set');
 });
 
 test('a machine can only get one trial (non-reusable)', () => {

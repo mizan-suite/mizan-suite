@@ -14,6 +14,18 @@ window.AK_ROLE = null;
 window.AK_NAME = null;
 window.AK_PERMISSIONS = [];
 
+// License edition. Defaults to full access; corrected as soon as /api/license
+// resolves. 'basic' hides/locks the PRO-only pages (see TIER_PAGE below).
+window.AK_TIER = 'pro';
+window.AK_TIER_LOADED = false;
+
+// Pages that only exist in the PRO edition. A Basic license gets the cashier,
+// dashboard, inventory, stock, labels and refunds experience and is redirected
+// away from the pages below.
+const TIER_PAGE = {
+  pro: ['expiry.html', 'purchasing.html', 'reorder.html', 'debts.html', 'clients.html', 'facturation.html', 'financial.html', 'reports.html', 'analytics.html']
+};
+
 // Permission key -> the HTML page that key unlocks.
 const PERM_PAGE = {
   dashboard: 'dashboard.html',
@@ -75,6 +87,9 @@ function enforceAccess() {
   if (window.AK_ROLE !== 'owner' && !allowedPages(window.AK_PERMISSIONS).includes(page)) {
     window.location.replace(homePage(window.AK_PERMISSIONS));
   }
+  if (window.AK_TIER === 'basic' && TIER_PAGE.pro.includes(page)) {
+    window.location.replace(homePage(window.AK_PERMISSIONS));
+  }
 }
 
 function applySession(data) {
@@ -104,6 +119,20 @@ window.AK_AUTH.then(data => {
     window.location.replace('login.html');
   }
 });
+
+// License edition for the current machine (endpoint reads the stored key only;
+// verification lives in the Electron main process). Re-checks access once the
+// tier is known, so a Basic user landing on a PRO page is redirected and the
+// sidebar/dashboard can hide PRO items on first paint.
+window.AK_LICENSE = fetch('/api/license')
+  .then(r => r.json())
+  .catch(() => null)
+  .then(data => {
+    window.AK_TIER = (data && data.tier === 'basic') ? 'basic' : 'pro';
+    window.AK_TIER_LOADED = true;
+    enforceAccess();
+    return data;
+  });
 
 // Background refresh: a cached session may be stale (revoked, or the account
 // deleted/restored), so confirm it against the server and correct the UI.

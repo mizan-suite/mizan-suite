@@ -13,31 +13,31 @@
         { href: 'index.html', label: 'nav.inventory', perm: 'inventory' },
         { href: 'labels.html', label: 'nav.labels', perm: 'labels' },
         { href: 'stock.html', label: 'nav.stock', perm: 'stock' },
-        { href: 'expiry.html', label: 'nav.expiry', perm: 'expiry' }
+        { href: 'expiry.html', label: 'nav.expiry', perm: 'expiry', tier: 'pro' }
       ]
     },
     {
       label: 'nav.billing',
       items: [
-        { href: 'facturation.html', label: 'nav.facturation', perm: 'facturation' }
+        { href: 'facturation.html', label: 'nav.facturation', perm: 'facturation', tier: 'pro' }
       ]
     },
     {
       label: 'nav.supply',
       items: [
-        { href: 'purchasing.html', label: 'nav.purchasing', perm: 'purchasing' },
-        { href: 'reorder.html', label: 'nav.reorder', perm: 'reorder' },
-        { href: 'debts.html', label: 'nav.debts', perm: 'debts' },
-        { href: 'clients.html', label: 'nav.clients', perm: 'clients' },
+        { href: 'purchasing.html', label: 'nav.purchasing', perm: 'purchasing', tier: 'pro' },
+        { href: 'reorder.html', label: 'nav.reorder', perm: 'reorder', tier: 'pro' },
+        { href: 'debts.html', label: 'nav.debts', perm: 'debts', tier: 'pro' },
+        { href: 'clients.html', label: 'nav.clients', perm: 'clients', tier: 'pro' },
         { href: 'refunds.html', label: 'nav.refunds', perm: 'refunds' }
       ]
     },
     {
       label: 'nav.reports',
       items: [
-        { href: 'financial.html', label: 'nav.financial', perm: 'financial' },
-        { href: 'reports.html', label: 'nav.reports_page', perm: 'reports' },
-        { href: 'analytics.html', label: 'nav.analytics', perm: 'analytics' }
+        { href: 'financial.html', label: 'nav.financial', perm: 'financial', tier: 'pro' },
+        { href: 'reports.html', label: 'nav.reports_page', perm: 'reports', tier: 'pro' },
+        { href: 'analytics.html', label: 'nav.analytics', perm: 'analytics', tier: 'pro' }
       ]
     },
     {
@@ -63,14 +63,23 @@
       : `<div class="sidebar-logo">${esc(words[0] || 'Mizan Suite')}</div>`;
   }
 
+  function tierVisible() {
+    return window.AK_TIER_LOADED && window.AK_TIER === 'basic';
+  }
+
   function render() {
-    const visible = window.AK_ROLE === 'owner'
+    let visible = window.AK_ROLE === 'owner'
       ? groups
       : groups.map(g => ({ label: g.label, items: g.items.filter(i => window.hasPerm(i.perm)) })).filter(g => g.items.length);
+
+    if (tierVisible()) {
+      visible = visible.map(g => ({ label: g.label, items: g.items.filter(i => i.tier !== 'pro') })).filter(g => g.items.length);
+    }
 
     let html = brandLogoHtml();
     html += '<nav class="sidebar-nav">';
     for (const group of visible) {
+      if (!group.items.length) continue;
       html += `<div class="sidebar-group">${I18N.t(group.label)}</div>`;
       for (const item of group.items) {
         const active = current === item.href ? ' class="active"' : '';
@@ -107,4 +116,6 @@
   window.renderSidebar = render;
 
   (window.AK_AUTH || Promise.resolve({ accounts_exist: false, role: 'owner' })).then(() => render());
+  // Re-render once the license edition is known so PRO links drop out for Basic.
+  if (window.AK_LICENSE) window.AK_LICENSE.then(() => render());
 })();

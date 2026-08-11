@@ -4021,6 +4021,7 @@ function licenseInfoFromFile(file) {
     return {
       licensed: true,
       client: payload.client || null,
+      tier: payload.tier === 'basic' ? 'basic' : 'pro',
       expires: payload.expires || null,
       issued: payload.issued || null,
       permanent: !payload.expires,
@@ -4049,7 +4050,7 @@ app.post('/api/license/activate', requireAuth, (req, res) => {
   license.touchLastValid(path.dirname(file));
   cachedMachineId = currentMachineId();
   logAudit(req, 'license_activated', `client: ${result.payload.client || ''}, permanent: ${!result.payload.expires}`);
-  res.json({ ok: true, client: result.payload.client || null, expires: result.payload.expires || null, permanent: !result.payload.expires });
+  res.json({ ok: true, client: result.payload.client || null, tier: result.payload.tier === 'basic' ? 'basic' : 'pro', expires: result.payload.expires || null, permanent: !result.payload.expires });
 });
 
 // Starts the server and resolves once it's actually listening, or rejects with

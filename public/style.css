@@ -3028,6 +3028,29 @@ body.has-sidebar {
   white-space: nowrap;
 }
 
+.hq-locked {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.hq-locked:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.hq-pro-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #f5b301;
+  color: #263238;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+}
+
 @media (max-width: 768px) {
   .home-hero {
     flex-direction: column;

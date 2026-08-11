@@ -52,16 +52,16 @@ const MODULES = [
   { href: 'cashier.html', icon: 'cart', title: 'nav.cashier', desc: 'dash.mod.cashierDesc', perm: 'cashier' },
   { href: 'index.html', icon: 'package', title: 'nav.inventory', desc: 'dash.mod.inventoryDesc', perm: 'inventory' },
   { href: 'stock.html', icon: 'archive', title: 'nav.stock', desc: 'dash.mod.stockDesc', perm: 'stock' },
-  { href: 'expiry.html', icon: 'clock', title: 'nav.expiry', desc: 'dash.mod.expiryDesc', perm: 'expiry' },
-  { href: 'purchasing.html', icon: 'truck', title: 'nav.purchasing', desc: 'dash.mod.purchasingDesc', perm: 'purchasing' },
-  { href: 'reorder.html', icon: 'refresh', title: 'nav.reorder', desc: 'dash.mod.reorderDesc', perm: 'reorder' },
-  { href: 'debts.html', icon: 'wallet', title: 'nav.debts', desc: 'dash.mod.debtsDesc', perm: 'debts' },
-  { href: 'clients.html', icon: 'users', title: 'nav.clients', desc: 'dash.mod.clientsDesc', perm: 'clients' },
+  { href: 'expiry.html', icon: 'clock', title: 'nav.expiry', desc: 'dash.mod.expiryDesc', perm: 'expiry', tier: 'pro' },
+  { href: 'purchasing.html', icon: 'truck', title: 'nav.purchasing', desc: 'dash.mod.purchasingDesc', perm: 'purchasing', tier: 'pro' },
+  { href: 'reorder.html', icon: 'refresh', title: 'nav.reorder', desc: 'dash.mod.reorderDesc', perm: 'reorder', tier: 'pro' },
+  { href: 'debts.html', icon: 'wallet', title: 'nav.debts', desc: 'dash.mod.debtsDesc', perm: 'debts', tier: 'pro' },
+  { href: 'clients.html', icon: 'users', title: 'nav.clients', desc: 'dash.mod.clientsDesc', perm: 'clients', tier: 'pro' },
   { href: 'refunds.html', icon: 'rotate', title: 'nav.refunds', desc: 'dash.mod.refundsDesc', perm: 'refunds' },
-  { href: 'facturation.html', icon: 'filetext', title: 'nav.facturation', desc: 'dash.mod.facturationDesc', perm: 'facturation' },
-  { href: 'financial.html', icon: 'coins', title: 'nav.financial', desc: 'dash.mod.financialDesc', perm: 'financial' },
-  { href: 'reports.html', icon: 'pie', title: 'nav.reports_page', desc: 'dash.mod.reportsDesc', perm: 'reports' },
-  { href: 'analytics.html', icon: 'sparkles', title: 'nav.analytics', desc: 'dash.mod.analyticsDesc', perm: 'analytics' },
+  { href: 'facturation.html', icon: 'filetext', title: 'nav.facturation', desc: 'dash.mod.facturationDesc', perm: 'facturation', tier: 'pro' },
+  { href: 'financial.html', icon: 'coins', title: 'nav.financial', desc: 'dash.mod.financialDesc', perm: 'financial', tier: 'pro' },
+  { href: 'reports.html', icon: 'pie', title: 'nav.reports_page', desc: 'dash.mod.reportsDesc', perm: 'reports', tier: 'pro' },
+  { href: 'analytics.html', icon: 'sparkles', title: 'nav.analytics', desc: 'dash.mod.analyticsDesc', perm: 'analytics', tier: 'pro' },
   { href: 'settings.html', icon: 'sliders', title: 'nav.settings', desc: 'dash.mod.settingsDesc', perm: 'settings' }
 ];
 
@@ -96,8 +96,12 @@ function renderHome(role) {
 
   renderDateTime();
 
+  // On a Basic license, PRO modules show as locked tiles (upsell, no access).
+  const basic = window.AK_TIER === 'basic';
+
   // Quick-access: small icon-only shortcuts for every permitted module.
   const bellIcon = window.AKIcons ? window.AKIcons.icon('bell', 20) : '';
+  const lockIcon = window.AKIcons ? window.AKIcons.icon('lock', 16) : '';
   document.getElementById('hero-quick').innerHTML =
     `<button id="notification-btn" class="hq-tile hq-tile-bell" type="button" data-i18n-title="dash.alertsTitle" title="View stock &amp; expiry alerts">
       ${bellIcon}
@@ -105,8 +109,18 @@ function renderHome(role) {
       <span class="hq-label" data-i18n="dash.alerts">Alerts</span>
     </button>` +
     MODULES
-    .filter(m => userHasPerm(m.perm))
+    .filter(m => basic || userHasPerm(m.perm))
     .map(m => {
+      if (basic && m.tier === 'pro') {
+        return `
+          <button type="button" class="hq-tile hq-locked" title="${escapeHtml(I18N.t(m.title))}" data-locked="${escapeHtml(m.title)}">
+            ${lockIcon}
+            <span class="hq-label">${I18N.t(m.title)}</span>
+            <span class="hq-pro-badge">PRO</span>
+          </button>
+        `;
+      }
+      if (!userHasPerm(m.perm)) return '';
       const ic = window.AKIcons ? window.AKIcons.icon(m.icon, 20) : '';
       return `
         <a href="${m.href}" class="hq-tile" title="${escapeHtml(I18N.t(m.title))}">
@@ -115,9 +129,20 @@ function renderHome(role) {
         </a>
       `;
     }).join('');
+
+  // Locked tiles: explain the PRO upgrade (settings page has the key box).
+  const locked = document.querySelectorAll('.hq-locked');
+  locked.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const label = btn.dataset.locked ? I18N.t(btn.dataset.locked) : 'PRO';
+      alert(I18N.t('dash.lockedMsg', { feature: label }));
+      window.location.href = 'settings.html';
+    });
+  });
 }
 
 (window.AK_AUTH || Promise.resolve({ role: 'owner' })).then(d => renderHome(d.role || 'owner'));
+if (window.AK_LICENSE) window.AK_LICENSE.then(() => renderHome(window.AK_ROLE || 'owner'));
 
 // Re-render home page when language changes
 window.addEventListener('languagechange', () => {

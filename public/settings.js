@@ -619,18 +619,30 @@ async function loadLicenseInfo() {
     const data = await res.json();
     const machineEl = document.getElementById('license-machine');
     const upEl = document.getElementById('license-upgrade');
+    const tierEl = document.getElementById('license-tier');
+    const upBtn = document.getElementById('upgrade-license-btn');
     if (data.licensed) {
       const parts = [I18N.t('settings.licensedTo') + ': ' + (data.client || '-')];
       if (data.permanent) parts.push(I18N.t('settings.permanent'));
       else parts.push(I18N.t('settings.trialLeft', { days: data.daysLeft }));
       el.textContent = parts.join('  ·  ');
+      if (tierEl) {
+        const tierLabel = data.tier === 'basic' ? I18N.t('tier.basic') : I18N.t('tier.pro');
+        tierEl.textContent = I18N.t('settings.edition') + ': ' + tierLabel;
+        tierEl.style.display = '';
+      }
+      if (upBtn && data.tier === 'basic') upBtn.setAttribute('data-i18n', 'settings.upgradePro');
+      if (upBtn && data.tier === 'basic') upBtn.textContent = I18N.t('settings.upgradePro');
       if (machineEl) {
         machineEl.textContent = I18N.t('settings.machineId') + ': ' + (data.machineId || '-');
         document.getElementById('copy-machine-btn').style.display = data.machineId ? '' : 'none';
       }
-      if (upEl) upEl.style.display = data.permanent ? 'none' : 'block';
+      // The upgrade box must stay available for a Basic license too (Basic -> PRO
+      // upgrade), even when the Basic key itself is permanent.
+      if (upEl) upEl.style.display = (data.permanent && data.tier !== 'basic') ? 'none' : 'block';
     } else {
       el.textContent = I18N.t('settings.unlicensed');
+      if (tierEl) tierEl.style.display = 'none';
       if (machineEl) machineEl.textContent = I18N.t('settings.machineId') + ': ' + (data.machineId || '-');
       if (upEl) upEl.style.display = 'none';
     }
@@ -682,6 +694,9 @@ document.getElementById('upgrade-apply-btn').addEventListener('click', async () 
     document.getElementById('upgrade-box').style.display = 'none';
     document.getElementById('upgrade-key').value = '';
     await loadLicenseInfo();
+    // Edition may have changed (e.g. Basic -> PRO): reload so the tier-gated
+    // sidebar and dashboard reflect the new license.
+    setTimeout(() => window.location.reload(), 600);
   } catch (e) {
     msg.textContent = I18N.t('settings.keyError');
   }
