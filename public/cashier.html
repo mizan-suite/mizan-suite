@@ -99,6 +99,32 @@
         <!-- Payment -->
         <div class="payment-panel">
           <h3 class="sub-heading" data-i18n="cashier.payment">Payment</h3>
+          <button id="calc-toggle-btn" class="btn btn-ghost btn-sm btn-ico" type="button" data-i18n-title="cashier.calcTitle" title="Open calculator"><span data-icon="calc"></span> <span data-i18n="cashier.calc">Calculator</span></button>
+          <div id="calc-pop" class="calc-pop" hidden>
+            <div class="calc-display" id="calc-display">0</div>
+            <div class="calc-keys">
+              <button type="button" class="calc-key calc-fn" data-calc="C" data-i18n="cashier.calcClear">C</button>
+              <button type="button" class="calc-key calc-fn" data-calc="back">&#9003;</button>
+              <button type="button" class="calc-key calc-fn" data-calc="%">%</button>
+              <button type="button" class="calc-key calc-op" data-calc="/">&divide;</button>
+              <button type="button" class="calc-key" data-calc="7">7</button>
+              <button type="button" class="calc-key" data-calc="8">8</button>
+              <button type="button" class="calc-key" data-calc="9">9</button>
+              <button type="button" class="calc-key calc-op" data-calc="*">&times;</button>
+              <button type="button" class="calc-key" data-calc="4">4</button>
+              <button type="button" class="calc-key" data-calc="5">5</button>
+              <button type="button" class="calc-key" data-calc="6">6</button>
+              <button type="button" class="calc-key calc-op" data-calc="-">&minus;</button>
+              <button type="button" class="calc-key" data-calc="1">1</button>
+              <button type="button" class="calc-key" data-calc="2">2</button>
+              <button type="button" class="calc-key" data-calc="3">3</button>
+              <button type="button" class="calc-key calc-op" data-calc="+">+</button>
+              <button type="button" class="calc-key calc-zero" data-calc="0">0</button>
+              <button type="button" class="calc-key" data-calc=".">.</button>
+              <button type="button" class="calc-key calc-eq" data-calc="=">=</button>
+              <button type="button" class="calc-key calc-use" id="calc-use-btn" data-i18n="cashier.calcUse">Use</button>
+            </div>
+          </div>
           <div id="payment-lines"></div>
           <button id="add-payment-line" class="btn-split-pay" type="button" data-i18n="cashier.splitPayment"><span data-icon="card"></span> <span data-i18n="cashier.splitPayment">+ Split payment</span></button>
           <div class="quick-cash" id="quick-cash">

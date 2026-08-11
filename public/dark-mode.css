@@ -121,6 +121,43 @@ html.dark-mode .quick-cash button:hover {
   color: var(--dark-sidebar, #0f241c);
 }
 
+html.dark-mode .calc-pop {
+  background: var(--dark-panel, #1c2b26);
+  border-color: var(--dark-border, #3a5449);
+}
+
+html.dark-mode .calc-display {
+  background: var(--dark-raise, #24382f);
+  border-color: var(--dark-border, #3a5449);
+  color: var(--dark-text, #e6ede9);
+}
+
+html.dark-mode .calc-key {
+  background: var(--dark-raise, #24382f);
+  border-color: var(--dark-border, #3a5449);
+  color: var(--dark-text, #e6ede9);
+}
+
+html.dark-mode .calc-key:hover {
+  border-color: var(--accent-bright, #7fd9b9);
+  background: var(--dark-sidebar, #0f241c);
+}
+
+html.dark-mode .calc-fn {
+  background: var(--dark-sidebar, #0f241c);
+  color: var(--dark-muted, #9db8ae);
+}
+
+html.dark-mode .calc-op {
+  background: var(--dark-sidebar, #0f241c);
+  color: var(--accent-bright, #7fd9b9);
+}
+
+html.dark-mode .calc-eq {
+  background: var(--accent, #1b6e5c);
+  color: #ffffff;
+}
+
 html.dark-mode .cart-total-grand {
   color: var(--accent-bright, #7fd9b9);
 }

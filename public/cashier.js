@@ -986,6 +986,122 @@ function updatePaymentRemaining() {
   }
 }
 
+// ---------- Calculator popup ----------
+
+const calcToggleBtn = document.getElementById('calc-toggle-btn');
+const calcPop = document.getElementById('calc-pop');
+const calcDisplay = document.getElementById('calc-display');
+
+let calcValue = '0';       // current number being typed
+let calcAccum = null;      // stored left operand
+let calcOp = null;         // pending operator
+let calcResetDisplay = false; // next digit replaces the display instead of appending
+
+function calcEval(a, b, op) {
+  a = parseFloat(a);
+  b = parseFloat(b);
+  switch (op) {
+    case '+': return a + b;
+    case '-': return a - b;
+    case '*': return a * b;
+    case '/': return b === 0 ? NaN : a / b;
+    default: return b;
+  }
+}
+
+function calcRender() {
+  let text = calcValue;
+  if (!Number.isFinite(parseFloat(text))) text = 'Error';
+  calcDisplay.textContent = text;
+  calcDisplay.classList.toggle('calc-error', !Number.isFinite(parseFloat(text)));
+}
+
+function calcInput(key) {
+  if (key === 'C') {
+    calcValue = '0';
+    calcAccum = null;
+    calcOp = null;
+    calcResetDisplay = false;
+  } else if (key === 'back') {
+    if (calcResetDisplay) return;
+    calcValue = String(calcValue).slice(0, -1) || '0';
+  } else if (key === '.') {
+    if (calcResetDisplay) { calcValue = '0.'; calcResetDisplay = false; return; }
+    if (!String(calcValue).includes('.')) calcValue += '.';
+  } else if (/^\d$/.test(key)) {
+    if (calcResetDisplay) { calcValue = key; calcResetDisplay = false; }
+    else calcValue = calcValue === '0' ? key : calcValue + key;
+  } else if (['+', '-', '*', '/'].includes(key)) {
+    const current = parseFloat(calcValue);
+    if (calcOp && !calcResetDisplay && calcAccum !== null) {
+      const result = calcEval(calcAccum, current, calcOp);
+      calcAccum = Number.isFinite(result) ? result : 0;
+      calcValue = String(result);
+    } else {
+      calcAccum = current;
+    }
+    calcOp = key;
+    calcResetDisplay = true;
+  } else if (key === '%') {
+    const current = parseFloat(calcValue) || 0;
+    if (calcOp && calcAccum !== null) {
+      const base = parseFloat(calcAccum);
+      calcValue = String(base * (current / 100));
+    } else {
+      calcValue = String(current / 100);
+    }
+  } else if (key === '=') {
+    const current = parseFloat(calcValue);
+    if (calcOp !== null && calcAccum !== null) {
+      const result = calcEval(calcAccum, current, calcOp);
+      calcValue = String(result);
+      calcAccum = null;
+      calcOp = null;
+    }
+    calcResetDisplay = true;
+  }
+  calcRender();
+}
+
+calcToggleBtn.addEventListener('click', () => {
+  calcPop.hidden = !calcPop.hidden;
+  if (!calcPop.hidden) calcToggleBtn.classList.add('active');
+  else calcToggleBtn.classList.remove('active');
+});
+
+calcPop.addEventListener('click', (e) => {
+  const key = e.target.closest('.calc-key');
+  if (!key) return;
+  calcInput(key.dataset.calc);
+});
+
+document.getElementById('calc-use-btn').addEventListener('click', () => {
+  const tab = activeTab();
+  if (!tab) return;
+  const value = parseFloat(calcDisplay.textContent);
+  if (!Number.isFinite(value)) { alert(I18N.t('cashier.calcError')); return; }
+  // Fill the cash payment amount (create a cash line if none exists).
+  let cashLine = tab.payments.find(p => p.method === 'cash');
+  if (!cashLine) {
+    cashLine = { method: 'cash', amount: null };
+    tab.payments.push(cashLine);
+  }
+  cashLine.amount = value;
+  renderPayments();
+  updatePaymentRemaining();
+  calcPop.hidden = true;
+  calcToggleBtn.classList.remove('active');
+});
+
+// Keyboard support: type digits/operators while the calculator is open.
+document.addEventListener('keydown', (e) => {
+  if (calcPop.hidden) return;
+  if (e.key === 'Escape') { calcPop.hidden = true; calcToggleBtn.classList.remove('active'); return; }
+  if (e.key === 'Enter') { e.preventDefault(); calcInput('='); return; }
+  if (e.key === 'Backspace') { e.preventDefault(); calcInput('back'); return; }
+  if (/^[0-9.+\-*/%]$/.test(e.key)) calcInput(e.key);
+});
+
 // ---------- Cancel / hold / held sales ----------
 
 document.getElementById('cancel-sale-btn').addEventListener('click', () => {
