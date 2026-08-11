@@ -227,6 +227,12 @@ app.whenReady().then(async () => {
   });
   session.defaultSession.setPermissionCheckHandler(() => true);
 
+  // Allow Web Serial (weighing scale connected over USB/RS232) without a chooser
+  // dialog - only the scale ports exist on this machine and the POS needs them.
+  if (typeof session.defaultSession.setDevicePermissionHandler === 'function') {
+    session.defaultSession.setDevicePermissionHandler((details) => details.deviceType === 'serial');
+  }
+
   // ---------- License gate ----------
   // Everything above prepared the environment, but the app does NOT start until
   // a valid license is in place. In dev you can bypass with PARAVIE_SKIP_LICENSE=1.

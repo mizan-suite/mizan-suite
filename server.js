@@ -1317,11 +1317,15 @@ app.get('/api/products/:id', (req, res) => {
 
 // POST - add a new product
 app.post('/api/products', (req, res) => {
-  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes } = req.body;
+  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Product name is required' });
   }
+
+  // "unit" decides how the product is sold: 'piece' (one item, default) or
+  // 'kg' (sold by weight; quantity is a kilogram amount, sale_price is per kg).
+  const finalUnit = unit === 'kg' ? 'kg' : 'piece';
 
   // Numeric fields must be finite, non-negative numbers (a negative price or
   // quantity would corrupt stock/profit figures and can never be intended).
@@ -1375,8 +1379,8 @@ app.post('/api/products', (req, res) => {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO products (barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, unit)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   try {
@@ -1394,9 +1398,9 @@ app.post('/api/products', (req, res) => {
       db.prepare(`
         UPDATE products SET active = 1, name = ?, category = ?, cost_price = ?, sale_price = ?,
           wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?,
-          min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?
+          min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, unit = ?
         WHERE id = ?
-      `).run(name, category || null, cost_price || 0, finalSalePrice, finalWholesalePrice, finalMarginType, finalMarginValue, quantity || 0, min_stock || 5, max_stock || null, expiry_date || null, supplier || null, id);
+      `).run(name, category || null, cost_price || 0, finalSalePrice, finalWholesalePrice, finalMarginType, finalMarginValue, quantity || 0, min_stock || 5, max_stock || null, expiry_date || null, supplier || null, finalUnit, id);
     } else {
       const result = stmt.run(
         barcode || null,
@@ -1411,7 +1415,8 @@ app.post('/api/products', (req, res) => {
         min_stock || 5,
         max_stock || null,
         expiry_date || null,
-        supplier || null
+        supplier || null,
+        finalUnit
       );
       id = result.lastInsertRowid;
     }
@@ -1427,11 +1432,14 @@ app.post('/api/products', (req, res) => {
 
 // PUT - update an existing product
 app.put('/api/products/:id', (req, res) => {
-  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes } = req.body;
+  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Product name is required' });
   }
+
+  // 'piece' = one item (default); 'kg' = sold by weight (quantity in kg).
+  const finalUnit = req.body.unit !== undefined ? (unit === 'kg' ? 'kg' : 'piece') : undefined;
 
   if (!db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id)) {
     return res.status(404).json({ error: 'Product not found' });
@@ -1494,7 +1502,7 @@ app.put('/api/products/:id', (req, res) => {
   const stmt = db.prepare(`
     UPDATE products SET
       barcode = ?, name = ?, category = ?, cost_price = ?, sale_price = ?,
-      wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?, min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?
+      wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?, min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, unit = ?
     WHERE id = ?
   `);
 
@@ -1506,6 +1514,7 @@ app.put('/api/products/:id', (req, res) => {
       finalWholesalePrice ?? existing.wholesale_price, finalMarginType || existing.margin_type, finalMarginValue || existing.margin_value,
       quantity ?? existing.quantity, min_stock ?? existing.min_stock, max_stock ?? existing.max_stock,
       expiry_date ?? existing.expiry_date, supplier ?? existing.supplier,
+      finalUnit !== undefined ? finalUnit : existing.unit,
       req.params.id
     );
     syncProductBarcodes(req.params.id, barcode, extra_barcodes);
@@ -2064,12 +2073,24 @@ app.post('/api/sales', (req, res) => {
     const lineItems = [];
 
     for (const item of items) {
-      const qty = Number(item.quantity);
-      if (!Number.isInteger(qty) || qty <= 0) {
-        throw new Error(`Invalid quantity for product ${item.product_id} - must be a positive whole number`);
-      }
       const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
       if (!product) throw new Error(`Product ${item.product_id} not found`);
+
+      // Piece products are counted in whole units; weight products ('kg') are
+      // sold by decimal weight, so a fractional, finite, positive quantity is
+      // allowed there. Round the weight to 3 decimals (a gram) to avoid float
+      // noise like 1.2000000000000002.
+      const qtyRaw = Number(item.quantity);
+      const qty = product.unit === 'kg'
+        ? (Number.isFinite(qtyRaw) ? Math.round(qtyRaw * 1000) / 1000 : NaN)
+        : qtyRaw;
+      if (product.unit === 'kg') {
+        if (!Number.isFinite(qty) || qty <= 0) {
+          throw new Error(`Invalid weight for product ${item.product_id} - must be a positive decimal weight`);
+        }
+      } else if (!Number.isInteger(qty) || qty <= 0) {
+        throw new Error(`Invalid quantity for product ${item.product_id} - must be a positive whole number`);
+      }
       if (product.quantity < qty) {
         throw new Error(`Not enough stock for ${product.name} (have ${product.quantity}, need ${qty})`);
       }
@@ -2093,6 +2114,7 @@ app.post('/api/sales', (req, res) => {
         product_id: product.id,
         product_name: product.name,
         quantity: qty,
+        unit: product.unit === 'kg' ? 'kg' : 'piece',
         unit_price: unitPrice, // pre-discount unit price
         cost_at_sale: product.cost_price
       });
@@ -2160,15 +2182,15 @@ app.post('/api/sales', (req, res) => {
     const saleId = saleResult.lastInsertRowid;
 
     const insertItem = db.prepare(`
-      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, cost_at_sale)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit, price_at_sale, cost_at_sale)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const insertMovement = db.prepare(`
       INSERT INTO stock_movements (product_id, product_name, type, quantity_change, reason)
       VALUES (?, ?, 'sale', ?, ?)
     `);
     for (const li of lineItems) {
-      insertItem.run(saleId, li.product_id, li.product_name, li.quantity, li.price_at_sale, li.cost_at_sale);
+      insertItem.run(saleId, li.product_id, li.product_name, li.quantity, li.unit, li.price_at_sale, li.cost_at_sale);
       insertMovement.run(li.product_id, li.product_name, -li.quantity, `Sale #${saleId}`);
     }
 
@@ -4420,7 +4442,8 @@ app.post('/api/settings', (req, res) => {
     'dark_mode', 'theme', 'printer_name', 'label_printer_name', 'a4_printer_name', 'scanner_auto_enter',
     'default_margin_percent', 'language',
     'loyalty_earn_per', 'loyalty_worth',
-    'shop_name', 'shop_address', 'shop_phone', 'shop_logo'
+    'shop_name', 'shop_address', 'shop_phone', 'shop_logo',
+    'scale_label_mode', 'scale_label_prefix', 'scale_price_digits', 'scale_price_divisor', 'scale_serial_baud'
   ]);
   const upsert = db.prepare(`
     INSERT INTO settings (key, value) VALUES (?, ?)

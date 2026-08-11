@@ -147,7 +147,7 @@
       <p class="hint-text" data-i18n="settings.scannerHint">Most USB/Bluetooth barcode scanners type the code then press Enter - if yours does, leave this checked and scanning into the Cashier search box will add the item automatically.</p>
     </div>
 
-    <div class="product-form">
+<div class="product-form">
       <h2 data-i18n="settings.margins">Pricing & Margins</h2>
       <div class="form-grid">
         <div class="field">
@@ -156,6 +156,37 @@
         </div>
       </div>
       <p class="hint-text" data-i18n="settings.defaultMarginHint">When adding a product with a wholesale price but no sale price, this default margin % will be used to auto-calculate the sale price (sale = wholesale x (1 + margin/100)). Leave empty to disable.</p>
+    </div>
+
+    <div class="product-form">
+      <h2 data-i18n="settings.scaleSection">Weighing Scale</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="scale-label-mode" data-i18n="settings.scaleLabelMode">Scale label barcode format</label>
+          <select id="scale-label-mode">
+            <option value="price" data-i18n="settings.scaleLabelModePrice">Price-embedded (last digits = price)</option>
+            <option value="plu" data-i18n="settings.scaleLabelModePlu">PLU only</option>
+            <option value="off" data-i18n="settings.scaleLabelModeOff">Off - no scale labels</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="scale-label-prefix" data-i18n="settings.scaleLabelPrefix">Label prefix digit</label>
+          <input type="text" id="scale-label-prefix" value="2" maxlength="1" placeholder="2">
+        </div>
+        <div class="field">
+          <label for="scale-price-digits" data-i18n="settings.scalePriceDigits">Price digits</label>
+          <input type="number" id="scale-price-digits" min="1" max="7" value="5" placeholder="5">
+        </div>
+        <div class="field">
+          <label for="scale-price-divisor" data-i18n="settings.scalePriceDivisor">Price divisor</label>
+          <input type="number" id="scale-price-divisor" min="1" value="100" placeholder="100">
+        </div>
+        <div class="field">
+          <label for="scale-serial-baud" data-i18n="settings.scaleBaud">Scale serial baud rate</label>
+          <input type="number" id="scale-serial-baud" min="1200" max="115200" step="1" value="9600" placeholder="9600">
+        </div>
+      </div>
+      <p class="hint-text" data-i18n="settings.scaleHint">For supermarket items sold by weight (produce, meat). Cashier products marked "By weight (kg)" ask for a weight; this sets how a scale feeds it in.</p>
     </div>
 
     <div class="product-form">

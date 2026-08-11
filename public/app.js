@@ -590,6 +590,7 @@ form.addEventListener('submit', async (e) => {
     margin_value: marginValue,
     min_stock: parseInt(document.getElementById('min_stock').value),
     max_stock: parseInt(document.getElementById('max_stock').value),
+    unit: document.getElementById('unit').value || 'piece',
     extra_barcodes: parseBarcodes(document.getElementById('extra-barcodes').value)
   };
 
@@ -1010,6 +1011,7 @@ function fillEditForm(p, id) {
   document.getElementById('edit-marge_amount').value = p.margin_type === 'amount' ? p.margin_value : '';
   document.getElementById('edit-min_stock').value = p.min_stock == null ? '' : p.min_stock;
   document.getElementById('edit-max_stock').value = p.max_stock == null ? '' : p.max_stock;
+  document.getElementById('edit-unit').value = p.unit === 'kg' ? 'kg' : 'piece';
   document.getElementById('edit-msg').textContent = '';
   editModal.hidden = false;
   document.getElementById('edit-name').focus();
@@ -1066,6 +1068,7 @@ document.getElementById('edit-save').addEventListener('click', async () => {
       margin_value: editMarginValue,
       min_stock: parseInt(document.getElementById('edit-min_stock').value),
       max_stock: parseInt(document.getElementById('edit-max_stock').value),
+      unit: document.getElementById('edit-unit').value || 'piece',
       extra_barcodes: parseBarcodes(document.getElementById('edit-extra-barcodes').value)
     })
   });

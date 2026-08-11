@@ -267,6 +267,17 @@ const MIGRATIONS = [
     }
   },
   {
+    version: 23,
+    name: 'products.selling unit (piece vs kg) + sale_items.unit for scale sales',
+    up() {
+      // 'piece' = normal item sold by unit (default). 'kg' = sold by weight:
+      // the quantity is a decimal weight in kilograms and sale_price is the
+      // price per kilogram, so supermarkets can sell produce/meat on a scale.
+      ensureColumn('products', 'unit', "TEXT NOT NULL DEFAULT 'piece'");
+      ensureColumn('sale_items', 'unit', "TEXT NOT NULL DEFAULT 'piece'");
+    }
+  },
+  {
     version: 22,
     name: 'worker profiles, pay adjustments & leave (staff_advances, leave_entries)',
     up() {

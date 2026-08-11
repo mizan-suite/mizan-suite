@@ -104,10 +104,28 @@ html.dark-mode .qty-btn,
 html.dark-mode .discount-row select,
 html.dark-mode .discount-row input,
 html.dark-mode #client-search,
-html.dark-mode .pos-actions input {
+html.dark-mode .pos-actions input,
+html.dark-mode #redeem-points {
   background-color: var(--dark-raise, #24382f);
   border-color: var(--dark-border, #3a5449);
   color: var(--dark-text, #e6ede9);
+}
+
+html.dark-mode .client-badge {
+  background: var(--dark-panel, #1c2b26);
+  border-color: var(--dark-border, #3a5449);
+}
+
+html.dark-mode .client-badge #clear-client-btn {
+  background: #3a2730;
+  border-color: #6e2e26;
+  color: #f2a99f;
+}
+
+html.dark-mode .client-badge #clear-client-btn:hover {
+  background: #4a1f1f;
+  border-color: #8e2f2f;
+  color: #ffd0c8;
 }
 
 html.dark-mode .quick-cash button {

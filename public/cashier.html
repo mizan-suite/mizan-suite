@@ -86,10 +86,10 @@
               <div><span class="hint-text"><span data-i18n="cashier.pointsLabel">Points:</span> <strong id="selected-client-points">0</strong></span></div>
             </div>
             <div style="text-align:right;">
-              <button id="clear-client-btn" class="btn-link" type="button" data-i18n="cashier.remove">Remove</button>
+              <button id="clear-client-btn" type="button" data-i18n="cashier.remove">Remove</button>
               <div style="margin-top:0.3rem;">
                 <label class="hint-text" style="display:block;" data-i18n="cashier.redeemPoints">Redeem points</label>
-                <input type="number" id="redeem-points" min="0" step="1" value="0" style="width:80px; padding:0.3rem 0.5rem; border:1px solid #d8d8d8; border-radius:6px;">
+                <input type="number" id="redeem-points" min="0" step="1" value="0">
               </div>
             </div>
           </div>
@@ -160,6 +160,8 @@
   <script src="scanner.js"></script>
   <script src="vendor/JsBarcode.all.min.js"></script>
   <script src="i18n.js"></script>
+  <script src="scale.js"></script>
+  <script src="scale-serial.js"></script>
   <script src="print.js"></script>
   <script src="escpos.js"></script>
   <script src="cashier.js"></script>

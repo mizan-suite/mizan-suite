@@ -2158,6 +2158,29 @@ html.dark-mode .perm-chip:has(input:checked) {
   margin-top: 0.5rem;
 }
 
+.client-badge #clear-client-btn {
+  background: #fdecea;
+  border: 1px solid #f2b8b0;
+  border-radius: 6px;
+  color: #b3392f;
+  padding: 0.3rem 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.client-badge #clear-client-btn:hover {
+  background: #f9d6d2;
+  border-color: #e6a09a;
+}
+
+.client-badge #redeem-points {
+  width: 80px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+}
+
 /* ---------- Login screen ---------- */
 .login-body {
   min-height: 100vh;

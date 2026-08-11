@@ -211,6 +211,16 @@ async function loadLoyaltySettings() {
     earnPer: parseFloat(settings.loyalty_earn_per) > 0 ? parseFloat(settings.loyalty_earn_per) : 10,
     worth: parseFloat(settings.loyalty_worth) > 0 ? parseFloat(settings.loyalty_worth) : 0
   };
+  // Scale label parsing options (mirrors the Settings page fields).
+  window.akScaleOptions = {
+    mode: settings.scale_label_mode === 'plu' ? 'plu' : 'price',
+    prefix: settings.scale_label_prefix === undefined || settings.scale_label_prefix === '' ? '2' : String(settings.scale_label_prefix).trim(),
+    priceDigits: settings.scale_price_digits === undefined || settings.scale_price_digits === '' ? 5 : Number(settings.scale_price_digits),
+    priceDivisor: settings.scale_price_divisor === undefined || settings.scale_price_divisor === '' ? 100 : Number(settings.scale_price_divisor)
+  };
+  try {
+    window.localStorage.setItem('mizan_scale_baud', String(settings.scale_serial_baud || '9600').trim());
+  } catch (e) {}
   renderCart();
 }
 
@@ -369,17 +379,93 @@ barcodeInput.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   const code = barcodeInput.value.trim();
   if (!code) return;
+  const handled = resolveScannedCode(code);
+  if (handled) barcodeInput.value = '';
+});
+
+// Resolves a scanned code to a product. Tries the exact barcode, then a partial
+// match, then (for supermarket scale labels) parses the EAN-13 the label printer
+// stamped on the pack: the last digits encode the price, and the middle digits
+// are the PLU - a code that identifies the product in the catalog. When a scale
+// label resolves to a kg product, its encoded price is used to derive the weight
+// (weight = price / price-per-kg) so the cashier doesn't have to type anything.
+function resolveScannedCode(rawCode) {
+  const code = String(rawCode || '').trim();
   const exact = barcodeMap().get(code);
   const product = exact || allProducts.find(p => productHasBarcode(p, code));
   if (product) {
     selectedProductId = product.id;
     addToCart(product);
     renderProductDetail();
-    barcodeInput.value = '';
-  } else {
-    alert(I18N.t('cashier.notFoundBarcode').replace('{code}', code));
+    return true;
   }
-});
+
+  if (!window.akScale) return false;
+  let opts = window.akScaleOptions || { mode: 'price', prefix: '2', priceDigits: 5, priceDivisor: 100 };
+  const parsed = window.akScale.parseScaleBarcode(code, opts);
+  if (!parsed) return false;
+
+  // The PLU is the middle of the barcode. Match it against the product's
+  // primary barcode or any extra barcode.
+  const pluProduct = allProducts.find(p =>
+    (p.barcode && String(p.barcode).endsWith(parsed.plu)) ||
+    (p.extra_barcodes || []).some(b => String(b).endsWith(parsed.plu))
+  ) || allProducts.find(p =>
+    (p.barcode && String(p.barcode).replace(/^0+/, '') === parsed.plu.replace(/^0+/, '')) ||
+    (p.extra_barcodes || []).some(b => String(b).replace(/^0+/, '') === parsed.plu.replace(/^0+/, ''))
+  );
+
+  if (pluProduct) {
+    selectedProductId = pluProduct.id;
+    if (opts.mode === 'plu') {
+      // PLU-only label: the cashier still needs to weigh the pack.
+      addToCart(pluProduct);
+    } else if (pluProduct.unit === 'kg') {
+      const perKg = Number(pluProduct.sale_price) || 0;
+      const weight = perKg > 0 ? Math.round((parsed.price / perKg) * 1000) / 1000 : 0;
+      if (weight > 0) {
+        addKgToCart(pluProduct, weight);
+      } else {
+        addToCart(pluProduct);
+      }
+    } else {
+      // Piece product with a price-embedded scale label: use the label price.
+      addWeightedLabelLine(pluProduct, parsed.price);
+    }
+    renderProductDetail();
+    return true;
+  }
+
+  alert(I18N.t('cashier.scaleNoProduct').replace('{plu}', parsed.plu));
+  window.akFocusFix && window.akFocusFix();
+  return true;
+}
+
+// Adds a piece product at the exact price a scale label encoded (a weighed,
+// pre-packed item with its own EAN-13 price barcode that didn't resolve to a
+// stock-keeping product). quantity 1 at the labelled price.
+function addWeightedLabelLine(product, price) {
+  const tab = activeTab();
+  if (!tab) return;
+  const existing = tab.cart.find(item =>
+    item.product_id === product.id && item.price === price);
+  if (existing) {
+    existing.quantity++;
+  } else {
+    tab.cart.push({
+      product_id: product.id,
+      name: product.name,
+      price: price,
+      quantity: 1,
+      unit: 'piece',
+      availableStock: Number.MAX_SAFE_INTEGER
+    });
+  }
+  lastFlashProductId = product.id;
+  lastAddedProductId = product.id;
+  renderCart();
+  renderTabs();
+}
 
 // / focuses the name search; Enter in the search box adds the top match.
 document.addEventListener('keydown', (e) => {
@@ -433,11 +519,14 @@ function showCartTicket() {
   if (!tab || !tab.cart.length) return;
   const subtotal = getSubtotal();
   const total = getTotal();
-  const items = tab.cart.map(item => `
+  const items = tab.cart.map(item => {
+    const qty = item.unit === 'kg' ? item.quantity.toFixed(3) + ' kg' : item.quantity;
+    return `
     <tr>
-      <td>${esc(item.name)} x${item.quantity}</td>
+      <td>${esc(item.name)} x${qty}</td>
       <td style="text-align:right;">${(item.price * item.quantity).toFixed(2)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const modal = document.createElement('div');
   modal.className = 'receipt-modal';
@@ -469,7 +558,7 @@ function showCartTicket() {
         ticket: I18N.t('cashier.ticket'),
         clientName: tab.client ? `${I18N.t('cashier.clientName')}: ${tab.client.name}` : '',
         date: new Date().toLocaleString(),
-        items: tab.cart.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.price * item.quantity })),
+        items: tab.cart.map(item => ({ name: item.name, quantity: item.unit === 'kg' ? `${item.quantity.toFixed(3)} kg` : item.quantity, price: item.price, total: item.price * item.quantity })),
         subtotal: subtotal,
         discount: 0,
         points: 0,
@@ -563,13 +652,15 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
 
   if (e.key === 'ArrowRight') {
-    if (item.quantity < item.availableStock) {
-      item.quantity++;
+    const step = item.unit === 'kg' ? 0.010 : 1;
+    if (item.quantity + step <= item.availableStock + 0.0001) {
+      item.quantity = Math.round((item.quantity + step) * 1000) / 1000;
     } else {
       alert(I18N.t('cashier.notEnoughStock'));
     }
   } else {
-    item.quantity--;
+    const step = item.unit === 'kg' ? 0.010 : 1;
+    item.quantity = Math.round((item.quantity - step) * 1000) / 1000;
     if (item.quantity <= 0) tab.cart.splice(tab.cart.indexOf(item), 1);
   }
 
@@ -585,6 +676,12 @@ document.addEventListener('keydown', (e) => {
 function addToCart(product) {
   const tab = activeTab();
   if (!tab) return;
+  // Weight products bypass the by-piece bumping: they go through the weigh
+  // dialog (manual kg entry or a connected scale) and are added per-os.
+  if (product.unit === 'kg') {
+    openWeighModal(product);
+    return;
+  }
   const existing = tab.cart.find(item => item.product_id === product.id);
 
   if (existing) {
@@ -610,6 +707,191 @@ function addToCart(product) {
   lastAddedProductId = product.id;
   renderCart();
   renderTabs();
+}
+
+// Adds a weighted (kg) product to the cart with an explicit weight. The weight
+// becomes the line's quantity; the price stays the per-kg sale price, so the
+// server charges weight x price/kg and deducts that (fractional) weight from
+// stock. Rounding to 3 decimals (grams) keeps weights exact.
+function addKgToCart(product, weightKg) {
+  const tab = activeTab();
+  if (!tab) return;
+  const weight = Math.round(weightKg * 1000) / 1000;
+  if (!(weight > 0)) return;
+  const existing = tab.cart.find(item => item.product_id === product.id);
+  if (existing) {
+    if (existing.quantity + weight <= product.quantity + 0.0001) {
+      existing.quantity = Math.round((existing.quantity + weight) * 1000) / 1000;
+    } else {
+      alert(I18N.t('cashier.onlyInStock').replace('{qty}', product.quantity).replace('{name}', product.name));
+      return;
+    }
+  } else {
+    if (product.quantity < weight) {
+      alert(I18N.t('cashier.onlyInStock').replace('{qty}', product.quantity).replace('{name}', product.name));
+      return;
+    }
+    tab.cart.push({
+      product_id: product.id,
+      name: product.name,
+      price: product.sale_price,
+      quantity: weight,
+      unit: 'kg',
+      availableStock: product.quantity
+    });
+  }
+  lastFlashProductId = product.id;
+  lastAddedProductId = product.id;
+  renderCart();
+  renderTabs();
+}
+
+// ---------- Weighing scale ----------
+// For 'kg' products the cashier must give a weight. We show a small dialog with
+// a manual kg input plus, when the browser supports Web Serial, a "Read from
+// scale" button that connects to the weigh scale, streams its reading and fills
+// the input when the weight settles.
+
+let weighModalEl = null;
+let weighProduct = null;
+let lastScaleReading = null;
+
+function closeWeighModal() {
+  if (window.akScaleSerial && weighModalEl) {
+    try { window.akScaleSerial.disconnect(); } catch (e) {}
+  }
+  if (weighModalEl) {
+    weighModalEl.remove();
+    weighModalEl = null;
+    weighProduct = null;
+    lastScaleReading = null;
+  }
+}
+
+function openWeighModal(product) {
+  if (weighModalEl) closeWeighModal();
+  weighProduct = product;
+  const modal = document.createElement('div');
+  modal.className = 'receipt-modal';
+  modal.id = 'weigh-modal';
+  const perKg = Number(product.sale_price || 0).toFixed(2);
+  modal.innerHTML = `
+    <div class="receipt-box" style="max-width:340px;">
+      <div style="font-weight:bold; font-size:1.05rem; margin-bottom:0.2rem;">${I18N.t('cashier.weighTitle')}</div>
+      <div class="hint-text" id="weigh-product-line" style="margin-bottom:0.6rem;"></div>
+      <input type="number" id="weigh-input" min="0" step="0.01" placeholder="${I18N.t('cashier.weightPlaceholder')}" style="width:100%; padding:0.6rem; font-size:1.1rem; margin-bottom:0.6rem; box-sizing:border-box;">
+      <div style="display:flex; gap:0.4rem; margin-bottom:0.6rem;">
+        <button class="btn btn-outline" id="weigh-scale-btn" type="button">${I18N.t('cashier.scaleConnect')}</button>
+        <button class="btn btn-outline" id="weigh-tare-btn" type="button">${I18N.t('cashier.tare')}</button>
+      </div>
+      <p class="hint-text" id="weigh-readout" style="min-height:1.2rem;"></p>
+      <div style="display:flex; justify-content:space-between; font-size:1.1rem; margin-bottom:0.8rem;">
+        <span>${I18N.t('cashier.total')}</span><span id="weigh-total">0.00 DA</span>
+      </div>
+      <div style="display:flex; gap:0.6rem;">
+        <button class="btn" id="weigh-add-btn" type="button" style="flex:1;">${I18N.t('cashier.addWeight')}</button>
+        <button class="btn btn-close" id="weigh-cancel-btn" type="button">${I18N.t('cashier.close')}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  weighModalEl = modal;
+
+  document.getElementById('weigh-product-line').textContent = I18N.t('cashier.weighProduct')
+    .replace('{name}', product.name).replace('{price}', perKg);
+
+  const input = modal.querySelector('#weigh-input');
+  const totalEl = modal.querySelector('#weigh-total');
+  function updateTotal() {
+    const w = parseFloat(input.value) || 0;
+    totalEl.textContent = (w * (Number(product.sale_price) || 0)).toFixed(2) + ' DA';
+  }
+  input.addEventListener('input', updateTotal);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') modal.querySelector('#weigh-add-btn').click();
+    if (e.key === 'Escape') closeWeighModal();
+  });
+  setTimeout(() => input.focus(), 50);
+  updateTotal();
+
+  // Web Serial scale: live readout + fills the input with the settled weight.
+  if (window.akScaleSerial && window.akScaleSerial.supported()) {
+    let connected = false;
+    const readout = modal.querySelector('#weigh-readout');
+    const scaleBtn = modal.querySelector('#weigh-scale-btn');
+    const tareBtn = modal.querySelector('#weigh-tare-btn');
+    let currentKg = null;
+    let tareOffset = 0;
+
+    scaleBtn.addEventListener('click', async () => {
+      try {
+        if (!connected) {
+          const ok = await window.akScaleSerial.connect((kg) => {
+            currentKg = kg;
+            updateReadout();
+          }, (kg) => {
+            if (weighModalEl) {
+              input.value = Math.round(Math.max(0, kg - tareOffset) * 1000) / 1000;
+              updateTotal();
+            }
+          }, (err) => {
+            readout.textContent = I18N.t('cashier.scaleError').replace('{error}', String(err || '')) ;
+            scaleBtn.textContent = I18N.t('cashier.scaleConnect');
+            connected = false;
+          });
+          if (ok) {
+            connected = true;
+            scaleBtn.textContent = I18N.t('cashier.scaleDisconnect');
+            tareBtn.style.display = '';
+            readout.textContent = I18N.t('cashier.scaleLive').replace('{weight}', '0.000');
+          }
+        } else {
+          await window.akScaleSerial.disconnect();
+          connected = false;
+          currentKg = null;
+          scaleBtn.textContent = I18N.t('cashier.scaleConnect');
+          tareBtn.style.display = 'none';
+          readout.textContent = '';
+        }
+      } catch (err) {
+        readout.textContent = I18N.t('cashier.scaleError').replace('{error}', String(err && err.message || err || ''));
+      }
+      window.akFocusFix && window.akFocusFix();
+    });
+
+    function updateReadout() {
+      if (!weighModalEl || currentKg == null) return;
+      readout.textContent = I18N.t('cashier.scaleLive').replace('{weight}', Math.max(0, currentKg - tareOffset).toFixed(3));
+    }
+
+    tareBtn.addEventListener('click', () => {
+      if (currentKg != null) {
+        tareOffset = currentKg;
+        updateReadout();
+        input.value = '0';
+        updateTotal();
+      }
+    });
+  } else if (modal.querySelector('#weigh-scale-btn')) {
+    modal.querySelector('#weigh-scale-btn').style.display = 'none';
+    modal.querySelector('#weigh-readout').textContent = I18N.t('cashier.scaleNotSupported');
+  }
+
+  modal.querySelector('#weigh-add-btn').addEventListener('click', () => {
+    const w = parseFloat(input.value);
+    if (!(w > 0)) {
+      alert(I18N.t('stock.validQuantity'));
+      window.akFocusFix && window.akFocusFix();
+      return;
+    }
+    closeWeighModal();
+    addKgToCart(weighProduct, w);
+    window.akFocusFix && window.akFocusFix();
+  });
+  modal.querySelector('#weigh-cancel-btn').addEventListener('click', closeWeighModal);
+  modal.addEventListener('pointerdown', (e) => {
+    if (e.target === modal) closeWeighModal();
+  });
 }
 
 function getSubtotal() {
@@ -734,21 +1016,28 @@ function renderCart() {
   if (tab.cart.length === 0) {
     cartItemsEl.innerHTML = `<p class="empty-cart-msg">${I18N.t('cashier.cartEmpty')}</p>`;
   } else {
-    cartItemsEl.innerHTML = tab.cart.map((item, index) => `
+    cartItemsEl.innerHTML = tab.cart.map((item, index) => {
+      const isKg = item.unit === 'kg';
+      const unitLabel = isKg
+        ? I18N.t('cashier.perKg').replace('{price}', item.price.toFixed(2))
+        : I18N.t('cashier.perUnit').replace('{price}', item.price.toFixed(2));
+      const qtyLabel = isKg ? `${item.quantity.toFixed(3)} ${I18N.t('cashier.cartKgStep')}` : item.quantity;
+      return `
       <div class="cart-item${item.product_id === lastFlashProductId ? ' cart-flash' : ''}${item.product_id === selectedProductId ? ' cart-item-selected' : ''}" data-product-id="${item.product_id}">
         <div class="cart-line-main">
           <span class="cart-line-name">${esc(item.name)}</span>
-          <span class="cart-line-unit">${I18N.t('cashier.perUnit').replace('{price}', item.price.toFixed(2))}</span>
+          <span class="cart-line-unit">${unitLabel}</span>
         </div>
         <div class="qty-controls">
           <button class="qty-btn" data-action="decrease" data-index="${index}">-</button>
-          <span class="qty-value">${item.quantity}</span>
+          <span class="qty-value">${qtyLabel}</span>
           <button class="qty-btn" data-action="increase" data-index="${index}">+</button>
         </div>
         <span class="cart-line-total">${(item.price * item.quantity).toFixed(2)} DA</span>
         <button class="remove-btn" data-index="${index}" title="${I18N.t('cashier.removeLine')}">&times;</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
   lastFlashProductId = null;
 
@@ -816,13 +1105,16 @@ cartItemsEl.addEventListener('click', (e) => {
   if (e.target.classList.contains('remove-btn')) {
     tab.cart.splice(index, 1);
   } else if (e.target.dataset.action === 'increase') {
-    if (tab.cart[index].quantity < tab.cart[index].availableStock) {
-      tab.cart[index].quantity++;
-} else {
-        alert(I18N.t('cashier.notEnoughStock'));
-      }
+    // kg lines adjust in 10 g steps; piece lines in whole units.
+    const step = tab.cart[index].unit === 'kg' ? 0.010 : 1;
+    if (tab.cart[index].quantity + step <= tab.cart[index].availableStock + 0.0001) {
+      tab.cart[index].quantity = Math.round((tab.cart[index].quantity + step) * 1000) / 1000;
+    } else {
+      alert(I18N.t('cashier.notEnoughStock'));
+    }
   } else if (e.target.dataset.action === 'decrease') {
-    tab.cart[index].quantity--;
+    const step = tab.cart[index].unit === 'kg' ? 0.010 : 1;
+    tab.cart[index].quantity = Math.round((tab.cart[index].quantity - step) * 1000) / 1000;
     if (tab.cart[index].quantity <= 0) tab.cart.splice(index, 1);
   }
 
@@ -1173,7 +1465,7 @@ heldSalesListEl.addEventListener('click', async (e) => {
     const tab = createTab();
     tab.cart = match.cart.map(item => {
       const product = allProducts.find(p => p.id === item.product_id);
-      return { ...item, availableStock: product ? product.quantity : 0 };
+      return { ...item, unit: item.unit || (product ? product.unit : 'piece'), availableStock: product ? product.quantity : 0 };
     });
     renderTabs();
     renderCart();
@@ -1260,27 +1552,21 @@ document.getElementById('scan-btn').addEventListener('click', () => {
 
 document.getElementById('scan-camera-btn').addEventListener('click', () => {
   openScanner((code) => {
-    const eq = window.akBarcodeEquals;
-    const product = (eq && allProducts.find(p =>
-      (p.barcode && eq(p.barcode, code)) ||
-      (p.extra_barcodes || []).some(b => eq(b, code))
-    )) || barcodeMap().get(code);
-    if (product) {
-      addToCart(product);
-    } else {
-      alert(I18N.t('cashier.notFoundBarcode').replace('{code}', code));
-    }
+    resolveScannedCode(String(code || '').trim());
   }, { continuous: true });
 });
 
 // Builds a printable receipt modal after a completed sale. Uses the browser's
 // print dialog (@media print in style.css hides everything but the receipt).
 function showReceipt(result, tenderedPayments, changeDue, clientName) {
-  const items = result.items.map(i => `
+  const items = result.items.map(i => {
+    const qty = i.unit === 'kg' ? Number(i.quantity).toFixed(3) + ' kg' : i.quantity;
+    return `
     <tr>
-      <td>${esc(i.product_name)} x${i.quantity}</td>
+      <td>${esc(i.product_name)} x${qty}</td>
       <td style="text-align:right;">${(i.price_at_sale * i.quantity).toFixed(2)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const paymentLines = (tenderedPayments && tenderedPayments.length ? tenderedPayments : result.payments)
     .map(p => `${esc(I18N.paymentMethod(p.method))}: ${Number(p.amount).toFixed(2)}`)
@@ -1339,7 +1625,7 @@ function showReceipt(result, tenderedPayments, changeDue, clientName) {
         ticket: `${I18N.t('cashier.ticket')} #${result.saleId}`,
         clientName: clientName ? `${I18N.t('cashier.clientName')}: ${clientName}` : '',
         date: new Date().toLocaleString(),
-        items: result.items.map(i => ({ name: i.product_name, quantity: i.quantity, price: i.price_at_sale, total: i.price_at_sale * i.quantity })),
+        items: result.items.map(i => ({ name: i.product_name, quantity: i.unit === 'kg' ? `${Number(i.quantity).toFixed(3)} kg` : i.quantity, price: i.price_at_sale, total: i.price_at_sale * i.quantity })),
         subtotal: result.subtotal,
         discount: result.discountAmount || 0,
         points: result.pointsDiscount || 0,

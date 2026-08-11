@@ -18,6 +18,12 @@ const shopLogoRemove = document.getElementById('shop-logo-remove');
 const shopLogoPreview = document.getElementById('shop-logo-preview');
 let shopLogoValue = '';
 
+const scaleLabelMode = document.getElementById('scale-label-mode');
+const scaleLabelPrefix = document.getElementById('scale-label-prefix');
+const scalePriceDigits = document.getElementById('scale-price-digits');
+const scalePriceDivisor = document.getElementById('scale-price-divisor');
+const scaleSerialBaud = document.getElementById('scale-serial-baud');
+
 const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[ch]));
@@ -89,6 +95,13 @@ async function loadSettings() {
   shopPhoneInput.value = s.shop_phone || '';
   shopLogoValue = s.shop_logo || '';
   if (shopLogoValue) showLogoPreview(shopLogoValue);
+  if (scaleLabelMode) {
+    scaleLabelMode.value = s.scale_label_mode === 'plu' ? 'plu' : (s.scale_label_mode === 'off' ? 'off' : 'price');
+    scaleLabelPrefix.value = s.scale_label_prefix === undefined || s.scale_label_prefix === '' ? '2' : s.scale_label_prefix;
+    scalePriceDigits.value = s.scale_price_digits === undefined || s.scale_price_digits === '' ? 5 : s.scale_price_digits;
+    scalePriceDivisor.value = s.scale_price_divisor === undefined || s.scale_price_divisor === '' ? 100 : s.scale_price_divisor;
+    scaleSerialBaud.value = s.scale_serial_baud === undefined || s.scale_serial_baud === '' ? 9600 : s.scale_serial_baud;
+  }
   if (darkToggle.checked) document.documentElement.classList.add('dark-mode');
 }
 
@@ -248,7 +261,12 @@ document.getElementById('save-settings-btn').addEventListener('click', async () 
       shop_name: shopNameInput.value,
       shop_address: shopAddressInput.value,
       shop_phone: shopPhoneInput.value,
-      shop_logo: shopLogoValue
+      shop_logo: shopLogoValue,
+      scale_label_mode: scaleLabelMode ? scaleLabelMode.value : 'off',
+      scale_label_prefix: scaleLabelPrefix ? scaleLabelPrefix.value : '2',
+      scale_price_digits: scalePriceDigits ? scalePriceDigits.value : '5',
+      scale_price_divisor: scalePriceDivisor ? scalePriceDivisor.value : '100',
+      scale_serial_baud: scaleSerialBaud ? scaleSerialBaud.value : '9600'
     })
   });
 

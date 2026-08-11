@@ -192,9 +192,16 @@
               </button>
             </div>
           </div>
-          <div class="field span2">
+<div class="field span2">
             <label for="name" data-i18n="inv.name">Product name *</label>
             <input type="text" id="name" required>
+          </div>
+          <div class="field">
+            <label for="unit" data-i18n="inv.unit">Selling unit</label>
+            <select id="unit">
+              <option value="piece" data-i18n="inv.unitPiece">Unit (piece)</option>
+              <option value="kg" data-i18n="inv.unitKg">By weight (kg)</option>
+            </select>
           </div>
           <div class="field">
             <label for="expiry_date" data-i18n="inv.expiryDate">Expiry date</label>
@@ -272,8 +279,14 @@
           </button>
         </div>
 
-        <label for="edit-expiry_date" data-i18n="inv.expiryDate">Expiry date</label>
+<label for="edit-expiry_date" data-i18n="inv.expiryDate">Expiry date</label>
         <input type="date" id="edit-expiry_date">
+
+        <label for="edit-unit" data-i18n="inv.unit">Selling unit</label>
+        <select id="edit-unit">
+          <option value="piece" data-i18n="inv.unitPiece">Unit (piece)</option>
+          <option value="kg" data-i18n="inv.unitKg">By weight (kg)</option>
+        </select>
 
             <label for="edit-category" data-i18n="inv.category">Category</label>
             <input type="text" id="edit-category" list="categories-datalist">
