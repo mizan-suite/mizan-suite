@@ -1,7 +1,7 @@
 {
   "name": "mizan",
   "version": "1.0.0",
-  "description": "Mizan Suite - pharmacy management software",
+  "description": "Mizan Suite - retail management software",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -11,7 +11,7 @@
     "licenses": "node license-tools/dashboard.js"
   },
   "build": {
-    "appId": "com.mizan.pharmacy",
+    "appId": "com.mizan.suite",
     "productName": "Mizan Suite",
     "directories": {
       "output": "dist"
