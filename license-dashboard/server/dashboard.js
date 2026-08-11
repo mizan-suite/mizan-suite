@@ -56,18 +56,19 @@ const sessions = new Map(); // token -> exp
 const { secretKey } = lib.loadKeypair();
 
 // ---------- helpers ----------
-function issueLicense(client, machineId, expires) {
+function issueLicense(client, machineId, expires, tier) {
   const licenses = lib.loadLedger();
   const rec = {
     id: lib.nextId(licenses),
     client,
     machineId: machineId || null,
+    tier: tier === 'basic' ? 'basic' : 'pro',
     expires: expires || null,
     issued: new Date().toISOString().slice(0, 10),
     status: 'active',
     createdAt: new Date().toISOString()
   };
-  const payload = { client, machineId: rec.machineId, expires: rec.expires, issued: rec.issued };
+  const payload = { client, machineId: rec.machineId, tier: rec.tier, expires: rec.expires, issued: rec.issued };
   rec.key = lib.signLicense(payload, secretKey);
   licenses.unshift(rec);
   lib.saveLedger(licenses);
@@ -135,11 +136,13 @@ app.post('/api/licenses', requireAuth, (req, res) => {
   const client = String((req.body && req.body.client) || '').trim();
   const machineId = (req.body && req.body.machineId !== undefined) ? String(req.body.machineId).trim() : '';
   const expires = (req.body && req.body.expires) ? String(req.body.expires).trim() : '';
+  const tier = (req.body && req.body.tier) ? String(req.body.tier).trim() : 'pro';
   if (!client) return res.status(400).json({ error: 'Client name is required' });
+  if (tier !== 'basic' && tier !== 'pro') return res.status(400).json({ error: 'Tier must be basic or pro' });
   if (expires && !/^\d{4}-\d{2}-\d{2}$/.test(expires)) {
     return res.status(400).json({ error: 'Expiry must be a date like 2027-08-01' });
   }
-  const rec = issueLicense(client, machineId || null, expires || null);
+  const rec = issueLicense(client, machineId || null, expires || null, tier);
   res.status(201).json(rec);
 });
 
@@ -154,7 +157,9 @@ app.post('/api/licenses/:id/renew', requireAuth, (req, res) => {
   rec.expires = expires || null;
   rec.issued = new Date().toISOString().slice(0, 10);
   rec.status = 'active';
-  const payload = { client: rec.client, machineId: rec.machineId, expires: rec.expires, issued: rec.issued };
+  rec.tier = (req.body && req.body.tier) ? String(req.body.tier).trim() : (rec.tier || 'pro');
+  if (rec.tier !== 'basic' && rec.tier !== 'pro') return res.status(400).json({ error: 'Tier must be basic or pro' });
+  const payload = { client: rec.client, machineId: rec.machineId, tier: rec.tier, expires: rec.expires, issued: rec.issued };
   rec.key = lib.signLicense(payload, secretKey);
   lib.saveLedger(licenses);
   res.json(rec);
