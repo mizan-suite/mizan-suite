@@ -375,6 +375,20 @@ const PERMISSIONS = [
     { method: 'GET', re: /^\/api\/products(\/\d+)?$/ },
     { method: 'GET', re: /^\/api\/purchase-orders$/ },
     { method: 'GET', re: /^\/api\/expenses$/ }
+  ]},
+  { key: 'staff', label: 'nav.staff', routes: [
+    { method: 'GET', re: /^\/api\/staff$/ },
+    { method: 'PUT', re: /^\/api\/staff\/\d+$/ },
+    { method: 'GET', re: /^\/api\/users$/ }
+  ]},
+  { key: 'pointage', label: 'nav.pointage', routes: [
+    { method: 'GET', re: /^\/api\/time-entries(\/summary)?$/ },
+    { method: 'POST', re: /^\/api\/time-entries\/clock$/ }
+  ]},
+  { key: 'payroll', label: 'nav.payroll', routes: [
+    { method: 'GET', re: /^\/api\/payroll$/ },
+    { method: 'POST', re: /^\/api\/payroll\/pay$/ },
+    { method: 'GET', re: /^\/api\/payroll\/\d+\/\d{4}-\d{2}\/pdf$/ }
   ]}
 ];
 
@@ -404,7 +418,10 @@ const PERM_PAGE = {
   reports: 'reports.html',
   analytics: 'analytics.html',
   settings: 'settings.html',
-  mobile: 'connect.html'
+  mobile: 'connect.html',
+  staff: 'staff.html',
+  pointage: 'pointage.html',
+  payroll: 'payroll.html'
 };
 
 const ALL_PERM_KEYS = PERMISSIONS.map(p => p.key);
@@ -672,6 +689,226 @@ app.delete('/api/users/:id', (req, res) => {
   db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
   logAudit(req, 'user_deleted', `name: ${user.name}`);
   res.json({ success: true });
+});
+
+// ---------- ADMINISTRATION: STAFF ----------
+
+// GET /api/staff - every account plus its pay fields (owner only).
+app.get('/api/staff', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'Only the owner can manage staff' });
+  }
+  const rows = db.prepare(
+    'SELECT id, name, role, active, hourly_rate, monthly_salary FROM users ORDER BY name'
+  ).all();
+  res.json(rows);
+});
+
+// PUT /api/staff/:id - update a worker's pay fields / active flag (owner only).
+app.put('/api/staff/:id', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'Only the owner can manage staff' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id));
+  if (!user) return res.status(404).json({ error: 'Staff member not found' });
+  const fields = {};
+  if (req.body.hourly_rate !== undefined) {
+    const v = Number(req.body.hourly_rate);
+    if (!(v >= 0)) return res.status(400).json({ error: 'Hourly rate must be a non-negative number' });
+    fields.hourly_rate = v;
+  }
+  if (req.body.monthly_salary !== undefined) {
+    const v = Number(req.body.monthly_salary);
+    if (!(v >= 0)) return res.status(400).json({ error: 'Monthly salary must be a non-negative number' });
+    fields.monthly_salary = v;
+  }
+  if (req.body.active !== undefined) {
+    fields.active = req.body.active ? 1 : 0;
+  }
+  if (!Object.keys(fields).length) return res.status(400).json({ error: 'No fields to update' });
+  const set = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE users SET ${set} WHERE id = ?`).run(...Object.values(fields), user.id);
+  const row = db.prepare('SELECT id, name, role, active, hourly_rate, monthly_salary FROM users WHERE id = ?').get(user.id);
+  logAudit(req, 'staff_updated', `name: ${row.name}, fields: ${Object.keys(fields).join(',')}`);
+  res.json(row);
+});
+
+// ---------- ADMINISTRATION: POINTAGE (TIME TRACKING) ----------
+
+// POST /api/time-entries/clock - clock the given worker in, or out if they are
+// already clocked in (owner only). Returns { action: 'in'|'out', entry }.
+app.post('/api/time-entries/clock', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const userId = Number(req.body.user_id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(404).json({ error: 'Staff member not found' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Staff member not found' });
+  if (!user.active) return res.status(400).json({ error: 'Staff member is not active' });
+
+  const open = db.prepare(
+    'SELECT * FROM time_entries WHERE user_id = ? AND clock_out IS NULL ORDER BY id DESC LIMIT 1'
+  ).get(userId);
+  if (open) {
+    db.prepare('UPDATE time_entries SET clock_out = datetime(\'now\', \'localtime\') WHERE id = ?').run(open.id);
+    logAudit(req, 'time_clock_out', `name: ${user.name}, entry: ${open.id}`);
+    return res.json({ action: 'out', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(open.id) });
+  }
+  const info = db.prepare(
+    "INSERT INTO time_entries (user_id, clock_in) VALUES (?, datetime('now', 'localtime'))"
+  ).run(userId);
+  logAudit(req, 'time_clock_in', `name: ${user.name}`);
+  res.status(201).json({ action: 'in', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(info.lastInsertRowid) });
+});
+
+// GET /api/time-entries?from=&to=&user_id= - entries with worker names and
+// durations in minutes (owner only). from/to are YYYY-MM-DD.
+app.get('/api/time-entries', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  let where = 'WHERE 1=1';
+  const params = [];
+  if (req.query.from) { where += ' AND t.clock_in >= ?'; params.push(String(req.query.from) + ' 00:00:00'); }
+  if (req.query.to) { where += ' AND t.clock_in <= ?'; params.push(String(req.query.to) + ' 23:59:59'); }
+  if (req.query.user_id) { where += ' AND t.user_id = ?'; params.push(Number(req.query.user_id)); }
+  const rows = db.prepare(`
+    SELECT t.id, t.user_id, t.clock_in, t.clock_out, t.notes, u.name AS user_name, u.active AS user_active
+    FROM time_entries t JOIN users u ON u.id = t.user_id
+    ${where} ORDER BY t.clock_in DESC`).all(...params);
+  res.json(rows.map(r => ({
+    ...r,
+    duration_minutes: r.clock_out
+      ? Math.max(0, Math.round((new Date(r.clock_out) - new Date(r.clock_in)) / 60000))
+      : null
+  })));
+});
+
+// GET /api/time-entries/summary?from=&to=&user_id= - per-worker totals (hours)
+// over a date range (owner only).
+app.get('/api/time-entries/summary', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  let where = 'WHERE 1=1';
+  const params = [];
+  if (req.query.from) { where += ' AND clock_in >= ?'; params.push(String(req.query.from) + ' 00:00:00'); }
+  if (req.query.to) { where += ' AND clock_in <= ?'; params.push(String(req.query.to) + ' 23:59:59'); }
+  if (req.query.user_id) { where += ' AND user_id = ?'; params.push(Number(req.query.user_id)); }
+  const rows = db.prepare(`
+    SELECT user_id, u.name AS user_name,
+           COUNT(*) AS entries,
+           COALESCE(SUM(CASE WHEN clock_out IS NOT NULL
+             THEN (julianday(clock_out) - julianday(clock_in)) * 24 ELSE 0 END), 0) AS hours
+    FROM time_entries JOIN users u ON u.id = user_id
+    ${where} GROUP BY user_id ORDER BY u.name`).all(...params);
+  res.json(rows.map(r => ({ ...r, hours: Math.round(Number(r.hours) * 100) / 100 })));
+});
+
+// ---------- ADMINISTRATION: PAYROLL ----------
+
+// GET /api/payroll?month=YYYY-MM - per-worker payroll for a month (owner only).
+// Hourly workers are paid hours x rate; monthly workers get their flat salary.
+app.get('/api/payroll', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const month = String(req.query.month || '');
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
+  }
+  const next = db.prepare(`SELECT strftime('%Y-%m', '${month}-01', '+1 month') AS m`).get().m;
+  const workers = db.prepare(
+    'SELECT id, name, active, hourly_rate, monthly_salary FROM users WHERE role != \'owner\' ORDER BY name'
+  ).all();
+  const hoursRows = db.prepare(`
+    SELECT user_id, COALESCE(SUM(CASE WHEN clock_out IS NOT NULL
+      THEN (julianday(clock_out) - julianday(clock_in)) * 24 ELSE 0 END), 0) AS hours
+    FROM time_entries WHERE clock_in >= ? AND clock_in < ? GROUP BY user_id
+  `).all(month + '-01 00:00:00', next + '-01 00:00:00');
+  const hoursByUser = {};
+  for (const h of hoursRows) hoursByUser[h.user_id] = Number(h.hours);
+  const paidRows = db.prepare('SELECT * FROM payroll_payments WHERE month = ?').all(month);
+  const paidByUser = {};
+  for (const p of paidRows) paidByUser[p.user_id] = p;
+
+  const items = workers.map(w => {
+    const hours = hoursByUser[w.id] || 0;
+    const amount = w.monthly_salary > 0 ? w.monthly_salary : (hours * w.hourly_rate);
+    const paid = paidByUser[w.id] || null;
+    return {
+      id: w.id,
+      name: w.name,
+      active: !!w.active,
+      hourly_rate: w.hourly_rate,
+      monthly_salary: w.monthly_salary,
+      hours: Math.round(hours * 100) / 100,
+      amount: Math.round(amount * 100) / 100,
+      paid: !!paid,
+      paid_at: paid ? paid.paid_at : null,
+      payment_id: paid ? paid.id : null
+    };
+  });
+  res.json({ month, items });
+});
+
+// POST /api/payroll/pay - mark a worker's month as paid: records it and posts a
+// 'salaries' expense so the amount shows up in Financial (owner only).
+app.post('/api/payroll/pay', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const { user_id, month, amount } = req.body;
+  if (!/^\d{4}-\d{2}$/.test(String(month || ''))) {
+    return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(user_id));
+  if (!user || user.role === 'owner') return res.status(404).json({ error: 'Staff member not found' });
+  const v = Number(amount);
+  if (!(v > 0)) return res.status(400).json({ error: 'amount must be a positive number' });
+  const existing = db.prepare('SELECT * FROM payroll_payments WHERE user_id = ? AND month = ?').get(user.id, month);
+  if (existing) return res.status(400).json({ error: 'Already paid for this month' });
+
+  db.prepare(
+    "INSERT INTO expenses (category, amount, description, expense_date) VALUES ('salaries', ?, ?, ?)"
+  ).run(v, `Salary - ${user.name} (${month})`, month + '-01');
+  const info = db.prepare('INSERT INTO payroll_payments (user_id, month, amount) VALUES (?, ?, ?)').run(user.id, month, v);
+  logAudit(req, 'payroll_paid', `name: ${user.name}, month: ${month}, amount: ${v}`);
+  res.status(201).json(db.prepare('SELECT * FROM payroll_payments WHERE id = ?').get(info.lastInsertRowid));
+});
+
+// GET /api/payroll/:userId/:month/pdf - pay slip for one worker / month (owner only).
+app.get('/api/payroll/:userId/:month/pdf', (req, res) => {
+  try {
+    if (!isOwnerRequest(req)) {
+      return res.status(403).json({ error: 'This action requires the owner account' });
+    }
+    const month = String(req.params.month);
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
+    }
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.userId));
+    if (!user || user.role === 'owner') return res.status(404).json({ error: 'Staff member not found' });
+    const next = db.prepare(`SELECT strftime('%Y-%m', '${month}-01', '+1 month') AS m`).get().m;
+    const hoursRow = db.prepare(`
+      SELECT COALESCE(SUM(CASE WHEN clock_out IS NOT NULL
+        THEN (julianday(clock_out) - julianday(clock_in)) * 24 ELSE 0 END), 0) AS hours
+      FROM time_entries WHERE user_id = ? AND clock_in >= ? AND clock_in < ?
+    `).get(user.id, month + '-01 00:00:00', next + '-01 00:00:00');
+    const hours = Number(hoursRow.hours);
+    const amount = user.monthly_salary > 0 ? user.monthly_salary : (hours * user.hourly_rate);
+    const paid = db.prepare('SELECT * FROM payroll_payments WHERE user_id = ? AND month = ?').get(user.id, month);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="payslip-${String(user.name).replace(/\s+/g, '-')}-${month}.pdf"`);
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    doc.pipe(res);
+    buildPaySlipPdf(doc, { user, month, hours, amount, paid });
+    doc.end();
+  } catch (err) { sendPdfError(res, err); }
 });
 
 // ---------- API ROUTES ----------
@@ -3560,12 +3797,67 @@ function buildDocumentPdf(doc, opts) {
   }
 }
 
+// Pay slip PDF for one worker / month (Administration -> Payroll).
+function buildPaySlipPdf(doc, opts) {
+  const { user, month, hours, amount, paid } = opts;
+
+  const shopName = getSetting('shop_name') || 'Mizan Suite';
+  const shopAddress = getSetting('shop_address') || '';
+  const shopPhone = getSetting('shop_phone') || '';
+
+  doc.fontSize(15).text(shopName, { align: 'center' });
+  if (shopAddress || shopPhone) {
+    doc.fontSize(9).fillColor('#555').text([shopAddress, shopPhone].filter(Boolean).join('  ·  '), { align: 'center' });
+  }
+  doc.fillColor('#000');
+
+  doc.moveDown(0.5);
+  doc.fontSize(12).text('BULLETIN DE PAIE', { align: 'center' });
+  doc.fontSize(10).text('Période: ' + month, { align: 'center' });
+  doc.moveDown(0.5);
+
+  doc.fontSize(10).text('Employé: ' + user.name);
+  doc.moveDown(0.6);
+
+  const rows = [
+    ['Salaire mensuel', user.monthly_salary > 0 ? moneyPdf(user.monthly_salary) : '-'],
+    ['Taux horaire', user.hourly_rate > 0 ? moneyPdf(user.hourly_rate) : '-'],
+    ['Heures travaillées', hours.toFixed(2)],
+    ['Montant net', moneyPdf(amount)],
+    ['Statut', paid ? ('Payé le ' + String(paid.paid_at)) : 'Non payé']
+  ];
+
+  const labelW = 220;
+  const valueW = 160;
+  const startX = doc.page.margins.left + 60;
+  let y = doc.y;
+
+  doc.font('Helvetica-Bold');
+  doc.fontSize(9).text('Libellé', startX, y, { width: labelW });
+  doc.text('Montant', startX + labelW, y, { width: valueW, align: 'right' });
+  y += 16;
+  doc.moveTo(startX, y).lineTo(startX + labelW + valueW, y).stroke();
+  y += 4;
+
+  doc.font('Helvetica');
+  for (const [label, value] of rows) {
+    if (y > doc.page.height - doc.page.margins.bottom - 40) {
+      doc.addPage();
+      y = doc.page.margins.top;
+    }
+    doc.fontSize(10).text(label, startX, y, { width: labelW });
+    doc.text(String(value), startX + labelW, y, { width: valueW, align: 'right' });
+    y += 22;
+  }
+
+  doc.moveDown(1);
+  doc.fontSize(9).fillColor('#555').text('Signature du responsable', { align: 'center' });
+}
+
 function moneyPdf(n) {
   const v = Number(n);
   return (Number.isFinite(v) ? v : 0).toFixed(2) + ' DA';
-}
-
-function sendPdfError(res, err) {
+}function sendPdfError(res, err) {
   res.status(400).json({ error: err.message || String(err) });
 }
 

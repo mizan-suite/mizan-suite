@@ -41,6 +41,14 @@
       ]
     },
     {
+      label: 'nav.administration',
+      items: [
+        { href: 'staff.html', label: 'nav.staff', perm: 'staff', tier: 'pro' },
+        { href: 'pointage.html', label: 'nav.pointage', perm: 'pointage', tier: 'pro' },
+        { href: 'payroll.html', label: 'nav.payroll', perm: 'payroll', tier: 'pro' }
+      ]
+    },
+    {
       label: 'nav.system',
       items: [
         { href: 'settings.html', label: 'nav.settings', perm: 'settings' },

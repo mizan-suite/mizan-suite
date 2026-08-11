@@ -234,6 +234,37 @@ const MIGRATIONS = [
       `);
       db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at)`);
     }
+  },
+  {
+    version: 21,
+    name: 'staff & time tracking (users pay fields, time_entries, payroll_payments)',
+    up() {
+      ensureColumn('users', 'hourly_rate', 'REAL NOT NULL DEFAULT 0');
+      ensureColumn('users', 'monthly_salary', 'REAL NOT NULL DEFAULT 0');
+      ensureColumn('users', 'active', 'INTEGER NOT NULL DEFAULT 1');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS time_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          clock_in TEXT NOT NULL,
+          clock_out TEXT,
+          notes TEXT,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_time_user_in ON time_entries(user_id, clock_in)`);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS payroll_payments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          month TEXT NOT NULL,
+          amount REAL NOT NULL,
+          paid_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(user_id, month),
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+    }
   }
 ];
 

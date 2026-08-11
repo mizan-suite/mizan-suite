@@ -23,7 +23,7 @@ window.AK_TIER_LOADED = false;
 // dashboard, inventory, stock, labels and refunds experience and is redirected
 // away from the pages below.
 const TIER_PAGE = {
-  pro: ['expiry.html', 'purchasing.html', 'reorder.html', 'debts.html', 'clients.html', 'facturation.html', 'financial.html', 'reports.html', 'analytics.html']
+  pro: ['expiry.html', 'purchasing.html', 'reorder.html', 'debts.html', 'clients.html', 'facturation.html', 'financial.html', 'reports.html', 'analytics.html', 'staff.html', 'pointage.html', 'payroll.html']
 };
 
 // Permission key -> the HTML page that key unlocks.
@@ -44,7 +44,10 @@ const PERM_PAGE = {
   reports: 'reports.html',
   analytics: 'analytics.html',
   settings: 'settings.html',
-  mobile: 'connect.html'
+  mobile: 'connect.html',
+  staff: 'staff.html',
+  pointage: 'pointage.html',
+  payroll: 'payroll.html'
 };
 
 function allowedPages(perms) {
