@@ -334,7 +334,7 @@ function renderUsers() {
     <li class="user-row" data-id="${u.id}">
       <span>
         <strong>${escapeHtml(u.name)}</strong>
-        <span class="badge" style="background:${u.role === 'owner' ? 'var(--accent, #1b6e5c)' : '#888'}; color:#fff;">${u.role === 'owner' ? I18N.t('role.owner') : I18N.t('role.cashier')}</span>
+        <span class="badge" style="background:${u.role === 'owner' ? 'var(--accent, #1b6e5c)' : '#888'}; color:#fff;">${u.role === 'owner' ? I18N.t('role.owner') : u.role === 'worker' ? I18N.t('role.worker') : I18N.t('role.cashier')}</span>
         ${u.role === 'owner'
           ? `<span class="badge" style="background:var(--accent, #1b6e5c); color:#fff;">${I18N.t('settings.allAccess')}</span>`
           : `<button type="button" class="btn btn-outline btn-sm perm-toggle-btn" data-id="${u.id}">${I18N.t('settings.access')} (${perms.length})</button>`}

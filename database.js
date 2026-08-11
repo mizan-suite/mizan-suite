@@ -265,6 +265,40 @@ const MIGRATIONS = [
         )
       `);
     }
+  },
+  {
+    version: 22,
+    name: 'worker profiles, pay adjustments & leave (staff_advances, leave_entries)',
+    up() {
+      ensureColumn('users', 'job_title', "TEXT NOT NULL DEFAULT ''");
+      ensureColumn('users', 'phone', "TEXT NOT NULL DEFAULT ''");
+      ensureColumn('users', 'hire_date', 'TEXT');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS staff_advances (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          kind TEXT NOT NULL,
+          amount REAL NOT NULL,
+          month TEXT NOT NULL,
+          note TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_adv_month ON staff_advances(user_id, month)`);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS leave_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          leave_date TEXT NOT NULL,
+          type TEXT NOT NULL,
+          note TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_leave_date ON leave_entries(user_id, leave_date)`);
+    }
   }
 ];
 

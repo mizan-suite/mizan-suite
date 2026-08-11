@@ -109,7 +109,12 @@
 
     if (window.AK_NAME) {
       const userEl = document.getElementById('sidebar-user');
-      if (userEl) userEl.textContent = `${window.AK_NAME} \u00B7 ${window.AK_ROLE === 'owner' ? I18N.t('role.owner') : I18N.t('role.cashier')}`;
+      if (userEl) {
+        const roleKey = window.AK_ROLE === 'owner' ? 'role.owner'
+          : window.AK_ROLE === 'worker' ? 'role.worker'
+          : 'role.cashier';
+        userEl.textContent = `${window.AK_NAME} \u00B7 ${I18N.t(roleKey)}`;
+      }
     }
 
     // Floating "Print" button removed (user didn't want it).

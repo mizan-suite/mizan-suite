@@ -379,15 +379,25 @@ const PERMISSIONS = [
   { key: 'staff', label: 'nav.staff', routes: [
     { method: 'GET', re: /^\/api\/staff$/ },
     { method: 'PUT', re: /^\/api\/staff\/\d+$/ },
-    { method: 'GET', re: /^\/api\/users$/ }
+    { method: 'GET', re: /^\/api\/users$/ },
+    { method: 'POST', re: /^\/api\/users$/ }
   ]},
   { key: 'pointage', label: 'nav.pointage', routes: [
+    { method: 'GET', re: /^\/api\/staff$/ },
     { method: 'GET', re: /^\/api\/time-entries(\/summary)?$/ },
-    { method: 'POST', re: /^\/api\/time-entries\/clock$/ }
+    { method: 'POST', re: /^\/api\/time-entries\/clock$/ },
+    { method: 'PUT', re: /^\/api\/time-entries\/\d+$/ },
+    { method: 'DELETE', re: /^\/api\/time-entries\/\d+$/ },
+    { method: 'GET', re: /^\/api\/leave$/ },
+    { method: 'POST', re: /^\/api\/leave$/ },
+    { method: 'DELETE', re: /^\/api\/leave\/\d+$/ }
   ]},
   { key: 'payroll', label: 'nav.payroll', routes: [
     { method: 'GET', re: /^\/api\/payroll$/ },
     { method: 'POST', re: /^\/api\/payroll\/pay$/ },
+    { method: 'GET', re: /^\/api\/payroll\/adjustments$/ },
+    { method: 'POST', re: /^\/api\/payroll\/adjustments$/ },
+    { method: 'DELETE', re: /^\/api\/payroll\/adjustments\/\d+$/ },
     { method: 'GET', re: /^\/api\/payroll\/\d+\/\d{4}-\d{2}\/pdf$/ }
   ]}
 ];
@@ -469,6 +479,33 @@ function isOwnerRequest(req) {
   const token = parseCookies(req).paravie_session;
   const session = sessions.get(token);
   return !!(session && session.exp > Date.now() && session.role === 'owner');
+}
+
+// The current logged-in session ({ userId, name, role }) or null. Owners bypass
+// it via isOwnerRequest; this is for the worker role's self-service endpoints.
+function currentSession(req) {
+  if (isSkipLogin()) return null;
+  const token = parseCookies(req).paravie_session;
+  const session = sessions.get(token);
+  if (!session || session.exp <= Date.now()) return null;
+  return session;
+}
+
+// Owner may act for anyone; a worker may only act for themselves.
+function isOwnerOrSelf(req, userId) {
+  if (isOwnerRequest(req)) return true;
+  const session = currentSession(req);
+  return !!(session && session.role === 'worker' && session.userId === Number(userId));
+}
+
+// Accepts "YYYY-MM-DDTHH:MM" (datetime-local) or "YYYY-MM-DD HH:MM:SS", returns
+// the stored "YYYY-MM-DD HH:MM:SS" form, or null when invalid.
+function normalizeDateTime(v) {
+  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  if (+y < 2000 || +mo < 1 || +mo > 12 || +d < 1 || +d > 31 || +h > 23 || +mi > 59 || (s && +s > 59)) return null;
+  return `${y}-${mo}-${d} ${h}:${mi}:${s || '00'}`;
 }
 
 // ---------- AUDIT LOG ----------
@@ -607,22 +644,22 @@ app.get('/api/users', (req, res) => {
 
 // POST /api/users - create an account.
 //  * No accounts exist (setup mode): creates the OWNER account (first-run setup).
-//  * Accounts exist: owner-only action; creates a CASHIER account.
+//  * Accounts exist: owner-only action; creates a CASHIER or WORKER account.
 app.post('/api/users', (req, res) => {
   const { name, pin } = req.body;
   if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
   if (!validPinFormat(pin)) return res.status(400).json({ error: 'PIN must be exactly 6 digits' });
   if (hasAccounts() && !isOwnerRequest(req)) {
-      return res.status(403).json({ error: 'Only the owner can create accounts' });
-    }
-  const role = hasAccounts() ? 'cashier' : 'owner';
+    return res.status(403).json({ error: 'Only the owner can create accounts' });
+  }
+  const role = hasAccounts() ? (req.body.role === 'worker' ? 'worker' : 'cashier') : 'owner';
   const cleanName = String(name).trim();
   const existing = db.prepare('SELECT id FROM users WHERE LOWER(name) = LOWER(?)').get(cleanName);
   if (existing) {
     return res.status(400).json({ error: 'An account with that name already exists' });
   }
   let permsJson = null;
-  if (role === 'cashier' && Array.isArray(req.body.permissions)) {
+  if ((role === 'cashier' || role === 'worker') && Array.isArray(req.body.permissions)) {
     permsJson = JSON.stringify(req.body.permissions.filter(k => ALL_PERM_KEYS.includes(k)));
   }
   try {
@@ -693,18 +730,25 @@ app.delete('/api/users/:id', (req, res) => {
 
 // ---------- ADMINISTRATION: STAFF ----------
 
-// GET /api/staff - every account plus its pay fields (owner only).
+const STAFF_COLS = 'id, name, role, active, hourly_rate, monthly_salary, job_title, phone, hire_date';
+
+// GET /api/staff - every account plus its pay/profile fields (owner only; a
+// worker sees only their own row so they can self-clock on the Pointage page).
 app.get('/api/staff', (req, res) => {
-  if (!isOwnerRequest(req)) {
-    return res.status(403).json({ error: 'Only the owner can manage staff' });
+  if (isOwnerRequest(req)) {
+    const rows = db.prepare(`SELECT ${STAFF_COLS} FROM users ORDER BY name`).all();
+    return res.json(rows);
   }
-  const rows = db.prepare(
-    'SELECT id, name, role, active, hourly_rate, monthly_salary FROM users ORDER BY name'
-  ).all();
-  res.json(rows);
+  const session = currentSession(req);
+  if (session && session.role === 'worker') {
+    const row = db.prepare(`SELECT ${STAFF_COLS} FROM users WHERE id = ?`).get(session.userId);
+    if (!row) return res.status(404).json({ error: 'Staff member not found' });
+    return res.json([row]);
+  }
+  return res.status(403).json({ error: 'Only the owner can manage staff' });
 });
 
-// PUT /api/staff/:id - update a worker's pay fields / active flag (owner only).
+// PUT /api/staff/:id - update a worker's pay / profile fields (owner only).
 app.put('/api/staff/:id', (req, res) => {
   if (!isOwnerRequest(req)) {
     return res.status(403).json({ error: 'Only the owner can manage staff' });
@@ -725,10 +769,21 @@ app.put('/api/staff/:id', (req, res) => {
   if (req.body.active !== undefined) {
     fields.active = req.body.active ? 1 : 0;
   }
+  if (req.body.job_title !== undefined) {
+    fields.job_title = String(req.body.job_title).trim().slice(0, 100);
+  }
+  if (req.body.phone !== undefined) {
+    fields.phone = String(req.body.phone).trim().slice(0, 30);
+  }
+  if (req.body.hire_date !== undefined) {
+    const hd = req.body.hire_date ? String(req.body.hire_date).slice(0, 10) : null;
+    if (hd && !validDateStr(hd)) return res.status(400).json({ error: 'Invalid hire date' });
+    fields.hire_date = hd;
+  }
   if (!Object.keys(fields).length) return res.status(400).json({ error: 'No fields to update' });
   const set = Object.keys(fields).map(k => `${k} = ?`).join(', ');
   db.prepare(`UPDATE users SET ${set} WHERE id = ?`).run(...Object.values(fields), user.id);
-  const row = db.prepare('SELECT id, name, role, active, hourly_rate, monthly_salary FROM users WHERE id = ?').get(user.id);
+  const row = db.prepare(`SELECT ${STAFF_COLS} FROM users WHERE id = ?`).get(user.id);
   logAudit(req, 'staff_updated', `name: ${row.name}, fields: ${Object.keys(fields).join(',')}`);
   res.json(row);
 });
@@ -736,12 +791,13 @@ app.put('/api/staff/:id', (req, res) => {
 // ---------- ADMINISTRATION: POINTAGE (TIME TRACKING) ----------
 
 // POST /api/time-entries/clock - clock the given worker in, or out if they are
-// already clocked in (owner only). Returns { action: 'in'|'out', entry }.
+// already clocked in. Owners may clock anyone; a worker may only clock themself.
+// Returns { action: 'in'|'out', entry }.
 app.post('/api/time-entries/clock', (req, res) => {
-  if (!isOwnerRequest(req)) {
+  const userId = Number(req.body.user_id);
+  if (!isOwnerOrSelf(req, userId)) {
     return res.status(403).json({ error: 'This action requires the owner account' });
   }
-  const userId = Number(req.body.user_id);
   if (!Number.isInteger(userId) || userId <= 0) {
     return res.status(404).json({ error: 'Staff member not found' });
   }
@@ -764,21 +820,34 @@ app.post('/api/time-entries/clock', (req, res) => {
   res.status(201).json({ action: 'in', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(info.lastInsertRowid) });
 });
 
-// GET /api/time-entries?from=&to=&user_id= - entries with worker names and
-// durations in minutes (owner only). from/to are YYYY-MM-DD.
-app.get('/api/time-entries', (req, res) => {
-  if (!isOwnerRequest(req)) {
-    return res.status(403).json({ error: 'This action requires the owner account' });
+// Helper for the time-entries queries below. Returns { where, params }.
+function timeEntryScope(req) {
+  if (isOwnerRequest(req)) {
+    let where = 'WHERE 1=1';
+    const params = [];
+    if (req.query.from) { where += ' AND t.clock_in >= ?'; params.push(String(req.query.from) + ' 00:00:00'); }
+    if (req.query.to) { where += ' AND t.clock_in <= ?'; params.push(String(req.query.to) + ' 23:59:59'); }
+    if (req.query.user_id) { where += ' AND t.user_id = ?'; params.push(Number(req.query.user_id)); }
+    return { where, params };
   }
-  let where = 'WHERE 1=1';
-  const params = [];
+  const session = currentSession(req);
+  if (!session || session.role !== 'worker') return null;
+  let where = 'WHERE t.user_id = ?';
+  const params = [session.userId];
   if (req.query.from) { where += ' AND t.clock_in >= ?'; params.push(String(req.query.from) + ' 00:00:00'); }
   if (req.query.to) { where += ' AND t.clock_in <= ?'; params.push(String(req.query.to) + ' 23:59:59'); }
-  if (req.query.user_id) { where += ' AND t.user_id = ?'; params.push(Number(req.query.user_id)); }
+  return { where, params };
+}
+
+// GET /api/time-entries?from=&to=&user_id= - entries with worker names and
+// durations in minutes. Owners see everything; workers only their own.
+app.get('/api/time-entries', (req, res) => {
+  const scope = timeEntryScope(req);
+  if (!scope) return res.status(403).json({ error: 'This action requires the owner account' });
   const rows = db.prepare(`
     SELECT t.id, t.user_id, t.clock_in, t.clock_out, t.notes, u.name AS user_name, u.active AS user_active
     FROM time_entries t JOIN users u ON u.id = t.user_id
-    ${where} ORDER BY t.clock_in DESC`).all(...params);
+    ${scope.where} ORDER BY t.clock_in DESC`).all(...scope.params);
   res.json(rows.map(r => ({
     ...r,
     duration_minutes: r.clock_out
@@ -788,38 +857,122 @@ app.get('/api/time-entries', (req, res) => {
 });
 
 // GET /api/time-entries/summary?from=&to=&user_id= - per-worker totals (hours)
-// over a date range (owner only).
+// over a date range. Owners see everyone; workers only themselves.
 app.get('/api/time-entries/summary', (req, res) => {
+  const scope = timeEntryScope(req);
+  if (!scope) return res.status(403).json({ error: 'This action requires the owner account' });
+  const rows = db.prepare(`
+    SELECT t.user_id, u.name AS user_name,
+           COUNT(*) AS entries,
+           COALESCE(SUM(CASE WHEN t.clock_out IS NOT NULL
+             THEN (julianday(t.clock_out) - julianday(t.clock_in)) * 24 ELSE 0 END), 0) AS hours
+    FROM time_entries t JOIN users u ON u.id = t.user_id
+    ${scope.where} GROUP BY t.user_id ORDER BY u.name`).all(...scope.params);
+  res.json(rows.map(r => ({ ...r, hours: Math.round(Number(r.hours) * 100) / 100 })));
+});
+
+// PUT /api/time-entries/:id - fix a mis-entered clock in/out (owner only).
+app.put('/api/time-entries/:id', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(Number(req.params.id));
+  if (!entry) return res.status(404).json({ error: 'Time entry not found' });
+
+  let clockIn = entry.clock_in;
+  let clockOut = entry.clock_out;
+  if (req.body.clock_in !== undefined) {
+    const v = normalizeDateTime(req.body.clock_in);
+    if (!v) return res.status(400).json({ error: 'Invalid clock in time' });
+    clockIn = v;
+  }
+  if (req.body.clock_out !== undefined) {
+    if (req.body.clock_out === null || req.body.clock_out === '') {
+      clockOut = null;
+    } else {
+      const v = normalizeDateTime(req.body.clock_out);
+      if (!v) return res.status(400).json({ error: 'Invalid clock out time' });
+      if (v <= clockIn) return res.status(400).json({ error: 'Clock out must be after clock in' });
+      clockOut = v;
+    }
+  }
+  if (!clockOut || clockOut <= clockIn) {
+    return res.status(400).json({ error: 'Clock out must be after clock in' });
+  }
+  db.prepare('UPDATE time_entries SET clock_in = ?, clock_out = ? WHERE id = ?').run(clockIn, clockOut, entry.id);
+  logAudit(req, 'time_entry_edited', `entry: ${entry.id}`);
+  const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(entry.id);
+  const u = db.prepare('SELECT name FROM users WHERE id = ?').get(row.user_id);
+  res.json({ ...row, user_name: u ? u.name : '' });
+});
+
+// DELETE /api/time-entries/:id - remove a time entry (owner only).
+app.delete('/api/time-entries/:id', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const result = db.prepare('DELETE FROM time_entries WHERE id = ?').run(Number(req.params.id));
+  if (result.changes === 0) return res.status(404).json({ error: 'Time entry not found' });
+  logAudit(req, 'time_entry_deleted', `entry: ${req.params.id}`);
+  res.json({ success: true });
+});
+
+// ---------- ADMINISTRATION: LEAVE & ABSENCES ----------
+
+// GET /api/leave?from=&to=&user_id= - leave/absence days (owner only).
+app.get('/api/leave', (req, res) => {
   if (!isOwnerRequest(req)) {
     return res.status(403).json({ error: 'This action requires the owner account' });
   }
   let where = 'WHERE 1=1';
   const params = [];
-  if (req.query.from) { where += ' AND clock_in >= ?'; params.push(String(req.query.from) + ' 00:00:00'); }
-  if (req.query.to) { where += ' AND clock_in <= ?'; params.push(String(req.query.to) + ' 23:59:59'); }
-  if (req.query.user_id) { where += ' AND user_id = ?'; params.push(Number(req.query.user_id)); }
+  if (req.query.from) { where += ' AND l.leave_date >= ?'; params.push(String(req.query.from)); }
+  if (req.query.to) { where += ' AND l.leave_date <= ?'; params.push(String(req.query.to)); }
+  if (req.query.user_id) { where += ' AND l.user_id = ?'; params.push(Number(req.query.user_id)); }
   const rows = db.prepare(`
-    SELECT user_id, u.name AS user_name,
-           COUNT(*) AS entries,
-           COALESCE(SUM(CASE WHEN clock_out IS NOT NULL
-             THEN (julianday(clock_out) - julianday(clock_in)) * 24 ELSE 0 END), 0) AS hours
-    FROM time_entries JOIN users u ON u.id = user_id
-    ${where} GROUP BY user_id ORDER BY u.name`).all(...params);
-  res.json(rows.map(r => ({ ...r, hours: Math.round(Number(r.hours) * 100) / 100 })));
+    SELECT l.id, l.user_id, l.leave_date, l.type, l.note, u.name AS user_name
+    FROM leave_entries l JOIN users u ON u.id = l.user_id
+    ${where} ORDER BY l.leave_date DESC, l.id DESC`).all(...params);
+  res.json(rows);
+});
+
+// POST /api/leave - record a leave/absence day (owner only).
+app.post('/api/leave', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const { user_id, leave_date, type, note } = req.body;
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(user_id));
+  if (!user) return res.status(404).json({ error: 'Staff member not found' });
+  if (!validDateStr(String(leave_date || ''))) return res.status(400).json({ error: 'Invalid date' });
+  if (!['vacation', 'sick', 'absence'].includes(type)) return res.status(400).json({ error: 'Invalid leave type' });
+  const info = db.prepare(
+    'INSERT INTO leave_entries (user_id, leave_date, type, note) VALUES (?, ?, ?, ?)'
+  ).run(user.id, String(leave_date), type, note ? String(note).slice(0, 200) : null);
+  logAudit(req, 'leave_added', `name: ${user.name}, date: ${leave_date}, type: ${type}`);
+  res.status(201).json(db.prepare('SELECT * FROM leave_entries WHERE id = ?').get(info.lastInsertRowid));
+});
+
+// DELETE /api/leave/:id - remove a leave/absence day (owner only).
+app.delete('/api/leave/:id', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const result = db.prepare('DELETE FROM leave_entries WHERE id = ?').run(Number(req.params.id));
+  if (result.changes === 0) return res.status(404).json({ error: 'Leave entry not found' });
+  logAudit(req, 'leave_deleted', `entry: ${req.params.id}`);
+  res.json({ success: true });
 });
 
 // ---------- ADMINISTRATION: PAYROLL ----------
 
-// GET /api/payroll?month=YYYY-MM - per-worker payroll for a month (owner only).
-// Hourly workers are paid hours x rate; monthly workers get their flat salary.
-app.get('/api/payroll', (req, res) => {
-  if (!isOwnerRequest(req)) {
-    return res.status(403).json({ error: 'This action requires the owner account' });
-  }
-  const month = String(req.query.month || '');
-  if (!/^\d{4}-\d{2}$/.test(month)) {
-    return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
-  }
+// Compute one month's payroll for every worker (owner account excluded).
+//   base  = hours x hourly rate, or the flat monthly salary when set
+//   gross = base + bonuses
+//   net   = gross - advances - deductions - unpaid absences (daily rate), >= 0
+// Absences use one day = salary/30 or hourly rate x 8; vacation/sick days are
+// paid and only shown. Adjustments are recorded in staff_advances.
+function computePayrollRows(month) {
   const next = db.prepare(`SELECT strftime('%Y-%m', '${month}-01', '+1 month') AS m`).get().m;
   const workers = db.prepare(
     'SELECT id, name, active, hourly_rate, monthly_salary FROM users WHERE role != \'owner\' ORDER BY name'
@@ -831,13 +984,34 @@ app.get('/api/payroll', (req, res) => {
   `).all(month + '-01 00:00:00', next + '-01 00:00:00');
   const hoursByUser = {};
   for (const h of hoursRows) hoursByUser[h.user_id] = Number(h.hours);
+
+  const adjRows = db.prepare(
+    'SELECT user_id, kind, SUM(amount) AS total FROM staff_advances WHERE month = ? GROUP BY user_id, kind'
+  ).all(month);
+  const adjByUser = {};
+  for (const a of adjRows) {
+    (adjByUser[a.user_id] = adjByUser[a.user_id] || { advance: 0, bonus: 0, deduction: 0 })[a.kind] = Number(a.total);
+  }
+
+  const absenceRows = db.prepare(
+    "SELECT user_id, COUNT(*) AS days FROM leave_entries WHERE type = 'absence' AND leave_date >= ? AND leave_date <= ? GROUP BY user_id"
+  ).all(month + '-01', month + '-31');
+  const absenceByUser = {};
+  for (const a of absenceRows) absenceByUser[a.user_id] = Number(a.days);
+
   const paidRows = db.prepare('SELECT * FROM payroll_payments WHERE month = ?').all(month);
   const paidByUser = {};
   for (const p of paidRows) paidByUser[p.user_id] = p;
 
-  const items = workers.map(w => {
+  return workers.map(w => {
     const hours = hoursByUser[w.id] || 0;
-    const amount = w.monthly_salary > 0 ? w.monthly_salary : (hours * w.hourly_rate);
+    const base = w.monthly_salary > 0 ? w.monthly_salary : (hours * w.hourly_rate);
+    const adj = adjByUser[w.id] || { advance: 0, bonus: 0, deduction: 0 };
+    const absenceDays = absenceByUser[w.id] || 0;
+    const dailyRate = w.monthly_salary > 0 ? w.monthly_salary / 30 : (w.hourly_rate * 8);
+    const absenceDeduction = absenceDays * dailyRate;
+    const gross = base + adj.bonus;
+    const net = Math.max(0, gross - adj.advance - adj.deduction - absenceDeduction);
     const paid = paidByUser[w.id] || null;
     return {
       id: w.id,
@@ -846,13 +1020,82 @@ app.get('/api/payroll', (req, res) => {
       hourly_rate: w.hourly_rate,
       monthly_salary: w.monthly_salary,
       hours: Math.round(hours * 100) / 100,
-      amount: Math.round(amount * 100) / 100,
+      base_amount: Math.round(base * 100) / 100,
+      bonuses: Math.round(adj.bonus * 100) / 100,
+      advances: Math.round(adj.advance * 100) / 100,
+      deductions: Math.round(adj.deduction * 100) / 100,
+      absence_days: absenceDays,
+      gross: Math.round(gross * 100) / 100,
+      amount: Math.round(net * 100) / 100,
       paid: !!paid,
       paid_at: paid ? paid.paid_at : null,
       payment_id: paid ? paid.id : null
     };
   });
-  res.json({ month, items });
+}
+
+// GET /api/payroll?month=YYYY-MM - per-worker payroll for a month (owner only).
+app.get('/api/payroll', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const month = String(req.query.month || '');
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
+  }
+  res.json({ month, items: computePayrollRows(month) });
+});
+
+// GET /api/payroll/adjustments?month=YYYY-MM - advances/bonuses/deductions for
+// a month (owner only).
+app.get('/api/payroll/adjustments', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const month = String(req.query.month || '');
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
+  }
+  const rows = db.prepare(`
+    SELECT a.id, a.user_id, a.kind, a.amount, a.month, a.note, a.created_at, u.name AS user_name
+    FROM staff_advances a JOIN users u ON u.id = a.user_id
+    WHERE a.month = ? ORDER BY a.id DESC`).all(month);
+  res.json(rows);
+});
+
+// POST /api/payroll/adjustments - record an advance, bonus or deduction for a
+// worker's month (owner only).
+app.post('/api/payroll/adjustments', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const { user_id, kind, amount, month, note } = req.body;
+  if (!/^\d{4}-\d{2}$/.test(String(month || ''))) {
+    return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(user_id));
+  if (!user || user.role === 'owner') return res.status(404).json({ error: 'Staff member not found' });
+  if (!['advance', 'bonus', 'deduction'].includes(kind)) {
+    return res.status(400).json({ error: 'Invalid adjustment type' });
+  }
+  const v = Number(amount);
+  if (!(v > 0)) return res.status(400).json({ error: 'amount must be a positive number' });
+  const info = db.prepare(
+    'INSERT INTO staff_advances (user_id, kind, amount, month, note) VALUES (?, ?, ?, ?, ?)'
+  ).run(user.id, kind, v, String(month), note ? String(note).slice(0, 200) : null);
+  logAudit(req, 'payroll_adjustment', `name: ${user.name}, kind: ${kind}, amount: ${v}, month: ${month}`);
+  res.status(201).json(db.prepare('SELECT * FROM staff_advances WHERE id = ?').get(info.lastInsertRowid));
+});
+
+// DELETE /api/payroll/adjustments/:id - remove an adjustment (owner only).
+app.delete('/api/payroll/adjustments/:id', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const result = db.prepare('DELETE FROM staff_advances WHERE id = ?').run(Number(req.params.id));
+  if (result.changes === 0) return res.status(404).json({ error: 'Adjustment not found' });
+  logAudit(req, 'payroll_adjustment_deleted', `entry: ${req.params.id}`);
+  res.json({ success: true });
 });
 
 // POST /api/payroll/pay - mark a worker's month as paid: records it and posts a
@@ -892,21 +1135,17 @@ app.get('/api/payroll/:userId/:month/pdf', (req, res) => {
     }
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.userId));
     if (!user || user.role === 'owner') return res.status(404).json({ error: 'Staff member not found' });
-    const next = db.prepare(`SELECT strftime('%Y-%m', '${month}-01', '+1 month') AS m`).get().m;
-    const hoursRow = db.prepare(`
-      SELECT COALESCE(SUM(CASE WHEN clock_out IS NOT NULL
-        THEN (julianday(clock_out) - julianday(clock_in)) * 24 ELSE 0 END), 0) AS hours
-      FROM time_entries WHERE user_id = ? AND clock_in >= ? AND clock_in < ?
-    `).get(user.id, month + '-01 00:00:00', next + '-01 00:00:00');
-    const hours = Number(hoursRow.hours);
-    const amount = user.monthly_salary > 0 ? user.monthly_salary : (hours * user.hourly_rate);
+    const item = computePayrollRows(month).find(i => i.id === user.id) || {
+      hours: 0, base_amount: 0, bonuses: 0, advances: 0, deductions: 0,
+      absence_days: 0, gross: 0, amount: 0, paid: false
+    };
     const paid = db.prepare('SELECT * FROM payroll_payments WHERE user_id = ? AND month = ?').get(user.id, month);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="payslip-${String(user.name).replace(/\s+/g, '-')}-${month}.pdf"`);
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     doc.pipe(res);
-    buildPaySlipPdf(doc, { user, month, hours, amount, paid });
+    buildPaySlipPdf(doc, { user, month, item, paid });
     doc.end();
   } catch (err) { sendPdfError(res, err); }
 });
@@ -3584,10 +3823,50 @@ function buildReportData(type, from, to) {
     };
   }
 
+  if (type === 'attendance') {
+    let query = 'SELECT t.*, u.name AS user_name FROM time_entries t JOIN users u ON u.id = t.user_id WHERE 1=1';
+    const params = [];
+    if (from) { query += ' AND t.clock_in >= ?'; params.push(String(from) + ' 00:00:00'); }
+    if (to) { query += ' AND t.clock_in <= ?'; params.push(String(to) + ' 23:59:59'); }
+    query += ' ORDER BY t.clock_in';
+    const entries = db.prepare(query).all(...params);
+
+    return {
+      title: 'Attendance Report',
+      columns: ['Date', 'Employee', 'Clock In', 'Clock Out', 'Hours'],
+      rows: entries.map(e => {
+        const minutes = e.clock_out
+          ? Math.max(0, (new Date(e.clock_out) - new Date(e.clock_in)) / 60000)
+          : 0;
+        return [
+          String(e.clock_in).slice(0, 10),
+          e.user_name,
+          String(e.clock_in).slice(11, 16),
+          e.clock_out ? String(e.clock_out).slice(11, 16) : '',
+          (minutes / 60).toFixed(2)
+        ];
+      })
+    };
+  }
+
+  if (type === 'payroll') {
+    const month = /^\d{4}-\d{2}$/.test(String(from || '')) ? String(from) : new Date().toISOString().slice(0, 7);
+    const items = computePayrollRows(month);
+    return {
+      title: 'Payroll Report - ' + month,
+      columns: ['Employee', 'Hours', 'Base', 'Bonuses', 'Advances', 'Deductions', 'Absence Days', 'Net', 'Status'],
+      rows: items.map(i => [
+        i.name, i.hours.toFixed(2), i.base_amount.toFixed(2), i.bonuses.toFixed(2),
+        i.advances.toFixed(2), i.deductions.toFixed(2), String(i.absence_days),
+        i.amount.toFixed(2), i.paid ? 'Paid' : 'Unpaid'
+      ])
+    };
+  }
+
   throw new Error(`Unknown report type: ${type}`);
 }
 
-const VALID_REPORT_TYPES = ['sales', 'products', 'expenses', 'profit'];
+const VALID_REPORT_TYPES = ['sales', 'products', 'expenses', 'profit', 'attendance', 'payroll'];
 
 // GET report data as JSON (for viewing in the browser before exporting)
 app.get('/api/reports/data', (req, res) => {
@@ -3799,7 +4078,7 @@ function buildDocumentPdf(doc, opts) {
 
 // Pay slip PDF for one worker / month (Administration -> Payroll).
 function buildPaySlipPdf(doc, opts) {
-  const { user, month, hours, amount, paid } = opts;
+  const { user, month, item, paid } = opts;
 
   const shopName = getSetting('shop_name') || 'Mizan Suite';
   const shopAddress = getSetting('shop_address') || '';
@@ -3822,8 +4101,13 @@ function buildPaySlipPdf(doc, opts) {
   const rows = [
     ['Salaire mensuel', user.monthly_salary > 0 ? moneyPdf(user.monthly_salary) : '-'],
     ['Taux horaire', user.hourly_rate > 0 ? moneyPdf(user.hourly_rate) : '-'],
-    ['Heures travaillées', hours.toFixed(2)],
-    ['Montant net', moneyPdf(amount)],
+    ['Heures travaillées', (item.hours || 0).toFixed(2)],
+    ['Base', moneyPdf(item.base_amount || 0)],
+    ['Primes', item.bonuses ? moneyPdf(item.bonuses) : moneyPdf(0)],
+    ['Avances', item.advances ? moneyPdf(item.advances) : moneyPdf(0)],
+    ['Retenues', item.deductions ? moneyPdf(item.deductions) : moneyPdf(0)],
+    ['Absences (jours)', String(item.absence_days || 0)],
+    ['Montant net', moneyPdf(item.amount || 0)],
     ['Statut', paid ? ('Payé le ' + String(paid.paid_at)) : 'Non payé']
   ];
 

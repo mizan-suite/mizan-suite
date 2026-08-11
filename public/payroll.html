@@ -25,6 +25,10 @@
         <span data-i18n="payroll.month">Month</span>
         <input type="month" id="payroll-month" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;">
       </label>
+      <span style="flex:1;"></span>
+      <a class="btn btn-ghost btn-sm" href="/api/export/csv?type=payroll&from=__MONTH__" id="pay-export-csv" data-i18n="pointage.exportCsv" target="_blank" rel="noopener">Export CSV</a>
+      <a class="btn btn-ghost btn-sm" href="/api/export/excel?type=payroll&from=__MONTH__" id="pay-export-excel" data-i18n="pointage.exportExcel" target="_blank" rel="noopener">Export Excel</a>
+      <a class="btn btn-ghost btn-sm" href="/api/export/pdf?type=payroll&from=__MONTH__" id="pay-export-pdf" data-i18n="pointage.exportPdf" target="_blank" rel="noopener">Export PDF</a>
     </div>
 
     <!-- Summary -->
@@ -41,6 +45,23 @@
 
     <!-- Payroll table -->
     <div id="payroll-list"></div>
+
+    <!-- Adjustments (advances / bonuses / deductions) -->
+    <div class="po-card" style="margin-top:1.5rem;">
+      <h3 style="margin-top:0;" data-i18n="payroll.adjustments">Adjustments</h3>
+      <div class="po-filter" style="flex-wrap:wrap;">
+        <select id="adj-worker" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; max-width:220px;"></select>
+        <select id="adj-kind" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;" data-i18n="payroll.adjType">
+          <option value="advance" data-i18n="payroll.kindAdvance">Advance</option>
+          <option value="bonus" data-i18n="payroll.kindBonus">Bonus</option>
+          <option value="deduction" data-i18n="payroll.kindDeduction">Deduction</option>
+        </select>
+        <input type="number" id="adj-amount" placeholder="Amount" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; width:140px;" step="0.01" min="0" data-i18n="payroll.adjAmount">
+        <input type="text" id="adj-note" placeholder="Note" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; flex:1; min-width:140px;" data-i18n="payroll.adjNote">
+        <button class="btn" id="adj-add" data-i18n="payroll.addAdjustment">Add</button>
+      </div>
+      <div id="adj-list" style="margin-top:0.75rem;"></div>
+    </div>
   </main>
 
   <script src="i18n.js"></script>
