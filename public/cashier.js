@@ -1078,6 +1078,9 @@ calcPop.addEventListener('click', (e) => {
 document.getElementById('calc-use-btn').addEventListener('click', () => {
   const tab = activeTab();
   if (!tab) return;
+  // If there's a pending operation, evaluate it first so "50 + 15" (without =)
+  // fills 65, not the raw second operand 15.
+  if (calcOp !== null && calcAccum !== null) calcInput('=');
   const value = parseFloat(calcDisplay.textContent);
   if (!Number.isFinite(value)) { alert(I18N.t('cashier.calcError')); return; }
   // Fill the cash payment amount (create a cash line if none exists).
@@ -1093,9 +1096,13 @@ document.getElementById('calc-use-btn').addEventListener('click', () => {
   calcToggleBtn.classList.remove('active');
 });
 
-// Keyboard support: type digits/operators while the calculator is open.
+// Keyboard support: type digits/operators while the calculator is open. Typing
+// in any form field (barcode box, search box, payment amount, ...) is left alone
+// so keystrokes never leak into both the calculator and the field.
 document.addEventListener('keydown', (e) => {
   if (calcPop.hidden) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
   if (e.key === 'Escape') { calcPop.hidden = true; calcToggleBtn.classList.remove('active'); return; }
   if (e.key === 'Enter') { e.preventDefault(); calcInput('='); return; }
   if (e.key === 'Backspace') { e.preventDefault(); calcInput('back'); return; }
