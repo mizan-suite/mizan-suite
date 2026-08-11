@@ -380,7 +380,8 @@ const perPageFilterEl = document.getElementById('per-page-filter');
 const filterClearBtn = document.getElementById('filter-clear-btn');
 const filterCountEl = document.getElementById('filter-count');
 
-// Populate the category dropdown from the distinct categories in the database.
+// Populate the category dropdown from the distinct categories in the database,
+// plus a datalist so the add/edit/bulk forms autocomplete existing categories.
 async function loadCategories() {
   try {
     const res = await fetch('/api/products/categories');
@@ -391,6 +392,8 @@ async function loadCategories() {
       '<option value="" data-i18n="inv.allCategories">All categories</option>' +
       categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)} (${c.count})</option>`).join('');
     categoryFilterEl.value = current;
+    const dl = document.getElementById('categories-datalist');
+    if (dl) dl.innerHTML = categories.map(c => `<option value="${escapeHtml(c.name)}">`).join('');
   } catch (err) {
     console.error('loadCategories failed:', err);
   }

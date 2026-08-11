@@ -69,7 +69,11 @@ function renderSupplierList() {
           <td>${escapeHtml(s.contact_person || '-')}</td>
           <td>${escapeHtml(s.phone || '-')}</td>
           <td>${escapeHtml(s.email || '-')}</td>
-          <td style="text-align:right;"><button class="delete-btn remove-supplier-btn" data-id="${s.id}" data-i18n="settings.delete">${I18N.t('settings.delete')}</button></td>
+          <td class="row-actions" style="text-align:right;">
+            <button type="button" class="row-menu-btn supplier-menu-btn" data-id="${s.id}" aria-label="${I18N.t('purchasing.optionsFor')}${s.id}">
+              ${window.AKIcons ? window.AKIcons.icon('dots', 18) : '&#8942;'}
+            </button>
+          </td>
         </tr>
       `).join('')
     : `<tr><td colspan="5" class="empty-cart-msg">${allSuppliers.length ? I18N.t('purchasing.noMatchSuppliers') : I18N.t('purchasing.noSuppliers')}</td></tr>`;
@@ -94,18 +98,163 @@ document.getElementById('supplier-search').addEventListener('input', (e) => {
   renderSupplierList();
 });
 
-document.getElementById('supplier-list').addEventListener('click', async (e) => {
-  if (!e.target.classList.contains('remove-supplier-btn')) return;
-  const id = e.target.dataset.id;
-  if (!confirm(I18N.t('purchasing.deleteConfirm'))) return;
+// ---------- Supplier row options menu (View / Edit / Delete) ----------
+const supplierMenu = document.createElement('div');
+supplierMenu.className = 'row-menu-pop';
+supplierMenu.hidden = true;
+supplierMenu.innerHTML = `
+  <button type="button" class="menu-item menu-supplier-view">${window.AKIcons ? window.AKIcons.icon('eye', 15) : ''} ${I18N.t('purchasing.view')}</button>
+  <button type="button" class="menu-item menu-supplier-edit">${window.AKIcons ? window.AKIcons.icon('edit', 15) : ''} ${I18N.t('purchasing.edit')}</button>
+  <button type="button" class="menu-item menu-supplier-delete danger">${window.AKIcons ? window.AKIcons.icon('trash', 15) : ''} ${I18N.t('settings.delete')}</button>
+`;
+document.body.appendChild(supplierMenu);
+let openSupplierMenuId = null;
 
+function hideSupplierMenu() {
+  supplierMenu.hidden = true;
+  openSupplierMenuId = null;
+}
+
+document.getElementById('supplier-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('.supplier-menu-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  if (openSupplierMenuId === btn.dataset.id) { hideSupplierMenu(); return; }
+  openSupplierMenuId = btn.dataset.id;
+  supplierMenu.querySelector('.menu-supplier-view').dataset.id = btn.dataset.id;
+  supplierMenu.querySelector('.menu-supplier-edit').dataset.id = btn.dataset.id;
+  supplierMenu.querySelector('.menu-supplier-delete').dataset.id = btn.dataset.id;
+  I18N.positionMenu(supplierMenu, btn);
+  supplierMenu.hidden = false;
+});
+
+document.addEventListener('click', (e) => {
+  if (!supplierMenu.contains(e.target) && !e.target.closest('.supplier-menu-btn')) hideSupplierMenu();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideSupplierMenu();
+});
+
+supplierMenu.addEventListener('click', (e) => {
+  const id = openSupplierMenuId;
+  hideSupplierMenu();
+  if (!id) return;
+  if (e.target.closest('.menu-supplier-view')) openSupplierView(id);
+  else if (e.target.closest('.menu-supplier-edit')) openSupplierEdit(id);
+  else if (e.target.closest('.menu-supplier-delete')) deleteSupplier(id);
+});
+
+// ---------- View supplier ----------
+const supplierViewModal = document.createElement('div');
+supplierViewModal.className = 'scanner-modal';
+supplierViewModal.hidden = true;
+supplierViewModal.innerHTML = `
+  <div class="scanner-box alert-modal-box" style="max-width:420px;">
+    <h3 data-i18n="purchasing.viewSupplier"></h3>
+    <div id="supplier-view-body" style="line-height:1.7;"></div>
+    <div class="form-actions" style="margin-top:1rem;">
+      <button type="button" class="btn supplier-view-close"></button>
+    </div>
+  </div>`;
+document.body.appendChild(supplierViewModal);
+
+function openSupplierView(id) {
+  const s = allSuppliers.find(x => String(x.id) === String(id));
+  if (!s) return;
+  supplierViewModal.querySelector('h3').textContent = I18N.t('purchasing.viewSupplier');
+  supplierViewModal.querySelector('.supplier-view-close').textContent = I18N.t('cashier.close');
+  document.getElementById('supplier-view-body').innerHTML = `
+    <div><strong>${I18N.t('purchasing.thName')}:</strong> ${escapeHtml(s.name)}</div>
+    <div><strong>${I18N.t('purchasing.thContact')}:</strong> ${escapeHtml(s.contact_person || '-')}</div>
+    <div><strong>${I18N.t('purchasing.thPhone')}:</strong> ${escapeHtml(s.phone || '-')}</div>
+    <div><strong>${I18N.t('purchasing.thEmail')}:</strong> ${escapeHtml(s.email || '-')}</div>`;
+  supplierViewModal.hidden = false;
+}
+supplierViewModal.addEventListener('click', (e) => { if (e.target === supplierViewModal) supplierViewModal.hidden = true; });
+supplierViewModal.querySelector('.supplier-view-close').addEventListener('click', () => { supplierViewModal.hidden = true; });
+
+// ---------- Edit supplier ----------
+const supplierEditModal = document.createElement('div');
+supplierEditModal.className = 'scanner-modal';
+supplierEditModal.hidden = true;
+supplierEditModal.innerHTML = `
+  <div class="scanner-box alert-modal-box" style="max-width:420px;">
+    <h3 data-i18n="purchasing.editSupplier"></h3>
+    <div class="form-grid">
+      <input type="text" id="edit-supplier-name" data-i18n="purchasing.supplierName" placeholder="Supplier name*">
+      <input type="text" id="edit-supplier-contact" data-i18n="purchasing.contactPerson" placeholder="Contact person">
+      <input type="text" id="edit-supplier-phone" data-i18n="purchasing.phone" placeholder="Phone">
+      <input type="email" id="edit-supplier-email" data-i18n="purchasing.email" placeholder="Email">
+    </div>
+    <p id="edit-supplier-message"></p>
+    <div class="form-actions" style="margin-top:1rem;">
+      <button type="button" class="btn supplier-edit-save"></button>
+      <button type="button" class="btn-link supplier-edit-cancel"></button>
+    </div>
+  </div>`;
+document.body.appendChild(supplierEditModal);
+document.getElementById('edit-supplier-name').placeholder = I18N.t('purchasing.supplierName');
+document.getElementById('edit-supplier-contact').placeholder = I18N.t('purchasing.contactPerson');
+document.getElementById('edit-supplier-phone').placeholder = I18N.t('purchasing.phone');
+document.getElementById('edit-supplier-email').placeholder = I18N.t('purchasing.email');
+
+let editingSupplierId = null;
+function openSupplierEdit(id) {
+  const s = allSuppliers.find(x => String(x.id) === String(id));
+  if (!s) return;
+  editingSupplierId = s.id;
+  document.getElementById('edit-supplier-name').value = s.name || '';
+  document.getElementById('edit-supplier-contact').value = s.contact_person || '';
+  document.getElementById('edit-supplier-phone').value = s.phone || '';
+  document.getElementById('edit-supplier-email').value = s.email || '';
+  document.getElementById('edit-supplier-message').textContent = '';
+  supplierEditModal.querySelector('h3').textContent = I18N.t('purchasing.editSupplier');
+  supplierEditModal.querySelector('.supplier-edit-save').textContent = I18N.t('purchasing.save');
+  supplierEditModal.querySelector('.supplier-edit-cancel').textContent = I18N.t('purchasing.cancel');
+  supplierEditModal.hidden = false;
+}
+
+async function saveSupplierEdit() {
+  const messageEl = document.getElementById('edit-supplier-message');
+  const name = document.getElementById('edit-supplier-name').value.trim();
+  if (!name) {
+    messageEl.textContent = I18N.t('purchasing.nameRequired');
+    messageEl.className = 'error-msg';
+    return;
+  }
+  const res = await fetch(`/api/suppliers/${editingSupplierId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      contact_person: document.getElementById('edit-supplier-contact').value,
+      phone: document.getElementById('edit-supplier-phone').value,
+      email: document.getElementById('edit-supplier-email').value
+    })
+  });
+  if (res.ok) {
+    supplierEditModal.hidden = true;
+    loadInitialData();
+  } else {
+    const err = await res.json();
+    messageEl.textContent = I18N.t('inv.error') + ' ' + I18N.serverError(err.error);
+    messageEl.className = 'error-msg';
+  }
+}
+
+supplierEditModal.querySelector('.supplier-edit-save').addEventListener('click', saveSupplierEdit);
+supplierEditModal.querySelector('.supplier-edit-cancel').addEventListener('click', () => { supplierEditModal.hidden = true; });
+supplierEditModal.addEventListener('click', (e) => { if (e.target === supplierEditModal) supplierEditModal.hidden = true; });
+
+async function deleteSupplier(id) {
+  if (!confirm(I18N.t('purchasing.deleteConfirm'))) return;
   const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
   if (res.ok) {
     loadInitialData();
   } else {
     alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
   }
-});
+}
 
 // ---------- Add supplier ----------
 document.getElementById('add-supplier-btn').addEventListener('click', async () => {
@@ -136,7 +285,7 @@ document.getElementById('add-supplier-btn').addEventListener('click', async () =
 });
 
 // ---------- Purchase order line items (dynamic rows) ----------
-function addPoLine() {
+function addPoLine(data) {
   const lineId = poLineCount++;
   const row = document.createElement('div');
   row.className = 'po-line';
@@ -164,6 +313,14 @@ function addPoLine() {
     row.remove();
     updatePoTotal();
   });
+
+  if (data) {
+    if (data.product_id) row.querySelector('.po-line-product').value = String(data.product_id);
+    if (data.quantity_ordered) row.querySelector('.po-line-qty').value = data.quantity_ordered;
+    if (data.unit_cost != null) row.querySelector('.po-line-cost').value = data.unit_cost;
+  }
+  updatePoTotal();
+  return row;
 }
 
 document.getElementById('add-po-line').addEventListener('click', addPoLine);
@@ -196,7 +353,7 @@ function updatePoTotal() {
 poDiscountType.addEventListener('change', updatePoTotal);
 poDiscountValue.addEventListener('input', updatePoTotal);
 
-// ---------- Create purchase order ----------
+// ---------- Create / update purchase order ----------
 document.getElementById('create-po-btn').addEventListener('click', async () => {
   const supplierId = poSupplierSelect.value;
   const supplierName = poSupplierSelect.selectedOptions[0]?.textContent;
@@ -223,35 +380,97 @@ document.getElementById('create-po-btn').addEventListener('click', async () => {
     return;
   }
 
-  const res = await fetch('/api/purchase-orders', {
-    method: 'POST',
+  const body = {
+    supplier_id: supplierId,
+    supplier_name: supplierName,
+    invoice_number: document.getElementById('po-invoice').value,
+    items,
+    discount_type: poDiscountType.value,
+    discount_value: poDiscountType.value ? parseFloat(poDiscountValue.value) || 0 : 0
+  };
+
+  const isEdit = editingPoId != null;
+  const res = await fetch(isEdit ? `/api/purchase-orders/${editingPoId}` : '/api/purchase-orders', {
+    method: isEdit ? 'PUT' : 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      supplier_id: supplierId,
-      supplier_name: supplierName,
-      invoice_number: document.getElementById('po-invoice').value,
-      items,
-      discount_type: poDiscountType.value,
-      discount_value: poDiscountType.value ? parseFloat(poDiscountValue.value) || 0 : 0
-    })
+    body: JSON.stringify(body)
   });
 
   const result = await res.json();
 
   if (res.ok) {
-    poMessage.textContent = I18N.t('purchasing.created').replace('{id}', result.id);
+    poMessage.textContent = isEdit
+      ? I18N.t('purchasing.updated').replace('{id}', result.id)
+      : I18N.t('purchasing.created').replace('{id}', result.id);
     poMessage.className = 'success-msg';
-    poItemsEl.innerHTML = '';
-    addPoLine();
-    document.getElementById('po-invoice').value = '';
-    poDiscountType.value = '';
-    poDiscountValue.value = '';
-    updatePoTotal();
+    resetPoForm();
     loadPurchaseOrders();
   } else {
     poMessage.textContent = I18N.t('inv.error') + ' ' + I18N.serverError(result.error);
     poMessage.className = 'error-msg';
   }
+});
+
+function resetPoForm() {
+  stopPoEdit();
+  poItemsEl.innerHTML = '';
+  addPoLine();
+  document.getElementById('po-invoice').value = '';
+  poDiscountType.value = '';
+  poDiscountValue.value = '';
+  updatePoTotal();
+}
+
+// ---------- Edit an existing (pending) purchase order ----------
+let editingPoId = null;
+const createPoBtn = document.getElementById('create-po-btn');
+const createPoHeading = document.getElementById('create-po-heading');
+const cancelPoEditBtn = document.getElementById('cancel-po-edit');
+
+async function startPoEdit(id) {
+  const res = await fetch(`/api/purchase-orders/${id}`);
+  if (!res.ok) { alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error)); return; }
+  const po = await res.json();
+  if (po.status !== 'pending') return;
+
+  editingPoId = po.id;
+  if (createPoHeading) createPoHeading.textContent = I18N.t('purchasing.editTitle');
+  createPoBtn.textContent = I18N.t('purchasing.saveChanges');
+  if (cancelPoEditBtn) cancelPoEditBtn.hidden = false;
+
+  if (po.supplier_id) poSupplierSelect.value = String(po.supplier_id);
+  if (!poSupplierSelect.value) {
+    poSupplierSelect.innerHTML = `<option value="">${I18N.t('purchasing.selectSupplier')}</option>` +
+      allSuppliers.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    if (po.supplier_id) {
+      poSupplierSelect.insertAdjacentHTML('beforeend', `<option value="${po.supplier_id}">${escapeHtml(po.supplier_name)}</option>`);
+    }
+    poSupplierSelect.value = po.supplier_id ? String(po.supplier_id) : '';
+  }
+  document.getElementById('po-invoice').value = po.invoice_number || '';
+  poDiscountType.value = po.discount_type || '';
+  poDiscountValue.value = po.discount_value || '';
+
+  poItemsEl.innerHTML = '';
+  (po.items || []).forEach(item => addPoLine(item));
+  if (!po.items || !po.items.length) addPoLine();
+
+  updatePoTotal();
+  poMessage.textContent = '';
+  document.getElementById('create-po-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function stopPoEdit() {
+  if (editingPoId == null) return;
+  editingPoId = null;
+  if (createPoHeading) createPoHeading.textContent = I18N.t('purchasing.createPO');
+  createPoBtn.textContent = I18N.t('purchasing.createPOBtn');
+  if (cancelPoEditBtn) cancelPoEditBtn.hidden = true;
+}
+
+if (cancelPoEditBtn) cancelPoEditBtn.addEventListener('click', () => {
+  resetPoForm();
+  poMessage.textContent = '';
 });
 
 // ---------- List / filter purchase orders ----------
@@ -377,6 +596,7 @@ poMenu.className = 'row-menu-pop';
 poMenu.hidden = true;
 poMenu.innerHTML = `
   <button type="button" class="menu-item menu-po-print">${window.AKIcons ? window.AKIcons.icon('filetext', 15) : ''} ${I18N.t('purchasing.print')}</button>
+  <button type="button" class="menu-item menu-po-edit">${window.AKIcons ? window.AKIcons.icon('edit', 15) : ''} ${I18N.t('purchasing.editPO')}</button>
   <button type="button" class="menu-item menu-po-items">${window.AKIcons ? window.AKIcons.icon('list', 15) : ''} ${I18N.t('purchasing.viewProducts')}</button>
   <button type="button" class="menu-item menu-po-receive">${window.AKIcons ? window.AKIcons.icon('check', 15) : ''} ${I18N.t('purchasing.receive')}</button>
   <button type="button" class="menu-item menu-po-cancel danger">${window.AKIcons ? window.AKIcons.icon('trash', 15) : ''} ${I18N.t('purchasing.cancel')}</button>
@@ -384,6 +604,7 @@ poMenu.innerHTML = `
 document.body.appendChild(poMenu);
 
 const menuPoPrint = poMenu.querySelector('.menu-po-print');
+const menuPoEdit = poMenu.querySelector('.menu-po-edit');
 const menuPoItems = poMenu.querySelector('.menu-po-items');
 const menuPoReceive = poMenu.querySelector('.menu-po-receive');
 const menuPoCancel = poMenu.querySelector('.menu-po-cancel');
@@ -391,10 +612,12 @@ let openPoMenuId = null;
 
 function showPoMenu(btn, id, status) {
   menuPoPrint.dataset.id = id;
+  menuPoEdit.dataset.id = id;
   menuPoItems.dataset.id = id;
   menuPoReceive.dataset.id = id;
   menuPoCancel.dataset.id = id;
   const pending = status === 'pending';
+  menuPoEdit.hidden = !pending;
   menuPoReceive.hidden = !pending;
   menuPoCancel.hidden = !pending;
   I18N.positionMenu(poMenu, btn);
@@ -425,6 +648,13 @@ poMenu.addEventListener('click', async (e) => {
     hidePoMenu();
     const res = await fetch(`/api/purchase-orders/${id}`);
     if (res.ok) showPoFacture(await res.json());
+    return;
+  }
+  const editPo = e.target.closest('.menu-po-edit');
+  if (editPo) {
+    const id = editPo.dataset.id;
+    hidePoMenu();
+    await startPoEdit(id);
     return;
   }
   const items = e.target.closest('.menu-po-items');
@@ -615,9 +845,23 @@ window.addEventListener('languagechange', () => {
   if (poItemsEl.children.length === 0) addPoLine();
   document.querySelectorAll('.po-line').forEach(line => I18N.apply(line));
   menuPoPrint.innerHTML = (window.AKIcons ? window.AKIcons.icon('filetext', 15) : '') + ' ' + I18N.t('purchasing.print');
+  menuPoEdit.innerHTML = (window.AKIcons ? window.AKIcons.icon('edit', 15) : '') + ' ' + I18N.t('purchasing.editPO');
   menuPoItems.innerHTML = (window.AKIcons ? window.AKIcons.icon('list', 15) : '') + ' ' + I18N.t('purchasing.viewProducts');
   menuPoReceive.innerHTML = (window.AKIcons ? window.AKIcons.icon('check', 15) : '') + ' ' + I18N.t('purchasing.receive');
   menuPoCancel.innerHTML = (window.AKIcons ? window.AKIcons.icon('trash', 15) : '') + ' ' + I18N.t('purchasing.cancel');
+  if (createPoHeading) {
+    createPoHeading.textContent = editingPoId != null ? I18N.t('purchasing.editTitle') : I18N.t('purchasing.createPO');
+    createPoBtn.textContent = editingPoId != null ? I18N.t('purchasing.saveChanges') : I18N.t('purchasing.createPOBtn');
+  }
+  supplierMenu.innerHTML = `
+    <button type="button" class="menu-item menu-supplier-view">${window.AKIcons ? window.AKIcons.icon('eye', 15) : ''} ${I18N.t('purchasing.view')}</button>
+    <button type="button" class="menu-item menu-supplier-edit">${window.AKIcons ? window.AKIcons.icon('edit', 15) : ''} ${I18N.t('purchasing.edit')}</button>
+    <button type="button" class="menu-item menu-supplier-delete danger">${window.AKIcons ? window.AKIcons.icon('trash', 15) : ''} ${I18N.t('settings.delete')}</button>
+  `;
+  document.getElementById('edit-supplier-name').placeholder = I18N.t('purchasing.supplierName');
+  document.getElementById('edit-supplier-contact').placeholder = I18N.t('purchasing.contactPerson');
+  document.getElementById('edit-supplier-phone').placeholder = I18N.t('purchasing.phone');
+  document.getElementById('edit-supplier-email').placeholder = I18N.t('purchasing.email');
   renderSupplierList();
   loadPurchaseOrders();
 });

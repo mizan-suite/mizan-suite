@@ -2369,6 +2369,12 @@ app.get('/api/dashboard', (req, res) => {
      FROM sale_items i JOIN sales s ON s.id = i.sale_id
      WHERE s.created_at >= ? AND s.created_at < ?`
   ).get(lo, hi).v;
+  // Quantity of items refunded in [lo, hi) - subtracted so "items sold today"
+  // reflects net sales (a refund lowers the day's items sold).
+  const refundQtyIn = (lo, hi) => db.prepare(
+    `SELECT COALESCE(SUM(quantity), 0) AS v
+     FROM refunds WHERE created_at >= ? AND created_at < ?`
+  ).get(lo, hi).v;
   // Refund income + profit adjustments in [lo, hi) (both amounts and profit).
   const refundIn = (lo, hi) => db.prepare(
     `SELECT COALESCE(SUM(refund_amount), 0) AS income, COALESCE(SUM(refund_amount - refunded_cost), 0) AS profit
@@ -2388,8 +2394,8 @@ app.get('/api/dashboard', (req, res) => {
   const monthProfit = profitIn(thisMonth + '-01', monthEnd) - monthRefunds.profit;
   const periodProfit = profitIn(period[0], period[1]) - periodRefunds.profit;
 
-  const itemsSoldToday = qtyIn(today, todayEnd);
-  const itemsSoldPeriod = qtyIn(period[0], period[1]);
+  const itemsSoldToday = qtyIn(today, todayEnd) - refundQtyIn(today, todayEnd);
+  const itemsSoldPeriod = qtyIn(period[0], period[1]) - refundQtyIn(period[0], period[1]);
 
   // Best-selling products: all-time by default, or within the custom range.
   const bestSellerRows = isCustom
@@ -2662,6 +2668,32 @@ app.post('/api/suppliers', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM suppliers WHERE id = ?').get(result.lastInsertRowid));
 });
 
+// PUT /api/suppliers/:id - update a supplier's contact details (not name-delete;
+// soft delete is separate and active suppliers keep their identity).
+app.put('/api/suppliers/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Supplier not found' });
+
+  const { name, contact_person, phone, email } = req.body;
+  if (name !== undefined && !String(name).trim()) {
+    return res.status(400).json({ error: 'Supplier name is required' });
+  }
+
+  db.prepare(`
+    UPDATE suppliers
+    SET name = ?, contact_person = ?, phone = ?, email = ?
+    WHERE id = ?
+  `).run(
+    name !== undefined ? String(name).trim() : existing.name,
+    contact_person !== undefined ? (contact_person || null) : existing.contact_person,
+    phone !== undefined ? (phone || null) : existing.phone,
+    email !== undefined ? (email || null) : existing.email,
+    req.params.id
+  );
+
+  res.json(db.prepare('SELECT * FROM suppliers WHERE id = ?').get(req.params.id));
+});
+
 // DELETE a supplier - soft delete (hides it from lists/dropdowns) since existing
 // purchase orders keep pointing to it and that history must stay intact.
 app.delete('/api/suppliers/:id', (req, res) => {
@@ -2781,6 +2813,107 @@ app.post('/api/purchase-orders', (req, res) => {
     const created = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(poId);
     created.items = db.prepare('SELECT * FROM purchase_order_items WHERE po_id = ?').all(poId);
     res.status(201).json(created);
+  } catch (err) {
+    db.exec('ROLLBACK');
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// PUT - edit a PENDING purchase order (supplier, invoice number, discount and
+// line items). Received/cancelled orders are locked: history must stay intact.
+// Editing never touches stock (stock only changes when the PO is received).
+app.put('/api/purchase-orders/:id', (req, res) => {
+  const po = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+  if (!po) return res.status(404).json({ error: 'Purchase order not found' });
+  if (po.status !== 'pending') {
+    return res.status(400).json({ error: `Cannot edit an order that is already ${po.status}` });
+  }
+
+  const { supplier_id, supplier_name, invoice_number, items, on_credit, due_date, discount_type, discount_value } = req.body;
+  if (supplier_name !== undefined && !supplier_name) return res.status(400).json({ error: 'Supplier name is required' });
+  if (items !== undefined && (!Array.isArray(items) || !items.length)) {
+    return res.status(400).json({ error: 'Purchase order must include at least one item' });
+  }
+
+  const nextItems = items !== undefined ? items : db.prepare('SELECT * FROM purchase_order_items WHERE po_id = ?').all(po.id);
+  const nextSupplierId = supplier_id !== undefined ? supplier_id : po.supplier_id;
+  const nextSupplierName = supplier_name !== undefined ? supplier_name : po.supplier_name;
+  const nextInvoice = invoice_number !== undefined ? invoice_number : po.invoice_number;
+  const nextOnCredit = on_credit !== undefined ? (on_credit ? 1 : 0) : po.on_credit;
+  const nextDueDate = due_date !== undefined ? due_date : po.due_date;
+  const nextDiscountType = discount_type !== undefined ? (discount_type || null) : po.discount_type;
+  const nextDiscountValue = discount_value !== undefined ? (discount_type ? Number(discount_value) || 0 : null) : po.discount_value;
+
+  db.exec('BEGIN');
+  try {
+    let totalCost = 0;
+    const lineItems = [];
+
+    for (const item of nextItems) {
+      const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
+      if (!product) throw new Error(`Product ${item.product_id} not found`);
+
+      const qty = Number(item.quantity_ordered);
+      const unitCost = Number(item.unit_cost);
+      if (!Number.isInteger(qty) || qty <= 0) {
+        throw new Error(`Invalid quantity_ordered for product ${item.product_id} - must be a positive whole number`);
+      }
+      if (!Number.isFinite(unitCost) || unitCost < 0) {
+        throw new Error(`Invalid unit_cost for product ${item.product_id} - must be a non-negative number`);
+      }
+
+      const lineCost = unitCost * qty;
+      totalCost += lineCost;
+
+      lineItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        quantity_ordered: qty,
+        unit_cost: unitCost
+      });
+    }
+
+    let discountAmount = 0;
+    if (nextDiscountType === 'percent' && Number(nextDiscountValue) > 0) {
+      discountAmount = totalCost * (Number(nextDiscountValue) / 100);
+    } else if (nextDiscountType === 'amount' && Number(nextDiscountValue) > 0) {
+      discountAmount = Math.min(Number(nextDiscountValue), totalCost);
+    }
+    discountAmount = Math.round(discountAmount * 100) / 100;
+    const netTotal = totalCost - discountAmount;
+
+    db.prepare(`
+      UPDATE purchase_orders
+      SET supplier_id = ?, supplier_name = ?, invoice_number = ?, total_cost = ?,
+          discount_type = ?, discount_value = ?, discount_amount = ?, on_credit = ?, due_date = ?
+      WHERE id = ?
+    `).run(nextSupplierId || null, nextSupplierName, nextInvoice || null, totalCost, nextDiscountType, nextDiscountType ? Number(nextDiscountValue) || 0 : null, discountAmount, nextOnCredit, nextDueDate || null, po.id);
+
+    db.prepare('DELETE FROM purchase_order_items WHERE po_id = ?').run(po.id);
+    const insertItem = db.prepare(`
+      INSERT INTO purchase_order_items (po_id, product_id, product_name, quantity_ordered, unit_cost)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    for (const li of lineItems) {
+      insertItem.run(po.id, li.product_id, li.product_name, li.quantity_ordered, li.unit_cost);
+    }
+
+    // Keep the payable debt (if any) in sync with the edited totals.
+    const debt = db.prepare(`SELECT * FROM debts WHERE kind = 'payable' AND source = 'po' AND source_id = ?`).get(po.id);
+    if (debt) {
+      db.prepare('UPDATE debts SET original_amount = ?, party_id = ?, party_name = ?, due_date = ? WHERE id = ?')
+        .run(netTotal, nextSupplierId || null, nextSupplierName, nextDueDate || null, debt.id);
+    } else if (nextOnCredit) {
+      db.prepare(`
+        INSERT INTO debts (party_type, party_id, party_name, kind, source, source_id, original_amount, due_date, note)
+        VALUES ('supplier', ?, ?, 'payable', 'po', ?, ?, ?, ?)
+      `).run(nextSupplierId || null, nextSupplierName, po.id, netTotal, nextDueDate || null, `Purchase order #${po.id}`);
+    }
+
+    db.exec('COMMIT');
+    const updated = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(po.id);
+    updated.items = db.prepare('SELECT * FROM purchase_order_items WHERE po_id = ?').all(po.id);
+    res.json(updated);
   } catch (err) {
     db.exec('ROLLBACK');
     res.status(400).json({ error: err.message });
@@ -2932,6 +3065,34 @@ app.post('/api/expenses', (req, res) => {
   `).run(category, amount, description || null, expense_date || new Date().toISOString().slice(0, 10));
 
   res.status(201).json(db.prepare('SELECT * FROM expenses WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.get('/api/expenses/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Expense not found' });
+  res.json(row);
+});
+
+app.put('/api/expenses/:id', (req, res) => {
+  const { category, amount, description, expense_date } = req.body;
+  const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Expense not found' });
+
+  if (category !== undefined && !EXPENSE_CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: `category must be one of: ${EXPENSE_CATEGORIES.join(', ')}` });
+  }
+  if (amount !== undefined && (amount === null || !(amount > 0))) {
+    return res.status(400).json({ error: 'amount must be a positive number' });
+  }
+
+  const nextCategory = category !== undefined ? category : existing.category;
+  const nextAmount = amount !== undefined ? amount : existing.amount;
+  const nextDescription = description !== undefined ? (description || null) : existing.description;
+  const nextDate = expense_date !== undefined ? expense_date : existing.expense_date;
+
+  db.prepare('UPDATE expenses SET category = ?, amount = ?, description = ?, expense_date = ? WHERE id = ?')
+    .run(nextCategory, nextAmount, nextDescription, nextDate, req.params.id);
+  res.json(db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id));
 });
 
 app.delete('/api/expenses/:id', (req, res) => {
@@ -3242,6 +3403,25 @@ app.get('/api/export/excel', async (req, res) => {
   sheet.getRow(1).font = { bold: true };
   for (const row of report.rows) sheet.addRow(row);
 
+  // Append a totals row: sum every column that is numeric across all rows
+  // (dates, names and other text columns are left blank). The label sits in
+  // the first cell of the row.
+  if (report.rows.length) {
+    const numeric = report.columns.map((_, i) =>
+      report.rows.every(r => typeof r[i] !== 'string' || r[i] === '' || /^-?\d+(\.\d+)?$/.test(String(r[i]).trim()))
+    );
+    const totalsRow = report.columns.map((_, i) => {
+      if (!numeric[i]) return '';
+      const sum = report.rows.reduce((acc, r) => {
+        const v = Number(r[i]);
+        return acc + (Number.isFinite(v) ? v : 0);
+      }, 0);
+      return Number(sum.toFixed(2));
+    });
+    totalsRow[0] = 'Total';
+    sheet.addRow(totalsRow).font = { bold: true };
+  }
+
   // Auto-size columns roughly based on content length
   sheet.columns.forEach((col, i) => {
     const header = report.columns[i] || '';
@@ -3298,6 +3478,204 @@ app.get('/api/export/pdf', (req, res) => {
   }
 
   doc.end();
+});
+
+// ---------- DOCUMENT PDF DOWNLOADS (sale / invoice / purchase order) ----------
+
+// Renders a printable A4 PDF for a sale, invoice or purchase order so users can
+// download a copy (Facturation "Download PDF" action).
+function buildDocumentPdf(doc, opts) {
+  const { title, number, dateText, billToLabel, billToName, billToPhone, items, totals, notes, footer } = opts;
+
+  const shopName = getSetting('shop_name') || 'Mizan Suite';
+  const shopAddress = getSetting('shop_address') || '';
+  const shopPhone = getSetting('shop_phone') || '';
+
+  doc.fontSize(15).text(shopName, { align: 'center' });
+  if (shopAddress || shopPhone) {
+    doc.fontSize(9).fillColor('#555').text([shopAddress, shopPhone].filter(Boolean).join('  ·  '), { align: 'center' });
+  }
+  doc.fillColor('#000');
+
+  doc.moveDown(0.5);
+  doc.fontSize(12).text(title, { align: 'center' });
+  doc.fontSize(10).text(number, { align: 'center' });
+  doc.fontSize(9).text(dateText, { align: 'center' });
+  doc.moveDown(0.5);
+
+  doc.fontSize(9).fillColor('#555').text(billToLabel + ':', { continued: false });
+  doc.fillColor('#000').fontSize(10).text(billToName);
+  if (billToPhone) doc.fontSize(9).text('Tel: ' + billToPhone);
+
+  doc.moveDown(0.4);
+
+  // Items table
+  const colWidths = [50, 260, 90, 90];
+  const colTitles = ['Qty', 'Description', 'Unit Price', 'Amount'];
+  if (opts.unitColTitle) colTitles[2] = opts.unitColTitle;
+  const startX = doc.page.margins.left;
+  let y = doc.y;
+
+  doc.fontSize(9).font('Helvetica-Bold');
+  colTitles.forEach((t, i) => {
+    const align = i === 0 ? 'center' : (i >= 2 ? 'right' : 'left');
+    doc.text(t, startX + colWidths.slice(0, i).reduce((a, b) => a + b, 0), y, { width: colWidths[i], align });
+  });
+  y += 16;
+  doc.moveTo(startX, y).lineTo(startX + colWidths.reduce((a, b) => a + b, 0), y).stroke();
+  y += 4;
+
+  doc.font('Helvetica');
+  for (const item of items) {
+    if (y > doc.page.height - doc.page.margins.bottom - 40) {
+      doc.addPage();
+      y = doc.page.margins.top;
+    }
+    const align = (i) => (i === 0 ? 'center' : (i >= 2 ? 'right' : 'left'));
+    doc.fontSize(9).text(String(item.qty), startX, y, { width: colWidths[0], align: align(0) });
+    doc.text(String(item.name), startX + colWidths[0], y, { width: colWidths[1], align: align(1) });
+    doc.text(moneyPdf(item.unit), startX + colWidths[0] + colWidths[1], y, { width: colWidths[2], align: align(2) });
+    doc.text(moneyPdf(item.total), startX + colWidths[0] + colWidths[1] + colWidths[2], y, { width: colWidths[3], align: align(3) });
+    y += 16;
+  }
+
+  // Totals
+  y += 6;
+  for (const t of totals) {
+    if (y > doc.page.height - doc.page.margins.bottom - 30) { doc.addPage(); y = doc.page.margins.top; }
+    doc.fontSize(10).font(t.bold ? 'Helvetica-Bold' : 'Helvetica');
+    doc.text(t.label, startX + colWidths[0] + colWidths[1], y, { width: 160, align: 'right' });
+    doc.text(t.value, startX + colWidths[0] + colWidths[1] + 160, y, { width: colWidths[2] + colWidths[3] - 160, align: 'right' });
+    y += 18;
+  }
+
+  if (notes && notes.length) {
+    doc.moveDown(0.5);
+    doc.fontSize(9).fillColor('#555');
+    for (const n of notes) doc.text(n, { align: 'center' });
+  }
+
+  if (footer) {
+    doc.fillColor('#000').fontSize(9).moveDown(0.8).text(footer, { align: 'center' });
+  }
+}
+
+function moneyPdf(n) {
+  const v = Number(n);
+  return (Number.isFinite(v) ? v : 0).toFixed(2) + ' DA';
+}
+
+function sendPdfError(res, err) {
+  res.status(400).json({ error: err.message || String(err) });
+}
+
+// GET /api/documents/sale/:id/pdf
+app.get('/api/documents/sale/:id/pdf', (req, res) => {
+  try {
+    const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(req.params.id);
+    if (!sale) return res.status(404).json({ error: 'Sale not found' });
+    sale.items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(sale.id);
+    sale.payments = db.prepare('SELECT * FROM sale_payments WHERE sale_id = ?').all(sale.id);
+
+    const discountAmount = sale.discount_type === 'percent' && Number(sale.discount_value) > 0
+      ? (sale.subtotal * Number(sale.discount_value) / 100)
+      : (sale.discount_type === 'amount' && Number(sale.discount_value) > 0 ? Math.min(Number(sale.discount_value), sale.subtotal) : 0);
+    const pointsDiscount = Number(sale.points_redeemed) > 0 ? Number(sale.points_redeemed) * (Number(getSetting('loyalty_worth')) || 1) : 0;
+
+    const totals = [];
+    totals.push({ label: 'Subtotal', value: moneyPdf(sale.subtotal), bold: false });
+    if (discountAmount > 0) totals.push({ label: 'Discount', value: '-' + moneyPdf(discountAmount), bold: false });
+    if (pointsDiscount > 0) totals.push({ label: 'Points', value: '-' + moneyPdf(pointsDiscount), bold: false });
+    totals.push({ label: 'Total', value: moneyPdf(sale.total), bold: true });
+
+    const paymentText = sale.payments.map(p => String(p.method || '') + ': ' + Number(p.amount).toFixed(2)).join(', ');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="sale-${sale.id}.pdf"`);
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    doc.pipe(res);
+    buildDocumentPdf(doc, {
+      title: 'RECU DE VENTE',
+      number: 'Sale N° ' + sale.id,
+      dateText: String(sale.created_at || ''),
+      billToLabel: 'Client',
+      billToName: sale.client_name || 'Walk-in customer',
+      billToPhone: sale.client_phone || '',
+      items: sale.items.map(i => ({ qty: i.quantity, name: i.product_name, unit: i.price_at_sale, total: i.price_at_sale * i.quantity })),
+      totals,
+      notes: paymentText ? ['Paid: ' + paymentText] : [],
+      footer: 'Merci de votre visite.'
+    });
+    doc.end();
+  } catch (err) { sendPdfError(res, err); }
+});
+
+// GET /api/documents/invoice/:id/pdf
+app.get('/api/documents/invoice/:id/pdf', (req, res) => {
+  try {
+    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    invoice.items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(invoice.id);
+
+    const totals = [];
+    totals.push({ label: 'Subtotal', value: moneyPdf(invoice.subtotal), bold: false });
+    if (Number(invoice.discount_amount) > 0) totals.push({ label: 'Discount', value: '-' + moneyPdf(invoice.discount_amount), bold: false });
+    totals.push({ label: 'Total', value: moneyPdf(invoice.total), bold: true });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoice_number || invoice.id}.pdf"`);
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    doc.pipe(res);
+    buildDocumentPdf(doc, {
+      title: 'FACTURE',
+      number: 'N° ' + String(invoice.invoice_number || invoice.id),
+      dateText: String(invoice.created_at || ''),
+      billToLabel: 'Bill to',
+      billToName: invoice.client_name || 'Walk-in customer',
+      billToPhone: invoice.client_phone || '',
+      items: invoice.items.map(i => ({ qty: i.quantity, name: i.product_name, unit: i.unit_price, total: i.quantity * i.unit_price })),
+      totals,
+      notes: invoice.notes ? [String(invoice.notes)] : [],
+      footer: 'Merci de votre visite.'
+    });
+    doc.end();
+  } catch (err) { sendPdfError(res, err); }
+});
+
+// GET /api/documents/po/:id/pdf
+app.get('/api/documents/po/:id/pdf', (req, res) => {
+  try {
+    const po = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+    if (!po) return res.status(404).json({ error: 'Purchase order not found' });
+    po.items = db.prepare('SELECT * FROM purchase_order_items WHERE po_id = ?').all(po.id);
+
+    const discountAmount = Number(po.discount_amount) || 0;
+    const totals = [];
+    totals.push({ label: 'Subtotal', value: moneyPdf(po.total_cost), bold: false });
+    if (discountAmount > 0) totals.push({ label: 'Discount', value: '-' + moneyPdf(discountAmount), bold: false });
+    totals.push({ label: 'Total', value: moneyPdf(po.total_cost - discountAmount), bold: true });
+
+    const notes = [];
+    if (po.status === 'received' && po.received_at) notes.push('Received: ' + String(po.received_at));
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="po-${po.id}.pdf"`);
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    doc.pipe(res);
+    buildDocumentPdf(doc, {
+      title: 'FACTURE D\'ACHAT',
+      number: 'PO N° ' + po.id + (po.invoice_number ? ' / ' + po.invoice_number : ''),
+      dateText: String(po.created_at || ''),
+      billToLabel: 'Supplier',
+      billToName: po.supplier_name || '',
+      items: po.items.map(i => ({ qty: i.quantity_ordered, name: i.product_name, unit: i.unit_cost, total: i.quantity_ordered * i.unit_cost })),
+      totals,
+      unitColTitle: 'Unit Cost',
+      notes,
+      footer: 'Merci de votre visite.'
+    });
+    doc.end();
+  } catch (err) { sendPdfError(res, err); }
 });
 
 // ---------- ANALYTICS ----------

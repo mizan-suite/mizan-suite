@@ -84,7 +84,9 @@ async function loadRecentSales() {
             <td>${fmtDateTime(sale.created_at)}</td>
             <td>${money(sale.total)} DA</td>
             <td class="row-actions">
-              <button class="edit-btn print-sale-btn" data-id="${sale.id}" data-i18n="facturation.print">${I18N.t('facturation.print')}</button>
+              <button class="row-menu-btn fact-menu-btn" data-kind="sale" data-id="${sale.id}" aria-label="${I18N.t('facturation.optionsFor')}${sale.id}">
+                ${window.AKIcons ? window.AKIcons.icon('dots', 18) : '&#8942;'}
+              </button>
             </td>
           </tr>
         `).join('')
@@ -124,8 +126,9 @@ async function loadInvoices() {
             <td>${fmtDateTime(inv.created_at)}</td>
             <td>${money(inv.total)} DA</td>
             <td class="row-actions">
-              <button class="edit-btn print-invoice-btn" data-id="${inv.id}" data-i18n="facturation.print">${I18N.t('facturation.print')}</button>
-              <button class="delete-btn delete-invoice-btn" data-id="${inv.id}" data-i18n="settings.delete">${I18N.t('settings.delete')}</button>
+              <button class="row-menu-btn fact-menu-btn" data-kind="invoice" data-id="${inv.id}" aria-label="${I18N.t('facturation.optionsFor')}${inv.id}">
+                ${window.AKIcons ? window.AKIcons.icon('dots', 18) : '&#8942;'}
+              </button>
             </td>
           </tr>
         `).join('')
@@ -166,7 +169,9 @@ async function loadPurchaseOrders() {
             <td>${money(po.total_cost - (Number(po.discount_amount) || 0))} DA</td>
             <td><span class="badge badge-extra">${escapeHtml(po.status)}</span></td>
             <td class="row-actions">
-              <button class="edit-btn print-po-btn" data-id="${po.id}" data-i18n="facturation.print">${I18N.t('facturation.print')}</button>
+              <button class="row-menu-btn fact-menu-btn" data-kind="po" data-id="${po.id}" aria-label="${I18N.t('facturation.optionsFor')}${po.id}">
+                ${window.AKIcons ? window.AKIcons.icon('dots', 18) : '&#8942;'}
+              </button>
             </td>
           </tr>
         `).join('')
@@ -182,40 +187,99 @@ async function loadPurchaseOrders() {
   }
 }
 
-// ---------- Print / delete actions ----------
+// ---------- Row "three dots" menu (View / Print / Download PDF / Delete) ----------
+const factMenu = document.createElement('div');
+factMenu.className = 'row-menu-pop';
+factMenu.hidden = true;
+factMenu.innerHTML = `
+  <button type="button" class="menu-item fact-menu-view">${window.AKIcons ? window.AKIcons.icon('eye', 15) : ''} ${I18N.t('facturation.view')}</button>
+  <button type="button" class="menu-item fact-menu-print">${window.AKIcons ? window.AKIcons.icon('filetext', 15) : ''} ${I18N.t('facturation.print')}</button>
+  <button type="button" class="menu-item fact-menu-pdf">${window.AKIcons ? window.AKIcons.icon('download', 15) : ''} ${I18N.t('facturation.downloadPdf')}</button>
+  <button type="button" class="menu-item fact-menu-delete danger">${window.AKIcons ? window.AKIcons.icon('trash', 15) : ''} ${I18N.t('settings.delete')}</button>
+`;
+document.body.appendChild(factMenu);
 
-invoiceList.addEventListener('click', async (e) => {
-  const id = e.target.dataset.id;
-  if (!id) return;
+let factMenuKind = null;
+let factMenuId = null;
 
-  if (e.target.classList.contains('print-invoice-btn')) {
-    const res = await fetch(`/api/invoices/${id}`);
-    if (!res.ok) return;
-    showInvoice(await res.json());
-  } else if (e.target.classList.contains('delete-invoice-btn')) {
+function renderFactMenu() {
+  factMenu.innerHTML = `
+    <button type="button" class="menu-item fact-menu-view">${window.AKIcons ? window.AKIcons.icon('eye', 15) : ''} ${I18N.t('facturation.view')}</button>
+    <button type="button" class="menu-item fact-menu-print">${window.AKIcons ? window.AKIcons.icon('filetext', 15) : ''} ${I18N.t('facturation.print')}</button>
+    <button type="button" class="menu-item fact-menu-pdf">${window.AKIcons ? window.AKIcons.icon('download', 15) : ''} ${I18N.t('facturation.downloadPdf')}</button>
+    <button type="button" class="menu-item fact-menu-delete danger">${window.AKIcons ? window.AKIcons.icon('trash', 15) : ''} ${I18N.t('settings.delete')}</button>
+  `;
+}
+renderFactMenu();
+window.addEventListener('languagechange', renderFactMenu);
+
+function hideFactMenu() { factMenu.hidden = true; }
+
+[invoiceList, poList, saleList].forEach(list => {
+  list.addEventListener('click', (e) => {
+    const btn = e.target.closest('.fact-menu-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    factMenuKind = btn.dataset.kind;
+    factMenuId = btn.dataset.id;
+    factMenu.querySelector('.fact-menu-delete').hidden = factMenuKind !== 'invoice';
+    I18N.positionMenu(factMenu, btn);
+    factMenu.hidden = false;
+  });
+});
+
+document.addEventListener('click', (e) => {
+  if (!factMenu.contains(e.target) && !e.target.closest('.fact-menu-btn')) hideFactMenu();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideFactMenu();
+});
+
+function downloadDocument(url) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+factMenu.addEventListener('click', async (e) => {
+  const kind = factMenuKind;
+  const id = factMenuId;
+  hideFactMenu();
+  if (!kind || !id) return;
+
+  if (e.target.closest('.fact-menu-view')) {
+    if (kind === 'sale') {
+      const res = await fetch(`/api/sales/${id}`);
+      if (res.ok) showSaleReceipt(await res.json());
+    } else if (kind === 'invoice') {
+      const res = await fetch(`/api/invoices/${id}`);
+      if (res.ok) showInvoice(await res.json());
+    } else if (kind === 'po') {
+      const res = await fetch(`/api/purchase-orders/${id}`);
+      if (res.ok) showPoFacture(await res.json());
+    }
+  } else if (e.target.closest('.fact-menu-print')) {
+    if (kind === 'sale') {
+      const res = await fetch(`/api/sales/${id}`);
+      if (res.ok) showSaleReceipt(await res.json());
+    } else if (kind === 'invoice') {
+      const res = await fetch(`/api/invoices/${id}`);
+      if (res.ok) showInvoice(await res.json());
+    } else if (kind === 'po') {
+      const res = await fetch(`/api/purchase-orders/${id}`);
+      if (res.ok) showPoFacture(await res.json());
+    }
+  } else if (e.target.closest('.fact-menu-pdf')) {
+    const base = kind === 'sale' ? 'sale' : kind === 'invoice' ? 'invoice' : 'po';
+    downloadDocument(`/api/documents/${base}/${id}/pdf`);
+  } else if (e.target.closest('.fact-menu-delete')) {
+    if (kind !== 'invoice') return;
     if (!confirm(I18N.t('facturation.deleteConfirm'))) return;
     const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
     if (res.ok) loadInvoices();
-  }
-});
-
-poList.addEventListener('click', async (e) => {
-  const id = e.target.dataset.id;
-  if (!id) return;
-  if (e.target.classList.contains('print-po-btn')) {
-    const res = await fetch(`/api/purchase-orders/${id}`);
-    if (!res.ok) return;
-    showPoFacture(await res.json());
-  }
-});
-
-saleList.addEventListener('click', async (e) => {
-  const id = e.target.dataset.id;
-  if (!id) return;
-  if (e.target.classList.contains('print-sale-btn')) {
-    const res = await fetch(`/api/sales/${id}`);
-    if (!res.ok) return;
-    showSaleReceipt(await res.json());
   }
 });
 

@@ -58,8 +58,8 @@
     </div>
 
     <!-- Create purchase order -->
-    <div class="product-form">
-      <h2 data-i18n="purchasing.createPO">Create Purchase Order</h2>
+    <div class="product-form" id="create-po-form">
+      <h2 id="create-po-heading" data-i18n="purchasing.createPO">Create Purchase Order</h2>
       <div class="form-grid">
         <select id="po-supplier">
           <option value="" data-i18n="purchasing.selectSupplier">Select supplier*</option>
@@ -83,6 +83,7 @@
         <p class="hint-text" style="margin:0.2rem 0; font-size:1rem;"><span data-i18n="purchasing.total">Total:</span> <strong id="po-total">0.00 DA</strong></p>
       </div>
       <button id="create-po-btn" class="btn" data-i18n="purchasing.createPOBtn">Create Purchase Order</button>
+      <button id="cancel-po-edit" class="btn-link" type="button" hidden data-i18n="purchasing.cancel">Cancel</button>
       <p id="po-message"></p>
     </div>
 

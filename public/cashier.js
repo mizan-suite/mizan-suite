@@ -253,9 +253,9 @@ function renderChips() {
 
 function filteredProducts() {
   if (activeCategory === null) return [];
-  return allProducts.filter(p =>
-    p.active !== 0 && (!activeCategory || (p.category || '') === activeCategory)
-  );
+  return allProducts
+    .filter(p => p.active !== 0 && (!activeCategory || (p.category || '') === activeCategory))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 function renderGridPagination(totalCount) {
@@ -328,7 +328,7 @@ searchBox.addEventListener('input', () => {
   const matches = allProducts.filter(p =>
     p.name.toLowerCase().includes(query) ||
     productHasBarcode(p, query)
-  ).slice(0, 8);
+  ).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' })).slice(0, 8);
 
   productGridEl.innerHTML = '';
   searchResults.innerHTML = matches.map(p => `

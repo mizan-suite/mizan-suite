@@ -6,6 +6,7 @@ let currentPeriod = 'weekly';
 let financialChart = null;
 let expensePage = 1;
 const EXPENSE_PER_PAGE = 25;
+const EXPENSE_CATEGORIES = ['rent', 'electricity', 'water', 'internet', 'salaries', 'maintenance', 'other'];
 
 const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -56,7 +57,8 @@ async function loadReport() {
   const data = await res.json();
 
   const label = currentPeriod === 'custom' ? customRangeLabel() : periodLabels()[currentPeriod];
-  document.getElementById('income-label').textContent = I18N.t('financial.income').replace('{period}', label);
+  const incomeLabel = I18N.t('financial.income').replace('{period}', label);
+  document.getElementById('income-label').textContent = incomeLabel;
   document.getElementById('period-income').textContent = data.current.income.toFixed(2) + ' DA';
   document.getElementById('period-gross-profit').textContent = data.current.grossProfit.toFixed(2) + ' DA';
   document.getElementById('period-expenses').textContent = data.current.expenses.toFixed(2) + ' DA';
@@ -90,8 +92,8 @@ async function loadReport() {
     data: {
       labels: series.map(s => s.label),
       datasets: [
-        { label: I18N.t('financial.income'), data: series.map(s => s.income), backgroundColor: accentLight },
-        { label: I18N.t('financial.expenses'), data: series.map(s => s.expenses), backgroundColor: '#e74c3c' },
+        { label: incomeLabel, data: series.map(s => s.income), backgroundColor: accentLight },
+        { label: I18N.t('financial.expenses'), data: series.map(s => s.expenses), backgroundColor: '#c0392b' },
         { label: I18N.t('financial.netProfit'), data: series.map(s => s.netProfit), backgroundColor: accent }
       ]
     },
@@ -147,7 +149,7 @@ async function loadExpenses() {
       <td>${I18N.expenseCategory(e.category)}</td>
       <td>${e.amount.toFixed(2)} DA</td>
       <td>${escapeHtml(e.description || '-')}</td>
-      <td><button class="delete-btn remove-expense-btn" data-id="${e.id}" data-i18n="financial.delete">${I18N.t('financial.delete')}</button></td>
+      <td><button type="button" class="row-menu-btn expense-menu-btn" data-id="${e.id}" data-i18n-title="financial.actions" title="Actions">${window.AKIcons ? window.AKIcons.icon('dots', 18) : '&#8942;'}</button></td>
     </tr>
   `).join('') : `<tr><td colspan="5">${I18N.t('financial.noExpenses')}</td></tr>`;
 
@@ -182,13 +184,174 @@ document.getElementById('expense-page-next').addEventListener('click', () => {
   loadExpenses();
 });
 
-document.getElementById('expense-list').addEventListener('click', async (e) => {
-  if (!e.target.classList.contains('remove-expense-btn')) return;
-  if (!confirm(I18N.t('financial.deleteConfirm'))) return;
+// ---------- Expense 3-dot menu (View / Edit / Delete) ----------
+let expenseMenuId = null;
+const expenseMenu = document.createElement('div');
+expenseMenu.className = 'row-menu-pop';
+expenseMenu.hidden = true;
+document.body.appendChild(expenseMenu);
 
-  const res = await fetch(`/api/expenses/${e.target.dataset.id}`, { method: 'DELETE' });
-  if (res.ok) { loadExpenses(); loadReport(); }
+function renderExpenseMenu() {
+  expenseMenu.innerHTML = `
+    <button type="button" class="menu-item expense-menu-view">${window.AKIcons ? window.AKIcons.icon('eye', 15) : ''} ${I18N.t('financial.view')}</button>
+    <button type="button" class="menu-item expense-menu-edit">${window.AKIcons ? window.AKIcons.icon('edit', 15) : ''} ${I18N.t('financial.edit')}</button>
+    <button type="button" class="menu-item expense-menu-delete danger">${window.AKIcons ? window.AKIcons.icon('trash', 15) : ''} ${I18N.t('financial.delete')}</button>
+  `;
+}
+renderExpenseMenu();
+window.addEventListener('languagechange', renderExpenseMenu);
+
+function hideExpenseMenu() { expenseMenu.hidden = true; }
+
+document.getElementById('expense-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('.expense-menu-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  if (!expenseMenu.hidden && expenseMenuId === btn.dataset.id) { hideExpenseMenu(); return; }
+  expenseMenuId = btn.dataset.id;
+  I18N.positionMenu(expenseMenu, btn);
+  expenseMenu.hidden = false;
 });
+
+document.addEventListener('click', (e) => {
+  if (!expenseMenu.contains(e.target) && !e.target.closest('.expense-menu-btn')) hideExpenseMenu();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideExpenseMenu();
+});
+
+expenseMenu.addEventListener('click', async (e) => {
+  const id = expenseMenuId;
+  hideExpenseMenu();
+  if (!id) return;
+  if (e.target.closest('.expense-menu-view')) openExpenseView(id);
+  else if (e.target.closest('.expense-menu-edit')) openExpenseEdit(id);
+  else if (e.target.closest('.expense-menu-delete')) deleteExpense(id);
+});
+
+async function getExpense(id) {
+  const res = await fetch(`/api/expenses/${id}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// ---------- View expense (read-only details) ----------
+const expenseViewModal = document.createElement('div');
+expenseViewModal.className = 'scanner-modal';
+expenseViewModal.hidden = true;
+expenseViewModal.innerHTML = `
+  <div class="scanner-box alert-modal-box" style="max-width:420px;">
+    <h3 id="expense-view-title"></h3>
+    <div id="expense-view-body" style="line-height:1.7;"></div>
+    <div class="form-actions" style="margin-top:1rem;">
+      <button type="button" class="btn expense-view-close"></button>
+    </div>
+  </div>`;
+document.body.appendChild(expenseViewModal);
+
+async function openExpenseView(id) {
+  const e = await getExpense(id);
+  if (!e) return;
+  document.getElementById('expense-view-title').textContent = I18N.t('financial.viewExpense');
+  document.getElementById('expense-view-body').innerHTML = `
+    <div><strong>${I18N.t('financial.thDate')}:</strong> ${escapeHtml(e.expense_date)}</div>
+    <div><strong>${I18N.t('financial.thCategory')}:</strong> ${escapeHtml(I18N.expenseCategory(e.category))}</div>
+    <div><strong>${I18N.t('financial.thAmount')}:</strong> ${Number(e.amount).toFixed(2)} DA</div>
+    <div><strong>${I18N.t('financial.thDescription')}:</strong> ${escapeHtml(e.description || '-')}</div>`;
+  expenseViewModal.hidden = false;
+}
+expenseViewModal.addEventListener('click', (e) => { if (e.target === expenseViewModal) expenseViewModal.hidden = true; });
+expenseViewModal.querySelector('.expense-view-close').addEventListener('click', () => { expenseViewModal.hidden = true; });
+
+// ---------- Edit expense ----------
+const expenseEditModal = document.createElement('div');
+expenseEditModal.className = 'scanner-modal';
+expenseEditModal.hidden = true;
+expenseEditModal.innerHTML = `
+  <div class="scanner-box alert-modal-box" style="max-width:420px;">
+    <h3 data-i18n="financial.editExpense"></h3>
+    <div class="form-grid">
+      <select id="edit-expense-category"></select>
+      <input type="number" id="edit-expense-amount" step="0.01" min="0">
+      <input type="date" id="edit-expense-date">
+      <input type="text" id="edit-expense-description">
+    </div>
+    <p id="edit-expense-message"></p>
+    <div class="form-actions" style="margin-top:1rem;">
+      <button type="button" class="btn expense-edit-save"></button>
+      <button type="button" class="btn-link expense-edit-cancel"></button>
+    </div>
+  </div>`;
+document.body.appendChild(expenseEditModal);
+
+let editingExpenseId = null;
+function fillExpenseCategorySelect(sel) {
+  sel.innerHTML = EXPENSE_CATEGORIES.map(c => `<option value="${c}">${escapeHtml(I18N.expenseCategory(c))}</option>`).join('');
+}
+fillExpenseCategorySelect(document.getElementById('edit-expense-category'));
+
+function translateExpenseModals() {
+  expenseViewModal.querySelector('.expense-view-close').textContent = I18N.t('cashier.close');
+  expenseEditModal.querySelector('.expense-edit-save').textContent = I18N.t('financial.save');
+  expenseEditModal.querySelector('.expense-edit-cancel').textContent = I18N.t('purchasing.cancel');
+  expenseEditModal.querySelector('h3').textContent = I18N.t('financial.editExpense');
+  document.getElementById('edit-expense-amount').placeholder = I18N.t('financial.amount');
+  document.getElementById('edit-expense-description').placeholder = I18N.t('financial.description');
+  fillExpenseCategorySelect(document.getElementById('edit-expense-category'));
+}
+translateExpenseModals();
+window.addEventListener('languagechange', translateExpenseModals);
+
+async function openExpenseEdit(id) {
+  const e = await getExpense(id);
+  if (!e) return;
+  editingExpenseId = id;
+  document.getElementById('edit-expense-category').value = e.category;
+  document.getElementById('edit-expense-amount').value = e.amount;
+  document.getElementById('edit-expense-date').value = e.expense_date;
+  document.getElementById('edit-expense-description').value = e.description || '';
+  document.getElementById('edit-expense-message').textContent = '';
+  expenseEditModal.hidden = false;
+}
+
+async function saveExpenseEdit() {
+  const messageEl = document.getElementById('edit-expense-message');
+  const amount = parseFloat(document.getElementById('edit-expense-amount').value);
+  if (!amount || amount <= 0) {
+    messageEl.textContent = I18N.t('financial.validAmount');
+    messageEl.className = 'error-msg';
+    return;
+  }
+  const res = await fetch(`/api/expenses/${editingExpenseId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      category: document.getElementById('edit-expense-category').value,
+      amount,
+      expense_date: document.getElementById('edit-expense-date').value,
+      description: document.getElementById('edit-expense-description').value
+    })
+  });
+  if (res.ok) {
+    expenseEditModal.hidden = true;
+    loadExpenses();
+    loadReport();
+  } else {
+    const err = await res.json();
+    messageEl.textContent = I18N.t('financial.error') + ' ' + I18N.serverError(err.error);
+    messageEl.className = 'error-msg';
+  }
+}
+
+expenseEditModal.querySelector('.expense-edit-save').addEventListener('click', saveExpenseEdit);
+expenseEditModal.querySelector('.expense-edit-cancel').addEventListener('click', () => { expenseEditModal.hidden = true; });
+expenseEditModal.addEventListener('click', (e) => { if (e.target === expenseEditModal) expenseEditModal.hidden = true; });
+
+async function deleteExpense(id) {
+  if (!confirm(I18N.t('financial.deleteConfirm'))) return;
+  const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+  if (res.ok) { loadExpenses(); loadReport(); }
+}
 
 // Default the date input to today
 document.getElementById('expense-date').value = new Date().toISOString().slice(0, 10);
