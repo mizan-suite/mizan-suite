@@ -2318,13 +2318,23 @@ app.post('/api/sales/:id/refund', (req, res) => {
     let totalRefunded = 0;
 
     for (const item of items) {
-      const qty = Number(item.quantity);
-      if (!Number.isInteger(qty) || qty <= 0) {
-        throw new Error('Refund quantity must be a positive whole number');
-      }
+      const qtyRaw = Number(item.quantity);
       const saleItem = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ?')
         .get(sale.id, item.product_id);
       if (!saleItem) throw new Error(`Product ${item.product_id} was not part of sale #${sale.id}`);
+
+      // kg products were sold by decimal weight; refund them by decimal weight.
+      // Round to 3 decimals (a gram) to keep refund amounts exact.
+      const qty = saleItem.unit === 'kg'
+        ? (Number.isFinite(qtyRaw) ? Math.round(qtyRaw * 1000) / 1000 : NaN)
+        : qtyRaw;
+      if (saleItem.unit === 'kg') {
+        if (!Number.isFinite(qty) || qty <= 0) {
+          throw new Error('Refund weight must be a positive decimal number');
+        }
+      } else if (!Number.isInteger(qty) || qty <= 0) {
+        throw new Error('Refund quantity must be a positive whole number');
+      }
 
       // How much has already been refunded for this product on this sale? (prevents over-refunding)
       const alreadyRefunded = db.prepare(`
@@ -2439,18 +2449,25 @@ app.post('/api/sales/:id/exchange', (req, res) => {
   const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(req.params.id);
   if (!sale) return res.status(404).json({ error: 'Sale not found' });
   if (!old_item || !new_item) return res.status(400).json({ error: 'old_item and new_item are required' });
-  const oldQty = Number(old_item.quantity);
-  const newQty = Number(new_item.quantity);
-  if (!Number.isInteger(oldQty) || oldQty <= 0 || !Number.isInteger(newQty) || newQty <= 0) {
-    return res.status(400).json({ error: 'Exchange quantities must be positive whole numbers' });
-  }
 
   db.exec('BEGIN');
   try {
-    // 1. Refund the old item
+    // 1. Refund/resell quantities validated on the unit of the products involved.
+    //    kg products are exchanged by decimal weight; piece products by whole
+    //    units. Round weights to 3 decimals (a gram) for exact bookkeeping.
     const saleItem = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ?')
       .get(sale.id, old_item.product_id);
     if (!saleItem) throw new Error(`Product ${old_item.product_id} was not part of sale #${sale.id}`);
+
+    const oldQtyRaw = Number(old_item.quantity);
+    const oldQty = saleItem.unit === 'kg'
+      ? (Number.isFinite(oldQtyRaw) ? Math.round(oldQtyRaw * 1000) / 1000 : NaN)
+      : oldQtyRaw;
+    if (saleItem.unit === 'kg') {
+      if (!Number.isFinite(oldQty) || oldQty <= 0) throw new Error('Exchange weight must be a positive decimal number');
+    } else if (!Number.isInteger(oldQty) || oldQty <= 0) {
+      throw new Error('Exchange quantity must be a positive whole number');
+    }
 
     const alreadyRefunded = db.prepare(`
       SELECT COALESCE(SUM(quantity), 0) as qty FROM refunds WHERE original_sale_id = ? AND product_id = ?
@@ -2458,6 +2475,23 @@ app.post('/api/sales/:id/exchange', (req, res) => {
     const remaining = saleItem.quantity - alreadyRefunded;
     if (oldQty > remaining) {
       throw new Error(`Cannot exchange ${oldQty} of ${saleItem.product_name} - only ${remaining} remain`);
+    }
+
+    // 2. Sell the new item - quantities follow the product's own unit.
+    const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(new_item.product_id);
+    if (!newProduct) throw new Error(`Product ${new_item.product_id} not found`);
+
+    const newQtyRaw = Number(new_item.quantity);
+    const newQty = newProduct.unit === 'kg'
+      ? (Number.isFinite(newQtyRaw) ? Math.round(newQtyRaw * 1000) / 1000 : NaN)
+      : newQtyRaw;
+    if (newProduct.unit === 'kg') {
+      if (!Number.isFinite(newQty) || newQty <= 0) throw new Error('Exchange weight must be a positive decimal number');
+    } else if (!Number.isInteger(newQty) || newQty <= 0) {
+      throw new Error('Exchange quantity must be a positive whole number');
+    }
+    if (newProduct.quantity < newQty) {
+      throw new Error(`Not enough stock for ${newProduct.name} (have ${newProduct.quantity}, need ${newQty})`);
     }
 
     const refundAmount = round2(saleItem.price_at_sale * oldQty);
@@ -2474,12 +2508,6 @@ app.post('/api/sales/:id/exchange', (req, res) => {
     `).run(sale.id, old_item.product_id, saleItem.product_name, oldQty, refundAmount, refundedCost);
 
     // 2. Sell the new item
-    const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(new_item.product_id);
-    if (!newProduct) throw new Error(`Product ${new_item.product_id} not found`);
-    if (newProduct.quantity < newQty) {
-      throw new Error(`Not enough stock for ${newProduct.name} (have ${newProduct.quantity}, need ${newQty})`);
-    }
-
     const newItemTotal = round2(newProduct.sale_price * newQty);
     db.prepare('UPDATE products SET quantity = quantity - ? WHERE id = ?').run(newQty, newProduct.id);
 
@@ -2489,9 +2517,9 @@ app.post('/api/sales/:id/exchange', (req, res) => {
     const newSaleId = newSaleResult.lastInsertRowid;
 
     db.prepare(`
-      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, cost_at_sale)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(newSaleId, newProduct.id, newProduct.name, newQty, newProduct.sale_price, newProduct.cost_price);
+      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit, price_at_sale, cost_at_sale)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(newSaleId, newProduct.id, newProduct.name, newQty, newProduct.unit === 'kg' ? 'kg' : 'piece', newProduct.sale_price, newProduct.cost_price);
 
     db.prepare(`
       INSERT INTO stock_movements (product_id, product_name, type, quantity_change, reason)
@@ -3257,20 +3285,29 @@ app.post('/api/purchase-orders', (req, res) => {
 
       const qty = Number(item.quantity_ordered);
       const unitCost = Number(item.unit_cost);
-      if (!Number.isInteger(qty) || qty <= 0) {
+      // kg products are ordered/received by decimal weight; piece products by
+      // whole units. Round weights to 3 decimals (a gram).
+      const qtyRounded = product.unit === 'kg'
+        ? (Number.isFinite(qty) ? Math.round(qty * 1000) / 1000 : NaN)
+        : qty;
+      if (product.unit === 'kg') {
+        if (!Number.isFinite(qtyRounded) || qtyRounded <= 0) {
+          throw new Error(`Invalid quantity_ordered for product ${item.product_id} - must be a positive decimal weight`);
+        }
+      } else if (!Number.isInteger(qty) || qty <= 0) {
         throw new Error(`Invalid quantity_ordered for product ${item.product_id} - must be a positive whole number`);
       }
       if (!Number.isFinite(unitCost) || unitCost < 0) {
         throw new Error(`Invalid unit_cost for product ${item.product_id} - must be a non-negative number`);
       }
 
-      const lineCost = unitCost * qty;
+      const lineCost = unitCost * qtyRounded;
       totalCost += lineCost;
 
       lineItems.push({
         product_id: product.id,
         product_name: product.name,
-        quantity_ordered: qty,
+        quantity_ordered: qtyRounded,
         unit_cost: unitCost
       });
     }
@@ -3353,20 +3390,28 @@ app.put('/api/purchase-orders/:id', (req, res) => {
 
       const qty = Number(item.quantity_ordered);
       const unitCost = Number(item.unit_cost);
-      if (!Number.isInteger(qty) || qty <= 0) {
+      // kg products are ordered/received by decimal weight; piece by whole units.
+      const qtyRounded = product.unit === 'kg'
+        ? (Number.isFinite(qty) ? Math.round(qty * 1000) / 1000 : NaN)
+        : qty;
+      if (product.unit === 'kg') {
+        if (!Number.isFinite(qtyRounded) || qtyRounded <= 0) {
+          throw new Error(`Invalid quantity_ordered for product ${item.product_id} - must be a positive decimal weight`);
+        }
+      } else if (!Number.isInteger(qty) || qty <= 0) {
         throw new Error(`Invalid quantity_ordered for product ${item.product_id} - must be a positive whole number`);
       }
       if (!Number.isFinite(unitCost) || unitCost < 0) {
         throw new Error(`Invalid unit_cost for product ${item.product_id} - must be a non-negative number`);
       }
 
-      const lineCost = unitCost * qty;
+      const lineCost = unitCost * qtyRounded;
       totalCost += lineCost;
 
       lineItems.push({
         product_id: product.id,
         product_name: product.name,
-        quantity_ordered: qty,
+        quantity_ordered: qtyRounded,
         unit_cost: unitCost
       });
     }

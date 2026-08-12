@@ -55,6 +55,14 @@ function parseBarcodes(raw) {
   return String(raw || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
 }
 
+// kg products hold decimal weights; piece products are whole units.
+function parseQuantity(unit, raw) {
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (unit === 'kg') return Math.round(n * 1000) / 1000;
+  return n;
+}
+
 // Calculate sale price from wholesale price and margin
 function calculateSalePrice() {
   const wholesale = parseFloat(document.getElementById('wholesale_price').value) || 0;
@@ -582,7 +590,7 @@ form.addEventListener('submit', async (e) => {
     name: document.getElementById('name').value.trim(),
     category: document.getElementById('category').value.trim(),
     expiry_date: document.getElementById('expiry_date').value,
-    quantity: parseInt(document.getElementById('quantity').value) || 0,
+    quantity: parseQuantity(document.getElementById('unit').value, document.getElementById('quantity').value),
     cost_price: parseFloat(document.getElementById('cost_price').value) || 0,
     sale_price: parseFloat(document.getElementById('sale_price').value) || 0,
     wholesale_price: parseFloat(document.getElementById('wholesale_price').value) || 0,
@@ -1060,7 +1068,7 @@ document.getElementById('edit-save').addEventListener('click', async () => {
       name,
       category: document.getElementById('edit-category').value.trim(),
       expiry_date: document.getElementById('edit-expiry_date').value,
-      quantity: parseInt(document.getElementById('edit-quantity').value) || 0,
+      quantity: parseQuantity(document.getElementById('edit-unit').value, document.getElementById('edit-quantity').value),
       cost_price: parseFloat(document.getElementById('edit-cost_price').value) || 0,
       sale_price: parseFloat(document.getElementById('edit-sale_price').value) || 0,
       wholesale_price: parseFloat(document.getElementById('edit-wholesale_price').value) || 0,

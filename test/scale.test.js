@@ -225,3 +225,93 @@ test('scale settings keys are accepted by /api/settings', async () => {
   assert.strictEqual(got.data.scale_label_mode, 'price');
   assert.strictEqual(got.data.scale_price_divisor, '100');
 });
+
+// ---------- Refund & exchange of kg items (decimal weights) ----------
+
+test('refund accepts a fractional weight for a kg item and restocks it', async () => {
+  const { cookie } = await loginAsOwner();
+  const c = await srv.request('POST', '/api/products', {
+    name: 'Refundable kg', barcode: ean('611124800709'), sale_price: 100, quantity: 10, unit: 'kg'
+  }, { cookie });
+  const pid = c.data.id;
+  const sale = await srv.request('POST', '/api/sales', {
+    items: [{ product_id: pid, quantity: 2.5 }],
+    payments: [{ method: 'cash', amount: 250 }]
+  }, { cookie });
+  const saleId = sale.data.saleId;
+  const r = await srv.request('POST', `/api/sales/${saleId}/refund`, {
+    items: [{ product_id: pid, quantity: 0.5 }], reason: 'test'
+  }, { cookie });
+  assert.strictEqual(r.status, 201, JSON.stringify(r.data));
+  const got = await srv.request('GET', `/api/products/${pid}`, undefined, { cookie });
+  assert.strictEqual(got.data.quantity, 8); // 10 - 2.5 + 0.5
+});
+
+test('refund of a piece item still rejects a fractional quantity', async () => {
+  const { cookie } = await loginAsOwner();
+  const c = await srv.request('POST', '/api/products', {
+    name: 'Piece for refund', barcode: ean('611124800710'), sale_price: 100, quantity: 10
+  }, { cookie });
+  const pid = c.data.id;
+  const sale = await srv.request('POST', '/api/sales', {
+    items: [{ product_id: pid, quantity: 2 }],
+    payments: [{ method: 'cash', amount: 200 }]
+  }, { cookie });
+  const saleId = sale.data.saleId;
+  const r = await srv.request('POST', `/api/sales/${saleId}/refund`, {
+    items: [{ product_id: pid, quantity: 0.5 }], reason: 'test'
+  }, { cookie });
+  assert.strictEqual(r.status, 400);
+});
+
+test('exchange supports a decimal weight for kg items on both sides', async () => {
+  const { cookie } = await loginAsOwner();
+  const oldP = await srv.request('POST', '/api/products', {
+    name: 'Old kg', barcode: ean('611124800711'), sale_price: 100, quantity: 10, unit: 'kg'
+  }, { cookie });
+  const newP = await srv.request('POST', '/api/products', {
+    name: 'New kg', barcode: ean('611124800712'), sale_price: 50, quantity: 10, unit: 'kg'
+  }, { cookie });
+  const sale = await srv.request('POST', '/api/sales', {
+    items: [{ product_id: oldP.data.id, quantity: 2 }],
+    payments: [{ method: 'cash', amount: 200 }]
+  }, { cookie });
+  const saleId = sale.data.saleId;
+  const r = await srv.request('POST', `/api/sales/${saleId}/exchange`, {
+    old_item: { product_id: oldP.data.id, quantity: 1.5 },
+    new_item: { product_id: newP.data.id, quantity: 0.75 }
+  }, { cookie });
+  assert.strictEqual(r.status, 201, JSON.stringify(r.data));
+  const oldGot = await srv.request('GET', `/api/products/${oldP.data.id}`, undefined, { cookie });
+  assert.strictEqual(oldGot.data.quantity, 9.5); // 10 - 2 + 1.5
+  const newGot = await srv.request('GET', `/api/products/${newP.data.id}`, undefined, { cookie });
+  assert.strictEqual(newGot.data.quantity, 9.25); // 10 - 0.75
+});
+
+// ---------- Purchase orders with kg products (decimal weights) ----------
+
+test('purchase order accepts a decimal weight for a kg product', async () => {
+  const { cookie } = await loginAsOwner();
+  const p = await srv.request('POST', '/api/products', {
+    name: 'PO kg', barcode: ean('611124800713'), sale_price: 100, quantity: 0, unit: 'kg'
+  }, { cookie });
+  const r = await srv.request('POST', '/api/purchase-orders', {
+    supplier_name: 'Test Supplier',
+    items: [{ product_id: p.data.id, quantity_ordered: 12.5, unit_cost: 40 }]
+  }, { cookie });
+  assert.strictEqual(r.status, 201, JSON.stringify(r.data));
+  assert.strictEqual(r.data.total_cost, 500); // 12.5 * 40
+  assert.strictEqual(r.data.items[0].quantity_ordered, 12.5);
+});
+
+test('purchase order still rejects a fractional quantity for a piece product', async () => {
+  const { cookie } = await loginAsOwner();
+  const p = await srv.request('POST', '/api/products', {
+    name: 'PO piece', barcode: ean('611124800714'), sale_price: 100, quantity: 0
+  }, { cookie });
+  const r = await srv.request('POST', '/api/purchase-orders', {
+    supplier_name: 'Test Supplier',
+    items: [{ product_id: p.data.id, quantity_ordered: 2.5, unit_cost: 40 }]
+  }, { cookie });
+  assert.strictEqual(r.status, 400);
+});

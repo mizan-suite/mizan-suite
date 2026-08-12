@@ -293,9 +293,9 @@ function addPoLine(data) {
   row.innerHTML = `
     <select class="po-line-product">
       <option value="" data-i18n="purchasing.selectProduct">${I18N.t('purchasing.selectProduct')}</option>
-      ${allProducts.map(p => `<option value="${p.id}" data-cost="${p.cost_price}">${escapeHtml(p.name)}</option>`).join('')}
+      ${allProducts.map(p => `<option value="${p.id}" data-cost="${p.cost_price}" data-unit="${p.unit || 'piece'}">${escapeHtml(p.name)}</option>`).join('')}
     </select>
-    <input type="number" class="po-line-qty" data-i18n="purchasing.qtyPlaceholder" placeholder="Quantity" min="1">
+    <input type="number" class="po-line-qty" data-i18n="purchasing.qtyPlaceholder" placeholder="Quantity" min="1" step="1">
     <input type="number" class="po-line-cost" data-i18n="purchasing.costPlaceholder" placeholder="Unit cost" step="0.01">
     <button type="button" class="remove-btn po-line-remove" data-i18n="settings.delete">${I18N.t('settings.delete')}</button>
   `;
@@ -303,8 +303,16 @@ function addPoLine(data) {
 
   // Pre-fill unit cost with the product's current cost_price when selected
   row.querySelector('.po-line-product').addEventListener('change', (e) => {
-    const cost = e.target.selectedOptions[0]?.dataset.cost;
+    const opt = e.target.selectedOptions[0];
+    const cost = opt?.dataset.cost;
     if (cost) row.querySelector('.po-line-cost').value = cost;
+    const unit = opt?.dataset.unit;
+    const qtyInput = row.querySelector('.po-line-qty');
+    if (unit === 'kg') {
+      qtyInput.step = '0.001';
+    } else {
+      qtyInput.step = '1';
+    }
     updatePoTotal();
   });
   row.querySelector('.po-line-qty').addEventListener('input', updatePoTotal);
@@ -366,8 +374,14 @@ document.getElementById('create-po-btn').addEventListener('click', async () => {
 
   const items = [];
   document.querySelectorAll('.po-line').forEach(row => {
-    const productId = row.querySelector('.po-line-product').value;
-    const quantity = parseInt(row.querySelector('.po-line-qty').value);
+    const productSel = row.querySelector('.po-line-product');
+    const productId = productSel.value;
+    const unit = productSel.selectedOptions[0]?.dataset.unit;
+    const rawQty = row.querySelector('.po-line-qty').value;
+    const qtyNum = parseFloat(rawQty);
+    const quantity = unit === 'kg'
+      ? (Number.isFinite(qtyNum) ? Math.round(qtyNum * 1000) / 1000 : NaN)
+      : parseInt(rawQty, 10);
     const unitCost = parseFloat(row.querySelector('.po-line-cost').value);
     if (productId && quantity > 0) {
       items.push({ product_id: productId, quantity_ordered: quantity, unit_cost: unitCost || 0 });

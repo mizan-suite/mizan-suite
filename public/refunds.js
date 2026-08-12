@@ -46,12 +46,12 @@ function renderSale() {
           ${sale.items.map((item, index) => `
             <tr>
               <td>${escapeHtml(item.product_name)}</td>
-              <td>${item.quantity}</td>
-              <td>${item.refundedQty}</td>
-              <td>${item.remainingQty}</td>
+              <td>${item.quantity}${item.unit === 'kg' ? ' kg' : ''}</td>
+              <td>${item.refundedQty}${item.unit === 'kg' ? ' kg' : ''}</td>
+              <td>${item.remainingQty}${item.unit === 'kg' ? ' kg' : ''}</td>
               <td>
                 ${item.remainingQty > 0
-                  ? `<input type="number" class="refund-qty-input" data-index="${index}" min="0" max="${item.remainingQty}" value="0" style="width:70px;">`
+                  ? `<input type="number" class="refund-qty-input" data-index="${index}" min="0" max="${item.remainingQty}" step="${item.unit === 'kg' ? '0.001' : '1'}" value="0" style="width:80px;">`
                   : `<span class="hint-text">${I18N.t('refunds.fullyRefunded')}</span>`}
               </td>
             </tr>
@@ -72,12 +72,12 @@ function renderSale() {
             `<option value="${item.product_id}" data-max="${item.remainingQty}">${escapeHtml(item.product_name)} (${I18N.t('refunds.max')} ${item.remainingQty})</option>`
           ).join('')}
         </select>
-        <input type="number" id="exchange-old-qty" data-i18n="refunds.qty" placeholder="Quantity" min="1" value="1">
+        <input type="number" id="exchange-old-qty" data-i18n="refunds.qty" placeholder="Quantity" min="0" step="0.001" value="1">
         <select id="exchange-new-item">
           <option value="" data-i18n="refunds.newProduct">New product</option>
           ${allProducts.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${p.sale_price.toFixed(2)} DA)</option>`).join('')}
         </select>
-        <input type="number" id="exchange-new-qty" data-i18n="refunds.qty" placeholder="Quantity" min="1" value="1">
+        <input type="number" id="exchange-new-qty" data-i18n="refunds.qty" placeholder="Quantity" min="0" step="0.001" value="1">
       </div>
       <button id="process-exchange-btn" class="btn" data-i18n="refunds.processExchange">Process Exchange</button>
       <p id="refund-message"></p>
@@ -94,7 +94,7 @@ async function processRefund() {
   const items = [];
 
   document.querySelectorAll('.refund-qty-input').forEach(input => {
-    const qty = parseInt(input.value);
+    const qty = parseFloat(input.value);
     if (qty > 0) {
       const index = input.dataset.index;
       items.push({ product_id: currentSale.items[index].product_id, quantity: qty });
@@ -134,9 +134,9 @@ async function processRefund() {
 async function processExchange() {
   const messageEl = document.getElementById('refund-message');
   const oldProductId = document.getElementById('exchange-old-item').value;
-  const oldQty = parseInt(document.getElementById('exchange-old-qty').value);
+  const oldQty = parseFloat(document.getElementById('exchange-old-qty').value);
   const newProductId = document.getElementById('exchange-new-item').value;
-  const newQty = parseInt(document.getElementById('exchange-new-qty').value);
+  const newQty = parseFloat(document.getElementById('exchange-new-qty').value);
 
   if (!oldProductId || !newProductId || !oldQty || !newQty) {
     messageEl.textContent = I18N.t('refunds.fillBoth');
