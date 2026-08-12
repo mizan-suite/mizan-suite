@@ -1,585 +1,219 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mizan Suite - Logiciel de gestion de point de vente pour Windows</title>
-  <meta name="description" content="Mizan Suite est le logiciel de gestion tout-en-un pour Windows. Ventes, inventaire, lecture de codes-barres, factures, points de fidélité et plus. Essai gratuit de 14 jours, sans carte bancaire.">
-  <meta name="theme-color" content="#1e40af">
-  <link rel="icon" type="image/png" href="/mizan-logo.png">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Mizan Suite - Logiciel de gestion de point de vente">
-  <meta property="og:description" content="Ventes, inventaire, lecture de codes-barres, factures et points de fidélité - tout ce dont votre commerce a besoin, sur votre propre ordinateur. Essai gratuit de 14 jours.">
-  <meta property="og:image" content="/mizan-logo.png">
-  <meta name="twitter:card" content="summary">
-  <!-- Meta Pixel (tracking for Instagram/Facebook ads). Replace VOTRE_PIXEL_ID
-       with the ID from Meta Events Manager when you have it. -->
-  <script>
-    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
-    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
-    document,'script','https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', 'VOTRE_PIXEL_ID');
-    fbq('track', 'PageView');
-  </script>
-  <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=VOTRE_PIXEL_ID&ev=PageView&noscript=1" /></noscript>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root {
-      --blue: #2563eb;
-      --blue-dark: #1e40af;
-      --blue-darker: #1e3a8a;
-      --blue-light: #60a5fa;
-      --blue-tint: #eef4fd;
-      --ink: #1f2937;
-      --muted: #5b6770;
-      --bg: #f6f9fd;
-      --card: #ffffff;
-      --line: #e2eaf5;
-      --radius: 14px;
-    }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
-      color: var(--ink);
-      background: var(--bg);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { color: var(--blue); }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#2563eb">
+<title>Mizan Suite — Votre commerce. Enfin sous contrôle.</title>
+<meta name="description" content="Ventes, inventaire, lecture de codes-barres, factures, achats et finances — tout ce dont votre point de vente a besoin, sur votre propre ordinateur. Essai gratuit de 14 jours, sans carte bancaire.">
+<meta name="keywords" content="logiciel caisse, gestion point de vente, logiciel parapharmacie, logiciel pharmacie, inventaire, facturation, Algérie">
+<meta name="robots" content="index,follow">
+<link rel="icon" type="image/png" href="/mizan-logo.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Mizan Suite — Votre commerce. Enfin sous contrôle.">
+<meta property="og:description" content="Ventes, inventaire, codes-barres, factures, achats et finances dans une seule solution simple. Essai gratuit de 14 jours sans carte bancaire.">
+<meta property="og:image" content="/mizan-logo.png">
+<meta name="twitter:card" content="summary">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+:root{--dark:#0b1120;--dark2:#10132b;--p:#2563eb;--p2:#60a5fa;--text:#16192b;--muted:#777d92}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:"DM Sans",sans-serif;color:var(--text)}button{font:inherit;border:0;cursor:pointer}a{text-decoration:none}.wrap{width:min(1160px,calc(100% - 32px));margin:auto}
+header{position:fixed;z-index:20;top:0;left:0;right:0;background:#0b1120d9;backdrop-filter:blur(18px);border-bottom:1px solid #ffffff10}.nav{height:70px;display:flex;align-items:center;justify-content:space-between}.logo{color:#fff;font:700 16px Manrope;display:flex;align-items:center;gap:9px}.mark{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(135deg,#60a5fa,#1e40af);font:800 20px Manrope}.logo b{color:#aaaec0}.links{display:flex;gap:26px;align-items:center}.links button{background:none;color:#aeb2c6;font-size:13px}.links button:hover{color:#fff}.links .demo{color:#fff;background:linear-gradient(135deg,#2563eb,#1e40af);padding:11px 16px;border-radius:10px}.hamb{display:none;background:none;color:#fff;font-size:24px}
+.hero{min-height:800px;padding:145px 0 90px;color:#fff;overflow:hidden;position:relative;background:radial-gradient(circle at 78% 45%,#60a5fa55,transparent 30%),radial-gradient(circle at 8% 20%,#27306b55,transparent 30%),linear-gradient(#0b1120,#0f172a)}.grid{position:absolute;inset:0;opacity:.25;background-image:linear-gradient(#fff1 1px,transparent 1px),linear-gradient(90deg,#fff1 1px,transparent 1px);background-size:70px 70px}.orb{position:absolute;border-radius:50%;filter:blur(75px);animation:pulse 6s infinite}.a{width:260px;height:260px;background:#60a5fa33;right:25%;top:25%}.b{width:180px;height:180px;background:#28cfff22;left:0;bottom:10%;animation-delay:1s}@keyframes pulse{50%{transform:scale(1.15);opacity:.6}}
+.heroGrid{position:relative;display:grid;grid-template-columns:44% 56%;align-items:center}.eyebrow{display:inline-block;padding:9px 13px;border:1px solid #60a5fa44;background:#2563eb10;border-radius:99px;color:#93c5fd;font-size:10px;font-weight:700;letter-spacing:.08em}.hero h1{font:800 clamp(48px,6vw,76px)/1.02 Manrope;letter-spacing:-.06em;margin:24px 0}.hero h1 span,.section h2 em,.show h2 em,.cta h2 em{color:var(--p2);font-style:normal}.hero p{max-width:510px;color:#b9bdcc;font-size:16px;line-height:1.75}.chips{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0}.chips span{padding:8px 10px;border:1px solid #ffffff15;background:#ffffff07;border-radius:8px;color:#cdd0dc;font-size:10px}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;border-radius:11px;font-weight:700;font-size:13px;transition:.25s}.primary{color:#fff;background:linear-gradient(135deg,#2563eb,#1e40af);box-shadow:0 14px 35px #2563eb44}.primary:hover{transform:translateY(-2px)}.ghost{color:#fff;background:#ffffff08;border:1px solid #ffffff1c}.proof{display:flex;align-items:center;gap:12px;margin-top:25px}.avatars{display:flex}.avatars span{width:30px;height:30px;margin-left:-7px;border:2px solid #0b1120;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#60a5fa,#39406d);font-size:9px;font-weight:800}.avatars span:first-child{margin-left:0}.stars{color:#ffc75a;letter-spacing:2px;font-size:11px}.proof small{color:#81869b;font-size:10px}
+.product{position:relative;padding:25px 0 45px 35px}.dash{border-radius:17px;overflow:hidden;background:#f7f8fc;box-shadow:0 45px 100px #0008;transform:perspective(1200px) rotateY(-5deg) rotateX(2deg);animation:float 6s ease-in-out infinite}@keyframes float{50%{transform:perspective(1200px) rotateY(-5deg) rotateX(2deg) translateY(-9px)}}.top{height:34px;background:#171a31;display:flex;align-items:center;gap:5px;padding:0 12px}.dot{width:7px;height:7px;border-radius:50%;background:#ff5f57}.dot:nth-child(2){background:#ffbd2e}.dot:nth-child(3){background:#28c840}.top label{font-size:8px;color:#a9aec2;margin-left:8px}.db{display:flex;min-height:400px}.side{width:135px;background:#0f172a;padding:17px 10px}.side strong{display:grid;place-items:center;width:27px;height:27px;border-radius:7px;background:#2563eb;color:white;margin-bottom:18px}.side div{font-size:8px;color:#858aa1;padding:9px;border-radius:6px}.side .active{background:#2563eb44;color:#fff}.main{flex:1;padding:20px;background:#f8f9fd}.head{display:flex;justify-content:space-between}.head small{font-size:8px;color:#858a9e}.head h3{font:800 18px Manrope;margin:4px 0 17px}.today{height:27px;padding:7px 9px;background:#fff;border:1px solid #e5e7ee;border-radius:7px;font-size:7px;color:#70768b}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.metric{color:#fff;padding:12px;border-radius:9px}.metric small,.metric span{display:block;font-size:7px;opacity:.8}.metric strong{display:block;font:800 15px Manrope;margin:7px 0}.m1{background:linear-gradient(135deg,#2563eb,#60a5fa)}.m2{background:linear-gradient(135deg,#20a36a,#51c88f)}.m3{background:linear-gradient(135deg,#ee7930,#ffa35f)}.dashgrid{display:grid;grid-template-columns:1.6fr 1fr;gap:8px;margin-top:8px}.chart,.best{background:#fff;border:1px solid #e8e9ef;border-radius:9px;padding:12px}.ct{font-size:8px;font-weight:700;display:flex;justify-content:space-between}.ct span{font-weight:400;color:#999dac}.chart svg{width:100%;height:130px;color:#2563eb;margin-top:10px}.bestrow{display:flex;gap:8px;align-items:center;margin:18px 0}.prod{width:34px;height:34px;border-radius:8px;background:#dbeafe;color:#2563eb;display:grid;place-items:center;font-weight:800}.bestrow b,.bestrow small{display:block}.bestrow b{font-size:9px}.bestrow small{font-size:7px;color:#999}.alert{padding:8px;border-radius:6px;background:#fff0ef}.alert span{font-size:7px;color:#e9574f;display:block}.alert b{font-size:8px}.float{position:absolute;z-index:3;background:#fff;color:#181b2d;padding:11px 13px;border-radius:13px;box-shadow:0 20px 50px #0004;display:flex;gap:9px;align-items:center;animation:card 4s infinite ease-in-out}.float small,.float b{display:block}.float small{font-size:7px;color:#888d9f}.float b{font:800 12px Manrope;margin:3px 0}.fi{width:29px;height:29px;border-radius:8px;display:grid;place-items:center}.sales{left:-2px;bottom:28px}.stock{right:-5px;top:35px;animation-delay:.7s}.orders{right:18px;bottom:5px;animation-delay:1.2s}.green{background:#e2faed;color:#1d9e60}.purple{background:#dbeafe;color:#2563eb}.orange{background:#fff0df;color:#ed7d30}@keyframes card{50%{transform:translateY(-8px)}}
+.trust{border-bottom:1px solid #eeeef3}.trustrow{min-height:90px;display:flex;justify-content:space-between;align-items:center;gap:20px;color:#62677b}.trustrow label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#888c9d}.trustrow b{font:600 12px Manrope}
+.section{padding:115px 0}.sectionhead{text-align:center;margin-bottom:50px}.kicker{color:#2563eb;font-size:10px;font-weight:800;letter-spacing:.14em}.section h2,.show h2,.faq h2,.cta h2{font:800 clamp(35px,4.2vw,51px)/1.08 Manrope;letter-spacing:-.05em;margin:12px 0}.sectionhead p,.show p,.faqintro{color:#7c8194;line-height:1.7}.features{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.feature{position:relative;padding:26px 23px;min-height:205px;border:1px solid #e8e9f0;border-radius:17px;background:#fff;transition:.3s}.feature:hover{transform:translateY(-6px);box-shadow:0 20px 50px #4c3fb312;border-color:#bfdbfe}.ico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;margin-bottom:19px}.i1{background:#fff0f4}.i2{background:#e6f9ef}.i3{background:#eaf3ff}.i4{background:#dbeafe}.i5{background:#fff2e4}.i6{background:#e8f9fc}.i7{background:#fff9dd}.i8{background:#dbeafe}.feature h3{font:700 14px Manrope;margin:0 0 8px}.feature p{font-size:11px;color:#777c90;line-height:1.65}.arrow{position:absolute;right:20px;bottom:18px;color:#b5b8c6}
+.show{padding:120px 0;background:linear-gradient(#f0f4ff,#e8f0fe)}.showgrid{display:grid;grid-template-columns:43% 57%;gap:45px;align-items:center}.show h2{margin-top:12px}.checks{list-style:none;padding:0;margin:25px 0;display:grid;gap:12px}.checks li{font-size:12px;font-weight:600;display:flex;align-items:center;gap:9px}.check{width:18px;height:18px;border-radius:50%;background:#dbeafe;color:#2563eb;display:grid;place-items:center}.screens{height:390px;position:relative}.screen{position:absolute;border:7px solid white;border-radius:13px;box-shadow:0 25px 60px #36306418;background:#f7f8fc}.back{width:73%;height:64%;right:7%;top:0;transform:rotate(-7deg);opacity:.5}.mid{width:79%;height:71%;right:1%;top:10%;transform:rotate(3deg);opacity:.75}.front{width:80%;height:75%;right:8%;top:20%;overflow:hidden}.st{height:32px;background:#171a31;color:white;font-size:8px;padding:9px 12px}.st span{float:right;color:#a9acc0}.mini{display:flex;gap:7px;padding:13px}.mini div{height:45px;flex:1;border-radius:7px;background:#2563eb}.mini div:nth-child(2){background:#27aa70}.mini div:nth-child(3){background:#ef7d31}.minichart{height:155px;margin:0 13px;border:1px solid #e7e8ef;background:white;border-radius:8px;padding:16px;color:#2563eb}.minichart svg{width:100%;height:100%}
+.numbers{padding:34px 0;background:#0f172a;color:white}.nums{display:grid;grid-template-columns:repeat(4,1fr);text-align:center}.nums strong{display:block;color:#60a5fa;font:800 28px Manrope}.nums span{display:block;color:#85899f;font-size:10px;margin-top:4px}
+.pricecard{max-width:900px;margin:auto;display:grid;grid-template-columns:58% 42%;overflow:hidden;border-radius:24px;background:#0f172a;color:#fff;box-shadow:0 30px 80px #15162c1c}.priceside{padding:50px}.label{color:#93c5fd;font-size:9px;font-weight:800;letter-spacing:.14em}.priceside h3{font:700 24px/1.3 Manrope;margin:17px 0}.price{font:800 48px Manrope}.price small{font-size:14px;color:#60a5fa}.note{font-size:10px;color:#858aa2}.plist{display:grid;gap:10px;margin:26px 0}.plist span{font-size:11px;color:#d2d4df}.plist i{font-style:normal;color:white;background:#2563eb;border-radius:50%;padding:2px 5px;margin-right:7px}.wide{width:100%}.pricevisual{position:relative;display:grid;place-items:center;text-align:center;overflow:hidden;min-height:420px;background:radial-gradient(circle,#1e40af,#172338 60%)}.badge{position:absolute;top:25px;right:22px;color:#93c5fd;border:1px solid #ffffff20;border-radius:99px;padding:7px 10px;font-size:7px}.bigM{position:absolute;font:800 190px Manrope;color:#fff1}.pricevisual p{position:relative;font:500 18px/1.5 Manrope;color:#d3d4e0}.pricevisual b{color:#60a5fa}.pricingrow{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:980px;margin:auto}.pricingrow .pricecard{max-width:100%}.pricingrow .pricecard .priceside{padding:38px 30px}.pricingrow .pricecard .price{font-size:40px}.pricingrow .pricecard .pricevisual{min-height:360px}@media(max-width:900px){.pricingrow{grid-template-columns:1fr}}
+.cta{padding:80px 0;background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff}.ctain{display:flex;align-items:center;justify-content:space-between;gap:30px}.cta .kicker{color:#bfdbfe}.cta h2{margin:11px 0}.cta p{color:#c9d8f0}.light{background:white;color:#1e40af;white-space:nowrap}
+.faqsection{padding-bottom:125px}.faqgrid{display:grid;grid-template-columns:35% 65%;gap:75px}.faqs{border-top:1px solid #e7e7ed}.q{border-bottom:1px solid #e7e7ed}.q button{width:100%;padding:20px 0;background:none;display:flex;justify-content:space-between;text-align:left;font-weight:700;font-size:13px;color:#25283b}.ans{max-height:0;overflow:hidden;transition:.35s}.q.open .ans{max-height:140px}.ans p{font-size:12px;color:#777c90;line-height:1.7;margin:0;padding:0 35px 20px 0}.chev{transition:.3s}.q.open .chev{transform:rotate(180deg);color:#2563eb}
+footer{background:#0b1120;color:#fff;padding:62px 0 23px}.foot{display:grid;grid-template-columns:2fr 1fr 1fr;gap:55px}.foot p{color:#777b91;font-size:11px;line-height:1.7;max-width:290px}.foot h4{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#9b9fb5}.foot button,.foot a,.foot span{display:block;background:none;color:#777b91;font-size:11px;padding:0;margin:0 0 10px;text-align:left}.bottom{border-top:1px solid #ffffff0c;margin-top:40px;padding-top:18px;display:flex;justify-content:space-between;color:#555a70;font-size:9px}
+.reveal{opacity:0;transform:translateY(25px);transition:.7s}.reveal.on{opacity:1;transform:none}
+@media(max-width:1000px){.heroGrid{grid-template-columns:1fr}.heroCopy{text-align:center;max-width:720px;margin:auto}.hero p{margin:auto}.chips,.actions,.proof{justify-content:center}.product{max-width:800px;margin:auto}.features{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.wrap{width:calc(100% - 28px)}.links{display:none;position:fixed;top:70px;left:0;right:0;padding:20px;background:#0b1120;flex-direction:column;align-items:stretch}.links.open{display:flex}.links button{padding:12px;text-align:left}.links .demo{text-align:center}.hamb{display:block}.hero{padding-top:120px}.hero h1{font-size:43px}.product{padding:25px 0 80px}.side{width:92px}.side div{font-size:7px}.main{padding:13px}.metric{padding:9px}.metric strong{font-size:10px}.best{display:none}.dashgrid{grid-template-columns:1fr}.float{transform:scale(.85)}.sales{left:-14px}.stock{right:-12px}.orders{right:0}.trustrow{padding:25px 0;justify-content:center;flex-wrap:wrap}.trustrow label{width:100%;text-align:center}.trustrow b{font-size:10px}.section{padding:80px 0}.features{grid-template-columns:1fr}.show{padding:80px 0}.showgrid{grid-template-columns:1fr;gap:20px}.screens{height:300px}.nums{grid-template-columns:repeat(2,1fr);gap:25px}.pricecard{grid-template-columns:1fr}.pricevisual{min-height:250px}.ctain{flex-direction:column;align-items:flex-start}.faqgrid{grid-template-columns:1fr;gap:35px}.foot{grid-template-columns:1fr 1fr}.foot>div:first-child{grid-column:1/-1}.bottom{flex-direction:column;gap:8px}}
+@media(max-width:430px){.hero h1{font-size:38px}.actions{flex-direction:column}.actions .btn{width:100%}.float{min-width:112px;padding:8px}.float b{font-size:9px}.float small{font-size:6px}.price{font-size:42px}.foot{grid-template-columns:1fr}.foot>div:first-child{grid-column:auto}}
 
-    /* ---------- nav ---------- */
-    .nav {
-      position: sticky; top: 0; z-index: 50;
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 1rem; padding: .8rem clamp(1rem, 4vw, 2.5rem);
-      background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
-      border-bottom: 1px solid var(--line);
-    }
-    .nav .brand { display: flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.15rem; color: var(--blue-dark); }
-    .nav .brand img { height: 34px; width: 34px; object-fit: contain; border-radius: 8px; }
-    .nav .brand span { color: var(--blue); }
-    .nav .btn-sm {
-      background: var(--blue); color: #fff; border: none; cursor: pointer;
-      font-weight: 600; font-size: .9rem; padding: .55rem 1.1rem; border-radius: 8px;
-      text-decoration: none; transition: background .15s;
-    }
-    .nav .btn-sm:hover { background: var(--blue-dark); }
+/* ===== MIZAN SUITE V2 POLISH ===== */
+::selection{background:#2563eb;color:#fff}
+body{overflow-x:hidden}
+header{transition:background .35s,box-shadow .35s}
+header.scrolled{background:#0b1120f2;box-shadow:0 12px 40px #0003}
+.logo{letter-spacing:-.02em}
+.hero:after{content:"";position:absolute;inset:auto 0 0;height:180px;background:linear-gradient(transparent,#0b1120);pointer-events:none}
+.heroGrid{z-index:1}
+.heroCopy{position:relative}
+.heroCopy:before{content:"";position:absolute;width:500px;height:500px;left:-180px;top:-160px;border:1px solid #ffffff08;border-radius:50%;box-shadow:0 0 0 70px #ffffff02,0 0 0 140px #ffffff015;pointer-events:none}
+.eyebrow{box-shadow:0 0 35px #60a5fa14}
+.hero h1{text-shadow:0 0 55px #60a5fa18}
+.product{perspective:1400px}
+.dash{border:1px solid #ffffff22;position:relative}
+.dash:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 20%,#fff2 45%,transparent 58%);transform:translateX(-120%);animation:shine 7s infinite;pointer-events:none}
+@keyframes shine{12%,100%{transform:translateX(120%)}}
+.float{border:1px solid #ffffffaa;backdrop-filter:blur(10px)}
+.trust{background:#fff}
+.trustrow b{transition:.25s}
+.trustrow b:hover{color:#2563eb;transform:translateY(-2px)}
+.feature{overflow:hidden}
+.feature:before{content:"";position:absolute;width:110px;height:110px;right:-50px;top:-50px;border-radius:50%;background:#2563eb08;transition:.35s}
+.feature:hover:before{transform:scale(2)}
+.ico{font-size:18px}
+.show{position:relative;overflow:hidden}
+.show:before{content:"";position:absolute;width:500px;height:500px;border-radius:50%;right:-250px;top:-220px;background:#2563eb0c;filter:blur(10px)}
+.screens{filter:drop-shadow(0 35px 50px #453a8a12)}
+.front{transition:transform .4s}
+.screens:hover .front{transform:translateY(-6px)}
+.numbers{position:relative;overflow:hidden}
+.numbers:before,.numbers:after{content:"";position:absolute;border:1px solid #ffffff08;border-radius:50%}
+.numbers:before{width:500px;height:500px;left:-250px;top:-220px}.numbers:after{width:350px;height:350px;right:-170px;bottom:-200px}
+.nums{position:relative;z-index:1}
+.pricecard{position:relative}
+.pricecard:before{content:"";position:absolute;inset:-1px;border-radius:25px;padding:1px;background:linear-gradient(120deg,#60a5fa55,transparent 40%,#2563eb55);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.pricevisual:before{content:"";position:absolute;width:260px;height:260px;border:1px solid #ffffff0d;border-radius:50%;box-shadow:0 0 0 50px #ffffff03,0 0 0 100px #ffffff02}
+.bigM{animation:bigfloat 5s ease-in-out infinite}@keyframes bigfloat{50%{transform:translateY(-10px) rotate(-2deg)}}
+.cta{position:relative;overflow:hidden}
+.cta:before{content:"M";position:absolute;right:4%;top:-90px;font:800 400px Manrope;color:#fff08;pointer-events:none}
+.ctain{position:relative;z-index:1}
+.light{box-shadow:0 15px 40px #1d135c44}
+.q button{transition:.2s}.q button:hover{color:#2563eb}
+footer{position:relative}
+footer:before{content:"";display:block;position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,#2563eb,transparent)}
+@media(max-width:760px){
+ .hero:after{height:100px}
+ .product{perspective:none}
+ .dash{transform:none!important}
+ .dash:after{animation:none}
+ .heroCopy:before{display:none}
+ .cta:before{font-size:220px;top:0}
+}
 
-    /* ---------- hero ---------- */
-    .hero {
-      background: linear-gradient(150deg, #3b82f6 0%, var(--blue-dark) 60%, #172b78 100%);
-      color: #fff; text-align: center;
-      padding: clamp(3.5rem, 9vw, 6.5rem) 1.5rem clamp(4rem, 10vw, 7rem);
-      position: relative; overflow: hidden;
-    }
-    .hero::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(600px 300px at 50% 0%, rgba(255,255,255,.1), transparent 70%);
-    }
-    .hero .logo-mark { height: 84px; width: 84px; object-fit: contain; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-    .hero h1 {
-      font-size: clamp(1.9rem, 4.5vw, 3.1rem); font-weight: 700;
-      margin: 1.3rem auto .7rem; max-width: 16em; letter-spacing: -.5px;
-    }
-    .hero p.tagline {
-      font-size: clamp(1rem, 2.2vw, 1.2rem); opacity: .92;
-      max-width: 34em; margin: 0 auto;
-    }
-    .cta { margin-top: 2.2rem; display: flex; gap: .9rem; justify-content: center; flex-wrap: wrap; }
-    .btn-download {
-      background: #fff; color: var(--blue-dark); font-weight: 700;
-      padding: 1rem 2.4rem; border-radius: 10px; text-decoration: none; font-size: 1.08rem;
-      box-shadow: 0 8px 24px rgba(0,0,0,.22); transition: transform .15s, box-shadow .15s;
-    }
-    .btn-download:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,.3); }
-    .hero .sub-note { margin-top: 1.2rem; font-size: .9rem; opacity: .85; }
-    .hero .trust { margin-top: 2rem; display: flex; gap: 1.4rem; justify-content: center; flex-wrap: wrap; font-size: .85rem; opacity: .9; }
-    .hero .trust span { display: inline-flex; align-items: center; gap: .4rem; }
-    .hero .trust svg { width: 15px; height: 15px; }
 
-    /* ---------- sections ---------- */
-    .wrap { max-width: 1080px; margin: 0 auto; padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.2rem, 4vw, 2rem); }
-    .section-title { text-align: center; font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: .5rem; color: var(--blue-dark); letter-spacing: -.4px; }
-    .section-sub { text-align: center; color: var(--muted); max-width: 40em; margin: 0 auto 2.2rem; font-size: .98rem; }
+.announce{display:inline-flex;align-items:center;gap:7px;margin-bottom:12px;color:#858ba4;font-size:9px;font-weight:700;letter-spacing:.04em}.announce span{color:#60a5fa}
 
-    /* features */
-    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.3rem; }
-    .feature {
-      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 1.5rem 1.4rem; box-shadow: 0 2px 10px rgba(37,99,235,.05);
-      transition: transform .15s, box-shadow .15s;
-    }
-    .feature:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(37,99,235,.1); }
-    .feature .icon {
-      width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      background: var(--blue-tint); color: var(--blue); margin-bottom: .9rem;
-    }
-    .feature .icon svg { width: 22px; height: 22px; }
-    .feature h3 { color: var(--blue-dark); font-size: 1.05rem; margin-bottom: .35rem; }
-    .feature p { font-size: .93rem; color: var(--muted); }
 
-    /* screenshots */
-    .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.3rem; }
-    .shot {
-      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-      overflow: hidden; cursor: zoom-in; transition: transform .15s ease, box-shadow .15s ease;
-    }
-    .shot:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(37,99,235,.14); }
-    .shot img { display: block; width: 100%; height: auto; }
-    .shot .shot-label { padding: .7rem .9rem; color: var(--blue-dark); font-size: .88rem; font-weight: 600; text-align: center; background: var(--blue-tint); }
+/* V3 clean additions */
+.tour{padding:110px 0;background:#0b1120;color:#fff;position:relative;overflow:hidden}.tour:before{content:"";position:absolute;width:600px;height:600px;border-radius:50%;right:-280px;top:-260px;background:#2563eb14;filter:blur(20px)}
+.tourhead{max-width:650px;margin-bottom:40px;position:relative;z-index:1}.tourhead .kicker{color:#60a5fa}.tour h2{font:800 clamp(35px,4.2vw,52px)/1.08 Manrope;letter-spacing:-.05em;margin:12px 0}.tour h2 em{color:#60a5fa;font-style:normal}.tourhead p{color:#8e93a9;line-height:1.7;font-size:13px}
+.tourbox{display:grid;grid-template-columns:230px 1fr;min-height:490px;border:1px solid #ffffff13;border-radius:22px;background:#0f172a;overflow:hidden;box-shadow:0 40px 100px #0005;position:relative;z-index:1}.tourtabs{padding:20px;border-right:1px solid #ffffff0d;background:#0f172a}.tourtabs button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;background:none;color:#777d94;padding:13px 11px;border-radius:10px;font-size:11px;font-weight:700;margin-bottom:4px;transition:.25s}.tourtabs button:hover{color:#fff;background:#ffffff08}.tourtabs button.active{background:#2563eb;color:#fff;box-shadow:0 12px 30px #2563eb33}.tabicon{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:#ffffff0b}.active .tabicon{background:#ffffff20}
+.tourcontent{padding:32px;position:relative;overflow:hidden}.tourlabel{font-size:9px;color:#7e84a0;text-transform:uppercase;letter-spacing:.12em}.tourcontent h3{font:800 25px Manrope;margin:10px 0 8px}.tourcontent>p{font-size:11px;color:#83889e;max-width:560px;line-height:1.7;margin-bottom:24px}.tourstats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.tstat{background:#141832;border:1px solid #ffffff0a;border-radius:11px;padding:15px}.tstat small{display:block;color:#7f859c;font-size:8px}.tstat b{display:block;font:800 17px Manrope;margin:8px 0 3px}.tstat span{font-size:7px;color:#52d18f}.tourpanel{border:1px solid #ffffff0b;background:#0f172a;border-radius:13px;padding:15px}.tourpaneltop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.tourpaneltop b{font-size:10px}.tourpaneltop span{font-size:7px;color:#858aa0;border:1px solid #ffffff12;padding:6px 8px;border-radius:7px}.rows{display:grid;gap:7px}.rowx{display:grid;grid-template-columns:1.5fr .8fr .65fr .6fr;align-items:center;padding:10px;background:#172338;border-radius:8px;font-size:8px;color:#a4a9bc}.rowx strong{color:#fff;font-size:8px}.pill{justify-self:start;padding:4px 7px;border-radius:99px;font-size:7px;background:#183d2c;color:#54d694}.pill.warn{background:#402b1d;color:#ffad6d}.tour-note{margin-top:14px;display:flex;gap:8px;align-items:center;color:#6f758d;font-size:9px}.tour-note i{font-style:normal;color:#60a5fa}
+.steps{padding:110px 0}.stepsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.step{border:1px solid #e8e9f0;border-radius:18px;padding:28px;background:#fff;position:relative;overflow:hidden}.stepnum{font:800 55px Manrope;color:#dbeafe;position:absolute;right:18px;top:8px}.step h3{font:800 16px Manrope;margin:18px 0 9px}.step p{font-size:11px;color:#777c90;line-height:1.7}.step a{font-size:10px;color:#2563eb;font-weight:800}
+.marquee{border-top:1px solid #eeeef3;border-bottom:1px solid #eeeef3;overflow:hidden;white-space:nowrap;background:#fafafd}.marqueein{display:inline-flex;gap:42px;align-items:center;min-height:66px;animation:marq 28s linear infinite}.marquee span{font:700 10px Manrope;color:#858a9d;text-transform:uppercase;letter-spacing:.1em}.marquee i{font-style:normal;color:#2563eb;font-size:14px}@keyframes marq{to{transform:translateX(-50%)}}
+@media(max-width:760px){.tour{padding:75px 0}.tourbox{grid-template-columns:1fr;min-height:0}.tourtabs{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid #ffffff0d;padding:9px}.tourtabs button{min-width:145px;margin:0}.tourcontent{padding:22px}.tourstats{grid-template-columns:1fr 1fr}.tourstats .tstat:last-child{display:none}.steps{padding:75px 0}.stepsgrid{grid-template-columns:1fr}.rowx{grid-template-columns:1.35fr .8fr .6fr}.rowx span:nth-child(3){display:none}.marqueein{gap:27px}}
 
-    /* lightbox */
-    .lightbox {
-      position: fixed; inset: 0; background: rgba(10,18,40,.9); display: none;
-      align-items: center; justify-content: center; z-index: 999; padding: 2rem;
-    }
-    .lightbox.open { display: flex; }
-    .lightbox .lb-stage { display: flex; flex-direction: column; align-items: center; gap: .7rem; }
-    .lightbox img { max-width: 100%; max-height: 82vh; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); user-select: none; transition: transform .18s ease; }
-    .lightbox .lb-caption { color: #fff; font-size: .95rem; letter-spacing: .01em; }
-    .lightbox .lb-close {
-      position: absolute; top: 1rem; right: 1.4rem; background: none; border: none;
-      color: #fff; font-size: 2.4rem; cursor: pointer; line-height: 1; z-index: 2;
-    }
-    .lightbox .lb-nav {
-      position: absolute; top: 50%; transform: translateY(-50%);
-      background: rgba(255,255,255,.12); border: none; color: #fff;
-      width: 46px; height: 46px; border-radius: 50%; font-size: 1.7rem; line-height: 1;
-      cursor: pointer; z-index: 2; transition: background .15s ease;
-    }
-    .lightbox .lb-nav:hover { background: rgba(255,255,255,.28); }
-    .lightbox .lb-prev { left: 1.2rem; }
-    .lightbox .lb-next { right: 1.2rem; }
-    @media (max-width: 640px) {
-      .lightbox .lb-nav { width: 38px; height: 38px; font-size: 1.3rem; }
-      .lightbox .lb-prev { left: .4rem; }
-      .lightbox .lb-next { right: .4rem; }
-    }
-    @media (max-width: 720px) {
-      .lightbox { padding: .5rem; }
-      .lightbox img { max-height: 92vh; }
-      .shots {
-        display: flex; overflow-x: auto; gap: 1rem;
-        margin: 0 -1rem; padding: 0 1rem 1rem;
-        scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-      }
-      .shots .shot { flex: 0 0 86%; scroll-snap-align: center; }
-    }
-    .lightbox.lb-zooming img { transition: none; }
+/* V4 polish */
+.socialproof{padding:70px 0 25px;text-align:center;background:#fff}.socialproof p{font-size:9px;color:#969aac;text-transform:uppercase;letter-spacing:.14em}.logos{display:flex;justify-content:center;gap:38px;flex-wrap:wrap;color:#a7aab7;font:800 12px Manrope;margin-top:22px}.logos span:hover{color:#2563eb}
+.bento{padding:110px 0;background:#fafafd}.bentohead{max-width:650px;margin-bottom:38px}.bentohead h2{font:800 clamp(34px,4vw,50px)/1.08 Manrope;letter-spacing:-.05em;margin:10px 0}.bentohead h2 em{font-style:normal;color:#2563eb}.bentohead p{font-size:12px;color:#7d8295;line-height:1.8}.gridb{display:grid;grid-template-columns:1.15fr .85fr;gap:15px}.bcard{min-height:300px;border:1px solid #e9eaf1;border-radius:22px;background:#fff;padding:27px;position:relative;overflow:hidden}.bcard.large{min-height:380px}.bcard.dark{background:#0f172a;border-color:#181b31;color:#fff}.bcard h3{font:800 19px Manrope;margin:15px 0 8px}.bcard p{font-size:10px;color:#81869a;line-height:1.7;max-width:410px}.mini-chart{position:absolute;left:25px;right:25px;bottom:20px;height:125px;display:flex;align-items:end;gap:7px}.bar{flex:1;border-radius:5px 5px 2px 2px;background:linear-gradient(to top,#2563eb,#60a5fa)}.bar:nth-child(1){height:35%}.bar:nth-child(2){height:50%}.bar:nth-child(3){height:43%}.bar:nth-child(4){height:65%}.bar:nth-child(5){height:55%}.bar:nth-child(6){height:82%}.bar:nth-child(7){height:72%}.bar:nth-child(8){height:100%}.scan{position:absolute;right:22px;bottom:25px;width:145px;height:145px;border:1px solid #2563eb33;border-radius:20px;display:grid;place-items:center;background:#2563eb08}.scan:before{content:"";width:75px;height:75px;border:3px solid #2563eb;border-radius:7px;box-shadow:inset 0 0 0 11px #0f172a,inset 0 0 0 14px #2563eb}.invoice{position:absolute;right:25px;bottom:20px;width:230px;padding:15px;background:#fff;border:1px solid #e6e7ef;border-radius:13px;box-shadow:0 20px 50px #17133b12}.line{height:7px;background:#e8e9f0;border-radius:4px;margin:7px 0}.line.short{width:45%}.line.mid{width:70%}
+.usecases{padding:105px 0}.usegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.use{padding:22px;border-radius:16px;background:#f8f8fc;border:1px solid #e9e9f0;transition:.25s}.use:hover{transform:translateY(-5px);box-shadow:0 18px 35px #19143a0b}.use .tag{font-size:8px;color:#2563eb;font-weight:800}.use h3{font:800 15px Manrope;margin:12px 0 7px}.use p{font-size:9px;line-height:1.65;color:#85899a}
+.testimonials{padding:105px 0;background:#0b1120;color:#fff}.testgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.quote{padding:25px;border:1px solid #ffffff10;background:#0f172a;border-radius:18px}.stars{color:#60a5fa;letter-spacing:3px;font-size:10px}.quote p{font:500 12px/1.8 Manrope;color:#c0c4d2;margin:18px 0}.person{display:flex;align-items:center;gap:10px}.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#2563eb;font-size:9px;font-weight:800}.person b{font-size:9px}.person small{display:block;color:#70768c;font-size:7px;margin-top:3px}
+.finalcta{padding:115px 0;background:#fff;text-align:center}.finalbox{border-radius:28px;background:linear-gradient(135deg,#0f172a,#1e3a8a);padding:65px 22px;color:#fff;position:relative;overflow:hidden;box-shadow:0 35px 90px #31217c22}.finalbox h2{font:800 clamp(32px,4vw,50px)/1.1 Manrope;letter-spacing:-.05em;margin:12px 0}.finalbox p{font-size:12px;color:#c6c3d9;margin:0 auto 25px;max-width:510px;line-height:1.7}
+@media(max-width:760px){.logos{gap:20px}.gridb{grid-template-columns:1fr}.bcard,.bcard.large{min-height:290px}.usegrid{grid-template-columns:1fr 1fr}.testgrid{grid-template-columns:1fr}.invoice{width:190px}.scan{width:110px;height:110px}.finalbox{padding:50px 16px}}
 
-    /* how it works */
-    .howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; counter-reset: step; }
-    .step {
-      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 1.5rem 1.3rem; box-shadow: 0 2px 10px rgba(37,99,235,.05); position: relative;
-    }
-    .step::before {
-      counter-increment: step; content: counter(step);
-      width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: #fff;
-      display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .95rem;
-      margin-bottom: .8rem;
-    }
-    .step b { display: block; margin-bottom: .25rem; color: var(--blue-dark); }
-    .step p { font-size: .92rem; color: var(--muted); }
-
-    /* pricing */
-    .price-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.4rem;
-      max-width: 880px;
-      margin: 0 auto;
-    }
-    .price-box {
-      max-width: 460px; margin: 0 auto; text-align: center;
-      background: var(--card); border: 1px solid var(--line); border-radius: 18px;
-      padding: 2.4rem 2rem; box-shadow: 0 6px 24px rgba(37,99,235,.08);
-      position: relative;
-    }
-    .price-box-pro { border-color: var(--blue); box-shadow: 0 10px 30px rgba(37,99,235,.18); }
-    .price-sub { text-align: center; color: var(--muted); max-width: 44rem; margin: 0 auto 1.6rem; }
-    .price-box .amount { font-size: 2.2rem; font-weight: 700; color: var(--blue-dark); }
-    .price-box .sub { color: var(--muted); margin-top: .6rem; font-size: .98rem; }
-    .price-box ul { list-style: none; margin: 1.4rem 0 1.8rem; text-align: left; display: inline-block; }
-    .price-box li { padding: .35rem 0; font-size: .95rem; }
-    .price-box li::before { content: "✓"; color: var(--blue); font-weight: 700; margin-right: .55rem; }
-
-    .price-box .price-main { margin: 1.2rem 0 .4rem; }
-
-    .price-box .price-new { font-size: 3rem; font-weight: 800; color: var(--blue); }
-
-    .price-box .cta-line { color: var(--muted); font-size: .92rem; }
-
-    .offer-badge {
-      display: inline-block; background: var(--blue-tint); color: var(--blue-dark);
-      font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase;
-      padding: .3rem .9rem; border-radius: 999px; margin-bottom: .6rem;
-    }
-    .offer-badge.badge-pro { background: #f5b301; color: #263238; }
-    .price-row { display: flex; align-items: baseline; justify-content: center; gap: .9rem; flex-wrap: wrap; }
-    .price-includes-solo { max-width: 46rem; text-align: center; margin: 1.4rem auto 0; }
-    .offer-cta {
-      display: inline-block; margin-top: 1.4rem; background: var(--blue); color: #fff;
-      font-weight: 700; padding: .95rem 2.2rem; border-radius: 10px; text-decoration: none;
-      font-size: 1.02rem; box-shadow: 0 6px 18px rgba(37,99,235,.35);
-      transition: transform .15s, box-shadow .15s;
-    }
-    .offer-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(37,99,235,.5); }
-    /* faq */
-    .faq { max-width: 760px; margin: 0 auto; }
-    .faq details {
-      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-      padding: 1rem 1.2rem; margin-bottom: .8rem;
-    }
-    .faq summary { cursor: pointer; font-weight: 600; color: var(--blue-dark); list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
-    .faq summary::after { content: "+"; color: var(--blue); font-size: 1.2rem; }
-    .faq details[open] summary::after { content: "−"; }
-    .faq p { color: var(--muted); font-size: .94rem; padding-top: .6rem; }
-
-    /* footer */
-    footer {
-      background: var(--blue-dark); color: #dbe4f5; text-align: center;
-      padding: 2.2rem 1rem; font-size: .87rem; margin-top: 1rem;
-    }
-    footer a { color: var(--blue-light); }
-    footer .brand-line { font-weight: 700; font-size: 1rem; margin-bottom: .5rem; color: #fff; }
-
-    @media (max-width: 560px) {
-      .howto { grid-template-columns: 1fr; }
-    }
-  </style>
+/* ===== V5 PRODUCT EXPERIENCE ===== */
+.hero-product{margin:38px auto 0;max-width:980px;position:relative;perspective:1200px}.hero-product .floatcard{position:absolute;z-index:3;background:#fff;border:1px solid #e8e8f1;border-radius:13px;padding:13px 15px;box-shadow:0 20px 55px #20185b18;font-size:9px;animation:floaty 4s ease-in-out infinite}.floatcard b{font:800 14px Manrope;display:block;margin-top:4px}.floatcard small{color:#8a8ea0}.fc1{left:-20px;top:80px}.fc2{right:-20px;top:150px;animation-delay:1s}.fc3{left:40px;bottom:20px;animation-delay:2s}@keyframes floaty{50%{transform:translateY(-9px)}}
+.dashmock{background:#0f172a;border:1px solid #252843;border-radius:22px;padding:12px;box-shadow:0 45px 100px #241b7026;transform:rotateX(4deg);overflow:hidden}.dashbar{height:35px;display:flex;align-items:center;gap:6px;padding:0 8px;border-bottom:1px solid #ffffff0c}.dot{width:6px;height:6px;border-radius:50%;background:#41455e}.dashbody{display:grid;grid-template-columns:130px 1fr;min-height:340px}.dashside{padding:16px 8px;border-right:1px solid #ffffff09}.dashside b{font:800 12px Manrope;color:#fff;display:block;padding:7px}.dashside span{display:block;color:#696f88;font-size:7px;padding:8px}.dashside span.active{color:#fff;background:#2563eb1c;border-radius:7px}.dashmain{padding:18px}.dashmain h4{font:800 16px Manrope;color:#fff;margin:0 0 4px}.dashmain p{font-size:7px;color:#6e748b;margin:0 0 14px}.dashcards{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.dcard{padding:12px;background:#13172c;border:1px solid #ffffff09;border-radius:9px}.dcard small{font-size:6px;color:#727891}.dcard b{display:block;color:#fff;font:800 14px Manrope;margin-top:6px}.dcard i{font-size:6px;color:#5bd99b;font-style:normal}.dashgraph{margin-top:9px;height:145px;border-radius:9px;background:#172338;border:1px solid #ffffff08;position:relative;overflow:hidden}.dashgraph:before{content:"";position:absolute;left:6%;right:6%;bottom:18%;height:2px;background:#2563eb;transform:skewY(-9deg);box-shadow:30px 15px #2563eb,65px 5px #2563eb,100px 25px #2563eb,145px 0 #2563eb,185px 15px #2563eb,230px -15px #2563eb,280px -28px #2563eb}.dashgraph:after{content:"";position:absolute;left:6%;right:6%;bottom:17%;height:65%;background:linear-gradient(to top,#2563eb0d,transparent);clip-path:polygon(0 72%,12% 55%,25% 63%,39% 40%,52% 49%,65% 32%,78% 42%,90% 15%,100% 0,100% 100%,0 100%)}
+.compare{padding:110px 0;background:#fafafd}.comparebox{border:1px solid #e6e7ef;border-radius:22px;background:#fff;overflow:hidden;box-shadow:0 25px 70px #17133b0b}.comparetop{display:grid;grid-template-columns:1fr 1fr;background:#f6f6fa}.comparetop button{border:0;background:none;padding:18px;font:800 11px Manrope;color:#85899a}.comparetop button.active{background:#2563eb;color:#fff}.comparecontent{display:grid;grid-template-columns:1fr 1fr}.before,.after{padding:30px;min-height:310px}.before{background:#fff}.after{background:#0f172a;color:#fff}.comparecontent h3{font:800 19px Manrope;margin:0 0 8px}.comparecontent p{font-size:10px;line-height:1.7;color:#85899a}.mess{display:grid;gap:8px;margin-top:20px}.mess div{padding:11px;border-radius:9px;font-size:8px}.bad{background:#fff1f0;color:#a24c49}.good{background:#151a31;color:#aab0c6}.good b{color:#fff}.comparecta{padding:25px;text-align:center;border-top:1px solid #eeeef3}.comparecta b{font:800 15px Manrope}.comparecta span{display:block;color:#85899a;font-size:9px;margin-top:5px}
+.phoneflow{padding:110px 0}.phonegrid{display:grid;grid-template-columns:.8fr 1.2fr;align-items:center;gap:70px}.phone{width:260px;height:510px;border:7px solid #101225;border-radius:38px;background:#0f172a;margin:auto;box-shadow:0 35px 80px #19143b25;position:relative;overflow:hidden}.phone:before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:85px;height:17px;background:#050610;border-radius:20px;z-index:2}.phonehead{padding:35px 18px 12px;color:#fff}.phonehead small{color:#777d94;font-size:7px}.phonehead b{display:block;font:800 18px Manrope;margin-top:5px}.phonecard{margin:8px 13px;padding:15px;background:#141831;border-radius:12px;color:#fff}.phonecard small{font-size:7px;color:#7e849b}.phonecard b{display:block;font:800 17px Manrope;margin-top:5px}.scanline{height:2px;background:#2563eb;margin:22px 0;box-shadow:0 0 14px #2563eb;animation:scanline 2s ease-in-out infinite}@keyframes scanline{50%{transform:translateY(60px)}}.phoneqr{margin:15px auto;width:110px;height:110px;border:8px solid #fff;background:repeating-linear-gradient(45deg,#111 0 4px,#fff 4px 8px);border-radius:5px}.phonecopy .kicker{color:#2563eb}.phonecopy h2{font:800 clamp(34px,4vw,50px)/1.08 Manrope;letter-spacing:-.05em;margin:10px 0}.phonecopy h2 em{color:#2563eb;font-style:normal}.phonecopy p{font-size:12px;color:#7d8295;line-height:1.8}.benefits{display:grid;gap:10px;margin-top:24px}.benefit{display:flex;gap:12px;align-items:flex-start}.benefit .ico{flex:none}.benefit b{font:800 11px Manrope}.benefit span{display:block;color:#85899a;font-size:9px;margin-top:3px}
+.alertdemo{padding:95px 0;background:#0b1120;color:#fff}.alertgrid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.alertbox{border:1px solid #ffffff10;border-radius:18px;background:#0f172a;padding:25px}.alertitem{display:flex;align-items:center;gap:12px;padding:13px;background:#151930;border-radius:10px;margin-top:9px}.alertico{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#2b2130;color:#ffb16e;font-size:12px}.alertitem b{font-size:9px}.alertitem span{display:block;color:#757b91;font-size:7px;margin-top:3px}.alertnum{margin-left:auto;font:800 12px Manrope;color:#fff}.alertcopy h2{font:800 clamp(32px,4vw,47px)/1.08 Manrope;letter-spacing:-.05em;margin:10px 0}.alertcopy h2 em{font-style:normal;color:#60a5fa}.alertcopy p{font-size:11px;line-height:1.8;color:#858ba0}
+.roi{padding:110px 0}.roibox{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #e7e8ef;border-radius:22px;overflow:hidden;background:#fff}.roiform{padding:35px}.roiform h3{font:800 23px Manrope;margin:0 0 8px}.roiform p{font-size:10px;color:#85899a;line-height:1.7}.field{margin:18px 0}.field label{display:block;font-size:8px;font-weight:800;margin-bottom:7px}.field input{width:100%;box-sizing:border-box;border:1px solid #e0e1e9;border-radius:9px;padding:11px;font:700 11px Manrope;outline:none}.field input:focus{border-color:#2563eb;box-shadow:0 0 0 3px #2563eb11}.roires{background:#0f172a;color:#fff;padding:35px;display:flex;flex-direction:column;justify-content:center}.roires small{color:#777d94;font-size:8px}.roires strong{font:800 clamp(40px,5vw,65px) Manrope;color:#60a5fa;margin:7px 0}.roires p{font-size:10px;color:#858ba0;line-height:1.7}.roibadge{margin-top:18px;padding:12px;border:1px solid #ffffff0d;background:#172338;border-radius:10px;font-size:8px;color:#aab0c1}
+@media(max-width:760px){.hero-product{margin-top:25px}.dashbody{grid-template-columns:75px 1fr;min-height:270px}.dashside{padding:12px 5px}.dashmain{padding:12px}.dashcards{grid-template-columns:1fr 1fr}.dashcards .dcard:nth-child(3){display:none}.fc1{left:-5px;top:45px}.fc2{right:-5px;top:120px}.fc3{left:10px;bottom:5px}.floatcard{padding:9px 10px!important}.floatcard b{font-size:11px}.comparecontent,.phonegrid,.alertgrid,.roibox{grid-template-columns:1fr}.phonegrid{gap:35px}.phone{transform:scale(.86);margin-top:-25px;margin-bottom:-25px}.comparecontent .after{border-top:1px solid #ffffff10}.roiform,.roires{padding:28px}}
+</style>
 </head>
 <body>
-  <nav class="nav">
-    <div class="brand"><img src="/mizan-logo.png" alt="Logo Mizan Suite">Mizan<span>Suite</span></div>
-    <a class="btn-sm" href="/download">Télécharger</a>
-  </nav>
+<header><div class="wrap nav"><a class="logo" href="#accueil"><span class="mark">M</span>Mizan <b>Suite</b></a><nav class="links" id="links"><button onclick="go('accueil')">Accueil</button><button onclick="go('fonctionnalites')">Fonctionnalités</button><button onclick="go('logiciel')">Le logiciel</button><button onclick="go('tarifs')">Tarifs</button><button onclick="go('faq')">FAQ</button><a class="demo" href="/download">Télécharger l&rsquo;essai →</a></nav><button class="hamb" onclick="document.getElementById('links').classList.toggle('open')">☰</button></div></header>
 
-  <header class="hero">
-    <img class="logo-mark" src="/mizan-logo.png" alt="Logo Mizan Suite">
-    <h1>Gérez votre commerce, pas vos papiers</h1>
-    <p class="tagline">Ventes, inventaire, lecture de codes-barres, factures, points de fidélité et rapports &mdash; tout ce dont votre point de vente a besoin, sur votre propre ordinateur.</p>
-    <div class="cta">
-      <a class="btn-download" href="/download">Télécharger l&rsquo;essai gratuit</a>
-    </div>
-    <p class="sub-note">Windows &middot; Essai gratuit de 14 jours &middot; Sans carte bancaire</p>
-    <div class="trust">
-      <span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        Fonctionne hors ligne
-      </span>
-      <span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        Vos données restent sur votre PC
-      </span>
-      <span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        Achat unique
-      </span>
-    </div>
-  </header>
+<section class="hero" id="accueil"><div class="grid"></div><div class="orb a"></div><div class="orb b"></div><div class="wrap heroGrid">
+<div class="heroCopy"><div class="announce reveal"><span>✦</span> Nouveau — gestion commerciale pensée pour les commerces algériens</div><div class="eyebrow">✦ Le logiciel de gestion pensé pour les commerces en Algérie 🇩🇿</div><h1>Votre commerce.<br><span>Enfin sous contrôle.</span></h1><p>Ventes, stock, achats, finances et clients — une seule solution simple pour gérer votre commerce au quotidien.</p><div class="chips"><span>✓ Données sécurisées</span><span>✓ 100% hors ligne</span><span>✓ Achat unique</span></div><div class="actions"><a class="btn primary" href="/download">Télécharger l&rsquo;essai gratuit →</a><button class="btn ghost" onclick="go('logiciel')">▷ Voir le logiciel</button></div><div class="proof"><div class="avatars"><span>Y</span><span>K</span><span>S</span><span>+</span></div><div><div class="stars">★★★★★</div><small>Déjà choisi par des commerçants</small></div></div></div>
+<div class="product"><div class="dash"><div class="top"><i class="dot"></i><i class="dot"></i><i class="dot"></i><label><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#42d98b;box-shadow:0 0 8px #42d98b;margin-right:5px"></span>Mizan Suite — Tableau de bord</label></div><div class="db"><aside class="side"><strong>M</strong><div class="active">Tableau de bord</div><div>Ventes</div><div>Stock</div><div>Achats</div><div>Finances</div><div>Clients</div><div>Rapports</div></aside><main class="main"><div class="head"><div><small>Bonjour, Bienvenue 👋</small><h3>Tableau de bord</h3></div><div class="today">Aujourd'hui</div></div><div class="metrics"><div class="metric m1"><small>Ventes du jour</small><strong>126,500 DA</strong><span>↗ +14.2%</span></div><div class="metric m2"><small>Bénéfice du jour</small><strong>32,700 DA</strong><span>↗ +8.7%</span></div><div class="metric m3"><small>Produits vendus</small><strong>47</strong><span>Aujourd'hui</span></div></div><div class="dashgrid"><div class="chart"><div class="ct">Graphique des ventes <span>7 jours</span></div><svg viewBox="0 0 500 160" preserveAspectRatio="none"><path d="M0 125 C50 110 70 145 120 92 S185 118 235 78 S300 110 340 55 S405 91 450 35 S475 50 500 15" fill="none" stroke="currentColor" stroke-width="5"/><path d="M0 125 C50 110 70 145 120 92 S185 118 235 78 S300 110 340 55 S405 91 450 35 S475 50 500 15 L500 160 L0 160Z" fill="currentColor" opacity=".08"/></svg></div><div class="best"><div class="ct">Meilleur produit</div><div class="bestrow"><div class="prod">P</div><div><b>Doliprane 1000</b><small>234 vendus</small></div></div><div class="alert"><span>Stock faible</span><b>3 produits</b></div></div></div></main></div></div><div class="float sales"><div class="fi green">↗</div><div><small>Chiffre d'affaires</small><b>1,248,500 DA</b><small>Ce mois</small></div></div><div class="float stock"><div class="fi purple">▣</div><div><small>Stock total</small><b>1,284</b><small>Produits</small></div></div><div class="float orders"><div class="fi orange">🛒</div><div><small>Commandes</small><b>5 en attente</b></div></div></div>
+</div></section>
 
-  <main>
-    <section class="wrap">
-      <h2 class="section-title">Pourquoi Mizan Suite ?</h2>
-      <p class="section-sub">Conçu pour les commerces de détail : rapide à la caisse, clair à l&rsquo;arrière-boutique, et sans abonnement mensuel à payer.</p>
-      <div class="features">
-        <div class="feature">
-          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l7-7 7 7"/><path d="M6 10v9h12v-9"/></svg></div>
-          <h3>Encaissement rapide</h3>
-          <p>Scannez les codes-barres, encaissez et imprimez les reçus en quelques secondes &mdash; même les paiements partagés.</p>
-        </div>
-        <div class="feature">
-          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M9 3v18M3 9h18"/></svg></div>
-          <h3>Inventaire intelligent</h3>
-          <p>Suivez les stocks, les dates de péremption et les alertes de réapprovisionnement automatiquement, sans rien laisser manquer.</p>
-        </div>
-        <div class="feature">
-          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg></div>
-          <h3>Lecture de codes-barres</h3>
-          <p>Scanner via la webcam &mdash; aucun lecteur coûteux requis. Les lecteurs USB fonctionnent aussi.</p>
-        </div>
-        <div class="feature">
-          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg></div>
-          <h3>Points de fidélité</h3>
-          <p>Points clients et récompenses intégrés pour faire revenir vos clients à votre comptoir.</p>
-        </div>
-        <div class="feature">
-          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-7"/></svg></div>
-          <h3>Rapports de ventes</h3>
-          <p>Des rapports clairs quotidiens, mensuels, par catégorie et de bénéfices &mdash; factures, remboursements et dettes inclus.</p>
-        </div>
-        <div class="feature">
-          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
-          <h3>Hors ligne et privé</h3>
-          <p>Vos données restent sur votre ordinateur. Pas d&rsquo;abonnement cloud, pas d&rsquo;internet nécessaire pour travailler.</p>
-        </div>
-      </div>
-    </section>
+<div class="trust"><div class="wrap trustrow"><label>Conçu pour</label><b>Parapharmacies</b><b>Pharmacies</b><b>Épiceries</b><b>Boutiques</b><b>Commerces de détail</b></div></div>
 
-    <section class="wrap">
-      <h2 class="section-title">Voyez-le en action</h2>
-      <p class="section-sub">Cliquez sur une capture pour l&rsquo;agrandir &mdash; naviguez ensuite avec les fl&egrave;ches ou en balayant &mdash; caisse, inventaire, clients, rapports et plus encore.</p>
-      <div class="shots">
-        <div class="shot"><img src="/screenshots/login.png" alt="Écran de connexion" loading="lazy"><div class="shot-label">Connexion</div></div>
-        <div class="shot"><img src="/screenshots/dashboard.png" alt="Tableau de bord" loading="lazy"><div class="shot-label">Tableau de bord</div></div>
-        <div class="shot"><img src="/screenshots/cashier.png" alt="Encaissement" loading="lazy"><div class="shot-label">Encaissement</div></div>
-        <div class="shot"><img src="/screenshots/inventory.png" alt="Inventaire" loading="lazy"><div class="shot-label">Inventaire</div></div>
-        <div class="shot"><img src="/screenshots/stock.png" alt="Stock" loading="lazy"><div class="shot-label">Stock</div></div>
-        <div class="shot"><img src="/screenshots/expiry.png" alt="Péremption" loading="lazy"><div class="shot-label">Péremption</div></div>
-        <div class="shot"><img src="/screenshots/labels.png" alt="Étiquettes" loading="lazy"><div class="shot-label">Étiquettes</div></div>
-        <div class="shot"><img src="/screenshots/purchasing.png" alt="Achats" loading="lazy"><div class="shot-label">Achats</div></div>
-        <div class="shot"><img src="/screenshots/reorder.png" alt="Réapprovisionnement" loading="lazy"><div class="shot-label">Réapprovisionnement</div></div>
-        <div class="shot"><img src="/screenshots/debts.png" alt="Dettes" loading="lazy"><div class="shot-label">Dettes</div></div>
-        <div class="shot"><img src="/screenshots/clients.png" alt="Clients et fidélité" loading="lazy"><div class="shot-label">Clients &amp; fidélité</div></div>
-        <div class="shot"><img src="/screenshots/refunds.png" alt="Remboursements" loading="lazy"><div class="shot-label">Remboursements</div></div>
-        <div class="shot"><img src="/screenshots/facturation.png" alt="Facturation" loading="lazy"><div class="shot-label">Facturation</div></div>
-        <div class="shot"><img src="/screenshots/reports.png" alt="Rapports" loading="lazy"><div class="shot-label">Rapports</div></div>
-        <div class="shot"><img src="/screenshots/financial.png" alt="Finances" loading="lazy"><div class="shot-label">Finances</div></div>
-        <div class="shot"><img src="/screenshots/analytics.png" alt="Statistiques" loading="lazy"><div class="shot-label">Statistiques</div></div>
-        <div class="shot"><img src="/screenshots/settings.png" alt="Paramètres" loading="lazy"><div class="shot-label">Paramètres</div></div>
-      </div>
-    </section>
+<div class="hero-product reveal"><div class="floatcard fc1">Ventes aujourd'hui<b>126 500 DA</b><small>↗ +14,2% cette semaine</small></div><div class="floatcard fc2">Stock faible<b>3 produits</b><small>À réapprovisionner</small></div><div class="floatcard fc3">Bénéfice<b>32 700 DA</b><small>Votre commerce progresse</small></div><div class="dashmock"><div class="dashbar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="dashbody"><aside class="dashside"><b>MIZAN</b><span class="active">◈ Tableau de bord</span><span>▣ Produits</span><span>↗ Ventes</span><span>▤ Achats</span><span>₳ Finances</span></aside><main class="dashmain"><h4>Bonjour 👋</h4><p>Voici ce qui se passe dans votre commerce aujourd'hui.</p><div class="dashcards"><div class="dcard"><small>Ventes</small><b>126 500 DA</b><i>↗ +14,2%</i></div><div class="dcard"><small>Bénéfice</small><b>32 700 DA</b><i>↗ +8,4%</i></div><div class="dcard"><small>Produits</small><b>1 284</b><i>● À jour</i></div></div><div class="dashgraph"></div></main></div></div></div><section class="socialproof"><div class="wrap"><p>Une gestion pensée pour les commerces du quotidien</p><div class="logos"><span>PARAPHARMACIE</span><span>ÉPICERIE</span><span>MODE</span><span>ÉLECTRONIQUE</span><span>ALIMENTATION</span></div></div></section><section class="tour" id="logiciel">
+<div class="wrap">
+<div class="tourhead reveal"><div class="kicker">VOYEZ MIZAN EN ACTION</div><h2>Pas juste joli.<br><em>Vraiment utile.</em></h2><p>Chaque écran est pensé autour des tâches réelles : vendre, contrôler le stock, acheter et comprendre vos résultats.</p></div>
+<div class="tourbox reveal">
+<div class="tourtabs">
+<button class="active" data-tab="dashboard"><span class="tabicon">◈</span>Tableau de bord</button>
+<button data-tab="sales"><span class="tabicon">↗</span>Ventes</button>
+<button data-tab="stock"><span class="tabicon">▣</span>Stock</button>
+<button data-tab="finance"><span class="tabicon">₳</span>Finances</button>
+</div>
+<div class="tourcontent">
+<div class="tourlabel" id="tourlabel">VUE GLOBALE</div>
+<h3 id="tourtitle">Tout ce qui compte, au même endroit.</h3>
+<p id="tourdesc">Une vue instantanée de vos ventes, bénéfices, produits et alertes — sans fouiller dans plusieurs écrans.</p>
+<div class="tourstats">
+<div class="tstat"><small id="s1label">Ventes aujourd'hui</small><b id="s1">126 500 DA</b><span id="s1sub">↗ En hausse</span></div>
+<div class="tstat"><small id="s2label">Bénéfice</small><b id="s2">32 700 DA</b><span id="s2sub">↗ Bonne journée</span></div>
+<div class="tstat"><small id="s3label">Produits vendus</small><b id="s3">47</b><span id="s3sub">Aujourd'hui</span></div>
+</div>
+<div class="tourpanel"><div class="tourpaneltop"><b id="paneltitle">Activité récente</b><span>Voir tout →</span></div>
+<div class="rows">
+<div class="rowx"><strong>Vente #002481</strong><span>12 500 DA</span><span>18:42</span><span class="pill">Payée</span></div>
+<div class="rowx"><strong>Vente #002480</strong><span>7 800 DA</span><span>18:21</span><span class="pill">Payée</span></div>
+<div class="rowx"><strong>Commande #0042</strong><span>45 000 DA</span><span>17:56</span><span class="pill warn">En attente</span></div>
+<div class="rowx"><strong>Vente #002479</strong><span>3 200 DA</span><span>17:31</span><span class="pill">Payée</span></div>
+</div></div>
+<div class="tour-note"><i>✦</i><span>Les données affichées sont des exemples de démonstration.</span></div>
+</div></div></div></section>
+<section class="marquee"><div class="marqueein"><span>VENTES</span><i>✦</i><span>STOCK</span><i>✦</i><span>ACHATS</span><i>✦</i><span>FACTURATION</span><i>✦</i><span>FINANCES</span><i>✦</i><span>CLIENTS</span><i>✦</i><span>RAPPORTS</span><i>✦</i><span>ALERTES</span><i>✦</i><span>VENTES</span><i>✦</i><span>STOCK</span><i>✦</i><span>ACHATS</span><i>✦</i><span>FACTURATION</span><i>✦</i><span>FINANCES</span><i>✦</i><span>CLIENTS</span><i>✦</i><span>RAPPORTS</span><i>✦</i><span>ALERTES</span><i>✦</i></div></section><section class="section" id="fonctionnalites"><div class="wrap"><div class="sectionhead reveal"><div class="kicker">TOUT AU MÊME ENDROIT</div><h2>Toutes les <em>fonctionnalités</em><br>dont votre commerce a besoin.</h2><p>Moins de paperasse. Moins d'erreurs. Plus de contrôle.</p></div><div class="features">
+<article class="feature reveal"><div class="ico i1">🛒</div><h3>Gestion des ventes</h3><p>Encaissez rapidement, gérez remises, paiements et historiques.</p><span class="arrow">→</span></article>
+<article class="feature reveal"><div class="ico i2">📦</div><h3>Gestion du stock</h3><p>Suivez quantités, seuils, péremptions et mouvements en temps réel.</p><span class="arrow">→</span></article>
+<article class="feature reveal"><div class="ico i3">▦</div><h3>Scanner les codes-barres</h3><p>Lecteur USB, webcam ou saisie manuelle : choisissez votre méthode.</p><span class="arrow">→</span></article>
+<article class="feature reveal"><div class="ico i4">↗</div><h3>Finances & rapports</h3><p>Visualisez chiffre d'affaires, dépenses, bénéfices et performances.</p><span class="arrow">→</span></article>
+<article class="feature reveal"><div class="ico i5">♙</div><h3>Clients & fidélité</h3><p>Historique client et système de fidélité simple et efficace.</p><span class="arrow">→</span></article>
+<article class="feature reveal"><div class="ico i6">▤</div><h3>Facturation</h3><p>Créez vos factures et gardez les achats fournisseurs organisés.</p><span class="arrow">→</span></article>
+<article class="feature reveal"><div class="ico i7">⚡</div><h3>Alertes intelligentes</h3><p>Soyez alerté lorsque certains produits arrivent à un niveau critique.</p><span class="arrow">→</span></article>
+<article class="feature reveal"><div class="ico i8">☁</div><h3>100% hors ligne</h3><p>Travaillez même sans internet. Vos données restent sur votre ordinateur.</p><span class="arrow">→</span></article>
+</div></div></section>
 
-    <section class="wrap">
-      <h2 class="section-title">Comment fonctionne l&rsquo;essai gratuit</h2>
-      <p class="section-sub">Installé en trois minutes environ. Une clé par ordinateur, sans carte bancaire.</p>
-      <div class="howto">
-        <div class="step">
-          <b>Télécharger</b>
-          <p>Récupérez le programme d&rsquo;installation Windows avec le bouton ci-dessus.</p>
-        </div>
-        <div class="step">
-          <b>Installer &amp; ouvrir</b>
-          <p>L&rsquo;écran d&rsquo;activation affiche l&rsquo;identifiant machine de cet ordinateur.</p>
-        </div>
-        <div class="step">
-          <b>Démarrer l&rsquo;essai gratuit</b>
-          <p>Entrez votre e-mail et votre clé d&rsquo;essai de 14 jours arrive dans votre boîte de réception.</p>
-        </div>
-        <div class="step">
-          <b>Coller &amp; activer</b>
-          <p>Collez la clé, cliquez sur Activer et commencez à vendre.</p>
-        </div>
-      </div>
-    </section>
+<section class="compare"><div class="wrap"><div class="sectionhead reveal"><div class="kicker">AVANT / APRÈS</div><h2>Arrêtez de chercher.<br><em>Commencez à piloter.</em></h2></div><div class="comparebox reveal"><div class="comparetop"><button class="active" type="button">AVANT MIZAN</button><button type="button">AVEC MIZAN</button></div><div class="comparecontent"><div class="before"><h3>Quand tout est dispersé</h3><p>Les informations importantes sont dans plusieurs endroits.</p><div class="mess"><div class="bad">✕ Carnet pour les ventes</div><div class="bad">✕ Excel pour le stock</div><div class="bad">✕ Factures papier</div><div class="bad">✕ Calculs manuels des bénéfices</div></div></div><div class="after"><h3>Quand tout est connecté</h3><p>Une seule interface pour comprendre et agir.</p><div class="mess"><div class="good">✓ <b>Ventes</b> — enregistrées automatiquement</div><div class="good">✓ <b>Stock</b> — mis à jour en temps réel</div><div class="good">✓ <b>Factures</b> — prêtes en quelques clics</div><div class="good">✓ <b>Résultats</b> — visibles immédiatement</div></div></div></div><div class="comparecta"><b>Une seule source de vérité pour votre commerce.</b><span>Simple à apprendre. Rapide à utiliser. Pensé pour le quotidien.</span></div></div></div></section><section class="bento"><div class="wrap"><div class="bentohead reveal"><div class="kicker">UN LOGICIEL, PAS DIX OUTILS</div><h2>Tout votre commerce.<br><em>Une seule interface.</em></h2><p>Mizan rassemble les opérations quotidiennes et les chiffres importants dans une expérience claire et rapide.</p></div><div class="gridb"><article class="bcard large reveal"><div class="ico i1">↗</div><h3>Suivez vos performances</h3><p>Voyez les tendances de ventes et de bénéfices en un coup d'œil.</p><div class="mini-chart"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div></div></article><article class="bcard dark reveal"><div class="ico i2">▣</div><h3>Scannez. Vendez. Terminé.</h3><p>Le code-barres devient le raccourci entre votre produit et votre caisse.</p><div class="scan"></div></article><article class="bcard reveal"><div class="ico i3">▤</div><h3>Factures propres</h3><p>Des documents clairs et une trace de chaque opération.</p><div class="invoice"><b style="font-size:10px">MIZAN SUITE</b><div class="line mid"></div><div class="line"></div><div class="line short"></div><div class="line"></div><div class="line mid"></div></div></article></div></div></section><section class="steps"><div class="wrap"><div class="sectionhead reveal"><div class="kicker">COMMENCER EST SIMPLE</div><h2>De l'installation à la première vente<br><em>en quelques étapes.</em></h2></div><div class="stepsgrid">
+<article class="step reveal"><div class="stepnum">01</div><div class="ico i4">⚙</div><h3>Installez Mizan</h3><p>Nous préparons le logiciel sur votre ordinateur et configurons votre commerce.</p><a href="#tarifs">Parler de l'installation →</a></article>
+<article class="step reveal"><div class="stepnum">02</div><div class="ico i2">▣</div><h3>Ajoutez vos produits</h3><p>Importez votre catalogue ou ajoutez simplement produits et fournisseurs.</p><a href="#fonctionnalites">Voir les fonctions →</a></article>
+<article class="step reveal"><div class="stepnum">03</div><div class="ico i3">↗</div><h3>Commencez à vendre</h3><p>Votre caisse, votre stock et vos chiffres sont prêts depuis un seul endroit.</p><a href="#tarifs">Demander une démo →</a></article>
+</div></div></section><section class="show" id="demo"><div class="wrap showgrid"><div class="reveal"><div class="kicker">UNE INTERFACE QUI FAIT LE TRAVAIL</div><h2>Simple à utiliser.<br><em>Puissante quand il le faut.</em></h2><p>Une interface pensée pour vendre, gérer votre stock et comprendre vos chiffres sans apprendre un logiciel compliqué.</p><ul class="checks"><li><span class="check">✓</span> Tableau de bord clair et complet</li><li><span class="check">✓</span> Navigation rapide entre les modules</li><li><span class="check">✓</span> Design moderne et responsive</li><li><span class="check">✓</span> Fonctionnement hors connexion</li></ul><a class="btn primary" href="/download">Télécharger l&rsquo;essai gratuit →</a></div><div class="screens reveal"><div class="screen back"></div><div class="screen mid"></div><div class="screen front"><div class="st">Mizan Suite <span>Tableau de bord</span></div><div class="mini"><div></div><div></div><div></div></div><div class="minichart"><svg viewBox="0 0 500 120" preserveAspectRatio="none"><path d="M0 90 C60 50 90 105 150 65 S245 80 290 30 S380 80 500 15" fill="none" stroke="currentColor" stroke-width="4"/></svg></div></div></div></div></section>
 
-    <section class="wrap">
-      <h2 class="section-title">Tarif simple</h2>
-      <p class="price-sub">Paiement unique, propriété à vie. Mises à jour et support inclus. Chaque licence couvre une machine.</p>
-      <div class="price-grid">
-        <div class="price-box">
-          <span class="offer-badge">Basic</span>
-          <div class="amount">Achat unique</div>
-          <div class="price-main">
-            <div class="price-row">
-              <span class="price-new">35&nbsp;000&nbsp;DA</span>
-            </div>
-          </div>
-          <p class="sub">L&rsquo;essentiel pour démarrer et vendre au quotidien.</p>
-          <ul>
-            <li>Encaissement &amp; reçus de vente</li>
-            <li>Inventaire &amp; produits</li>
-            <li>Étiquettes de prix</li>
-            <li>Gestion du stock</li>
-            <li>Remboursements &amp; échanges</li>
-          </ul>
-          <a class="offer-cta" href="/download">Essayer gratuitement 14 jours</a>
-          <p class="cta-line">Commander — <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a> &nbsp;&bull;&nbsp; <a href="https://www.instagram.com/mizansuite/?utm_source=ig_web_button_share_sheet" target="_blank" rel="noopener">@mizansuite</a></p>
-        </div>
+<section class="numbers"><div class="wrap nums"><div><strong>+1,250</strong><span>Produits gérés</span></div><div><strong>+85,000</strong><span>Ventes enregistrées</span></div><div><strong>100%</strong><span>Données locales</span></div><div><strong>1</strong><span>Solution complète</span></div></div></section>
 
-        <div class="price-box price-box-pro">
-          <span class="offer-badge badge-pro">PRO</span>
-          <div class="amount">Achat unique</div>
-          <div class="price-main">
-            <div class="price-row">
-              <span class="price-new">60&nbsp;000&nbsp;DA</span>
-            </div>
-          </div>
-          <p class="sub">La gestion complète de votre commerce, sans limites.</p>
-          <ul>
-            <li>Tout ce que contient Basic</li>
-            <li>Achats &amp; fournisseurs</li>
-            <li>Péremption &amp; réapprovisionnement</li>
-            <li>Dettes &amp; clients + fidélité</li>
-            <li>Facturation &amp; devis</li>
-            <li>Finances, rapports &amp; statistiques</li>
-          </ul>
-          <a class="offer-cta" href="/download">Essayer gratuitement 14 jours</a>
-          <p class="cta-line">Commander — <a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a> &nbsp;&bull;&nbsp; <a href="https://www.instagram.com/mizansuite/?utm_source=ig_web_button_share_sheet" target="_blank" rel="noopener">@mizansuite</a></p>
-        </div>
-      </div>
-      <p class="price-includes price-includes-solo">Installation &amp; mise en place sur site gratuites, 3 mois de support gratuit (correctifs de bugs), priorité sur vos demandes de fonctionnalités. Vous avez plusieurs magasins ? 2&egrave;me licence &agrave; <b>-50%</b>.</p>
-      <p class="price-includes price-includes-solo">Garantie 7 jours satisfait ou remboursé.</p>
-    </section>
+<section class="section" id="tarifs"><div class="wrap"><div class="sectionhead reveal"><div class="kicker">UN PRIX SIMPLE</div><h2>Payez une fois.<br><em>Gérez sans abonnement.</em></h2><p>Paiement unique, propriété à vie. Mises à jour et support inclus. Chaque licence couvre une machine.</p></div><div class="pricingrow">
+<div class="pricecard reveal"><div class="priceside"><div class="label">LICENCE BASIC</div><h3>L&rsquo;essentiel pour<br>démarrer et vendre.</h3><div class="price"><small>DA</small> 35 000</div><div class="note">Achat unique • licence pour un poste</div><div class="plist"><span><i>✓</i>Encaissement & reçus de vente</span><span><i>✓</i>Inventaire & produits</span><span><i>✓</i>Étiquettes de prix</span><span><i>✓</i>Gestion du stock</span><span><i>✓</i>Remboursements & échanges</span></div><a class="btn primary wide" href="/download">Essayer gratuitement 14 jours →</a></div><div class="pricevisual"><div class="badge">BASIC</div><div class="bigM">M</div><p>L&rsquo;essentiel pour<br><b>vendre au quotidien.</b><br>Simple et rapide.</p></div></div>
+<div class="pricecard reveal"><div class="priceside"><div class="label" style="color:#60a5fa">LICENCE PRO</div><h3>La gestion complète,<br>sans limites.</h3><div class="price"><small>DA</small> 60 000</div><div class="note">Achat unique • licence pour un poste</div><div class="plist"><span><i>✓</i>Tout ce que contient Basic</span><span><i>✓</i>Achats & fournisseurs</span><span><i>✓</i>Péremption & réapprovisionnement</span><span><i>✓</i>Dettes, clients & fidélité</span><span><i>✓</i>Facturation & devis</span><span><i>✓</i>Finances, rapports & statistiques</span></div><a class="btn primary wide" href="/download">Essayer gratuitement 14 jours →</a></div><div class="pricevisual" style="background:radial-gradient(circle,#1e40af,#172338 60%);border-left:1px solid #2563eb66"><div class="badge">PRO</div><div class="bigM">M</div><p>Votre logiciel.<br><b>Votre commerce.</b><br>Vos données.</p></div></div>
+</div>
+<p style="text-align:center;max-width:760px;margin:26px auto 0;color:#6f758d;font-size:11px;line-height:1.7">Installation & mise en place sur site gratuites, 3 mois de support gratuit (correctifs de bugs) et priorité sur vos demandes de fonctionnalités. Plusieurs magasins ? 2ème licence à <b>−50%</b>. Garantie 7 jours satisfait ou remboursé. — Commander : <a href="mailto:mizansuite@gmail.com" style="color:#2563eb;font-weight:700">mizansuite@gmail.com</a> &nbsp;•&nbsp; <a href="https://www.instagram.com/mizansuite/" target="_blank" rel="noopener" style="color:#2563eb;font-weight:700">@mizansuite</a></p></div></section>
 
-    <section class="wrap">
-      <h2 class="section-title">Questions fréquentes</h2>
-      <div class="faq">
-        <details open>
-          <summary>L&rsquo;essai nécessite-t-il une carte bancaire ?</summary>
-          <p>Non. Téléchargez, installez et recevez votre clé par e-mail. Ni carte, ni coordonnées de paiement.</p>
-        </details>
-        <details>
-          <summary>Mes données sont-elles stockées en ligne ?</summary>
-          <p>Non. Tout est stocké sur votre propre ordinateur. Il n&rsquo;y a ni compte cloud ni abonnement.</p>
-        </details>
-        <details>
-          <summary>Ai-je besoin d&rsquo;internet pour utiliser le logiciel ?</summary>
-          <p>Non. Seule l&rsquo;activation unique de l&rsquo;essai nécessite internet. Ensuite, vous travaillez entièrement hors ligne.</p>
-        </details>
-        <details>
-          <summary>Ai-je besoin d&rsquo;un lecteur de codes-barres ?</summary>
-          <p>Non. Mizan Suite peut scanner les codes-barres avec n&rsquo;importe quelle webcam, fonctionne aussi avec les lecteurs USB et même en saisissant les codes à la main.</p>
-        </details>
-        <details>
-          <summary>Que se passe-t-il après l&rsquo;essai ?</summary>
-          <p>Vos données restent en sécurité sur votre PC. Achetez une licence pour continuer à utiliser le logiciel, ou désinstallez simplement.</p>
-        </details>
-        <details>
-          <summary>Combien d&rsquo;utilisateurs / de postes puis-je avoir ?</summary>
-          <p>Une licence couvre le logiciel sur le PC de votre caisse. Vous avez plusieurs magasins ? La 2&egrave;me licence est &agrave; -50% &mdash; contactez-nous.</p>
-        </details>
-        <details>
-          <summary>Puis-je migrer depuis un autre logiciel ?</summary>
-          <p>Oui. Vous pouvez importer vos listes de produits et vos factures fournisseurs à partir de fichiers Excel.</p>
-        </details>
-      </div>
-    </section>
-  </main>
+<section class="alertdemo"><div class="wrap"><div class="alertgrid"><div class="alertcopy reveal"><div class="kicker">NE RATEZ PLUS L'IMPORTANT</div><h2>Mizan vous signale ce qui mérite votre <em>attention.</em></h2><p>Vous ne devriez pas avoir à mémoriser chaque détail de votre stock. Les alertes mettent les informations importantes devant vous au bon moment.</p></div><div class="alertbox reveal"><div class="kicker">CENTRE DE NOTIFICATIONS</div><div class="alertitem"><div class="alertico">!</div><div><b>Stock faible</b><span>Produits sous le seuil minimum</span></div><div class="alertnum">3</div></div><div class="alertitem"><div class="alertico">◷</div><div><b>Expiration proche</b><span>Produits à vérifier</span></div><div class="alertnum">7</div></div><div class="alertitem"><div class="alertico">↗</div><div><b>Meilleure vente</b><span>Produit le plus vendu aujourd'hui</span></div><div class="alertnum">#1</div></div><div class="alertitem"><div class="alertico">₳</div><div><b>Dépense enregistrée</b><span>Nouvelle dépense ajoutée</span></div><div class="alertnum">OK</div></div></div></div></div></section><section class="testimonials"><div class="wrap"><div class="sectionhead reveal"><div class="kicker">UNE EXPÉRIENCE SIMPLE</div><h2>Moins de temps à gérer.<br><em>Plus de temps pour vendre.</em></h2></div><div class="testgrid"><article class="quote reveal"><div class="stars">★★★★★</div><p>“Une interface où je comprends immédiatement ce qui se passe dans mon commerce.”</p><div class="person"><div class="avatar">MK</div><div><b>Commerçant</b><small>Utilisateur Mizan Suite</small></div></div></article><article class="quote reveal"><div class="stars">★★★★★</div><p>“Le suivi du stock et les alertes me font gagner du temps chaque semaine.”</p><div class="person"><div class="avatar">SA</div><div><b>Responsable</b><small>Utilisateur Mizan Suite</small></div></div></article><article class="quote reveal"><div class="stars">★★★★★</div><p>“Je peux regarder mes chiffres sans passer par plusieurs fichiers.”</p><div class="person"><div class="avatar">YD</div><div><b>Gérant</b><small>Utilisateur Mizan Suite</small></div></div></article></div></div></section><section class="cta"><div class="wrap ctain"><div><div class="kicker">PRÊT À PASSER À L'ÉTAPE SUIVANTE ?</div><h2>Arrêtez de gérer votre commerce<br><em>à l'aveugle.</em></h2><p>Découvrez Mizan Suite et voyez ce que votre commerce peut devenir avec les bons outils.</p></div><a class="btn light" href="mailto:mizansuite@gmail.com?subject=Démo%20Mizan%20Suite">Demander une démo →</a></div></section>
 
-  <footer>
-    <div class="brand-line">Mizan Suite</div>
-    <div><a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a></div>
-    <div style="margin-top:.4rem"><a href="https://www.instagram.com/mizansuite/?utm_source=ig_web_button_share_sheet" target="_blank" rel="noopener">Instagram &mdash; @mizansuite</a></div>
-    <div style="margin-top:.4rem">&copy; 2026 Mizan Suite. Tous droits réservés.</div>
-  </footer>
+<section class="section faqsection" id="faq"><div class="wrap faqgrid"><div class="faq"><div class="kicker">FAQ</div><h2>Vous avez des<br><em>questions ?</em></h2><p class="faqintro">Les réponses aux questions que les commerçants nous posent le plus.</p></div><div class="faqs">
+<div class="q"><button onclick="faq(this)">L'essai gratuit nécessite-t-il une carte bancaire ? <span class="chev">⌄</span></button><div class="ans"><p>Non. Téléchargez, installez et recevez votre clé par e-mail. Ni carte, ni coordonnées de paiement.</p></div></div>
+<div class="q"><button onclick="faq(this)">Mes données sont-elles stockées en ligne ? <span class="chev">⌄</span></button><div class="ans"><p>Non. Tout est stocké sur votre propre ordinateur. Il n'y a ni compte cloud ni abonnement.</p></div></div>
+<div class="q"><button onclick="faq(this)">Ai-je besoin d'internet pour vendre ? <span class="chev">⌄</span></button><div class="ans"><p>Non. Seule l'activation unique de l'essai nécessite internet. Ensuite, vous travaillez entièrement hors ligne.</p></div></div>
+<div class="q"><button onclick="faq(this)">Puis-je utiliser un scanner de codes-barres ? <span class="chev">⌄</span></button><div class="ans"><p>Oui. Mizan Suite peut scanner les codes-barres avec n'importe quelle webcam, fonctionne aussi avec les lecteurs USB et même en saisissant les codes à la main.</p></div></div>
+<div class="q"><button onclick="faq(this)">Que se passe-t-il après l'essai ? <span class="chev">⌄</span></button><div class="ans"><p>Vos données restent en sécurité sur votre PC. Achetez une licence pour continuer à utiliser le logiciel, ou désinstallez simplement.</p></div></div>
+<div class="q"><button onclick="faq(this)">Combien d'utilisateurs / de postes puis-je avoir ? <span class="chev">⌄</span></button><div class="ans"><p>Une licence couvre le logiciel sur le PC de votre caisse. Vous avez plusieurs magasins ? La 2ème licence est à −50% — contactez-nous.</p></div></div>
+<div class="q"><button onclick="faq(this)">Puis-je migrer depuis un autre logiciel ? <span class="chev">⌄</span></button><div class="ans"><p>Oui. Vous pouvez importer vos listes de produits et vos factures fournisseurs à partir de fichiers Excel.</p></div></div>
+</div></div></section>
 
-  <div class="lightbox" id="lightbox" role="dialog" aria-label="Aperçu de la capture d'écran">
-    <button class="lb-close" aria-label="Fermer">&times;</button>
-    <button class="lb-nav lb-prev" aria-label="Capture précédente">&lsaquo;</button>
-    <div class="lb-stage">
-      <img alt="Capture d'écran agrandie">
-      <div class="lb-caption"></div>
-    </div>
-    <button class="lb-nav lb-next" aria-label="Capture suivante">&rsaquo;</button>
-  </div>
+<section class="roi" id="calculateur"><div class="wrap"><div class="sectionhead reveal"><div class="kicker">CALCULATEUR</div><h2>Combien de temps pourriez-vous<br><em>récupérer chaque mois ?</em></h2></div><div class="roibox reveal"><div class="roiform"><h3>Votre quotidien</h3><p>Entrez simplement une estimation. Le résultat est indicatif.</p><div class="field"><label>Heures / semaine consacrées à la gestion</label><input id="hours" type="number" min="1" max="80" value="8"></div><div class="field"><label>Nombre de jours travaillés / semaine</label><input id="days" type="number" min="1" max="7" value="6"></div></div><div class="roires"><small>ESTIMATION DU TEMPS RÉCUPÉRABLE</small><strong id="roiHours">≈ 3 h / semaine</strong><p>Avec une gestion centralisée, vous pourriez réduire une partie du temps passé sur les tâches administratives répétitives.</p><div class="roibadge">✦ Ajustez les chiffres à gauche pour voir l'estimation évoluer.</div></div></div></div></section><section class="finalcta"><div class="wrap"><div class="finalbox reveal"><div class="kicker" style="color:#93c5fd">PRÊT À MODERNISER VOTRE COMMERCE ?</div><h2>Votre commerce mérite<br>un meilleur cockpit.</h2><p>Découvrez Mizan Suite et voyez comment une gestion plus simple peut changer votre quotidien.</p><a class="light" href="/download">Télécharger l&rsquo;essai gratuit →</a></div></div></section><footer><div class="wrap foot"><div><a class="logo" href="#accueil"><span class="mark">M</span>Mizan <b>Suite</b></a><p>Le logiciel de gestion simple et puissant pour les commerces en Algérie.</p></div><div><h4>Navigation</h4><button onclick="go('accueil')">Accueil</button><button onclick="go('fonctionnalites')">Fonctionnalités</button><button onclick="go('tarifs')">Tarifs</button><button onclick="go('faq')">FAQ</button></div><div><h4>Contact</h4><a href="mailto:mizansuite@gmail.com">mizansuite@gmail.com</a><span>Oran, Algérie 🇩🇿</span></div></div><div class="wrap bottom"><span>© 2026 Mizan Suite. Tous droits réservés.</span><span>Fait avec passion en Algérie.</span></div></footer>
 
-  <script>
-    (function () {
-      var lb = document.getElementById('lightbox');
-      var lbImg = lb.querySelector('img');
-      var caption = lb.querySelector('.lb-caption');
-      var close = lb.querySelector('.lb-close');
-      var prev = lb.querySelector('.lb-prev');
-      var next = lb.querySelector('.lb-next');
-      var imgs = Array.prototype.slice.call(document.querySelectorAll('.shots .shot img'));
-      var labels = Array.prototype.slice.call(document.querySelectorAll('.shots .shot .shot-label'));
-      var idx = 0;
+<script>
+function go(id){document.getElementById(id)?.scrollIntoView({behavior:"smooth"});document.getElementById("links").classList.remove("open")}
+window.addEventListener("scroll",()=>document.querySelector("header").classList.toggle("scrolled",scrollY>20));
+if(matchMedia("(pointer:fine)").matches){
+ const hero=document.querySelector(".product");
+ window.addEventListener("mousemove",e=>{
+   const x=(e.clientX/innerWidth-.5), y=(e.clientY/innerHeight-.5);
+   if(hero) hero.style.transform=`translate(${x*7}px,${y*5}px)`;
+ });
+}
+const tabData={dashboard:["VUE GLOBALE","Tout ce qui compte, au même endroit.","Une vue instantanée de vos ventes, bénéfices, produits et alertes — sans fouiller dans plusieurs écrans.",["Ventes aujourd'hui","126 500 DA","↗ En hausse"],["Bénéfice","32 700 DA","↗ Bonne journée"],["Produits vendus","47","Aujourd'hui"],"Activité récente"],sales:["CAISSE & VENTES","Vendez vite, gardez une trace de tout.","Recherche produit, panier, paiement et historique : le parcours de vente reste simple même pendant les heures chargées.",["CA aujourd'hui","126 500 DA","↗ +14,2%"],["Transactions","38","Aujourd'hui"],["Panier moyen","3 329 DA","Calculé"],"Dernières ventes"],stock:["INVENTAIRE","Votre stock ne devrait jamais vous surprendre.","Quantités, seuils minimum, mouvements et alertes : vous savez quoi commander avant la rupture.",["Produits","1 284","Références"],["Stock faible","3","À vérifier"],["Péremptions","7","À surveiller"],"Alertes stock"],finance:["PILOTAGE FINANCIER","Comprenez où va votre argent.","Suivez revenus, dépenses et bénéfices dans une vue claire pour prendre de meilleures décisions.",["Revenus","1,24 M DA","Ce mois"],["Dépenses","684 K DA","Ce mois"],["Résultat","564 K DA","Estimé"],"Mouvements récents"]};
+function setTab(k){const d=tabData[k];if(!d)return;document.querySelectorAll(".tourtabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===k));document.getElementById("tourlabel").textContent=d[0];document.getElementById("tourtitle").textContent=d[1];document.getElementById("tourdesc").textContent=d[2];[["s1label","s1","s1sub"],["s2label","s2","s2sub"],["s3label","s3","s3sub"]].forEach((x,i)=>{document.getElementById(x[0]).textContent=d[i+3][0];document.getElementById(x[1]).textContent=d[i+3][1];document.getElementById(x[2]).textContent=d[i+3][2]});document.getElementById("paneltitle").textContent=d[6]}
+document.querySelectorAll(".tourtabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
 
-      function hide() { lb.classList.remove('open'); lbImg.removeAttribute('src'); resetZoom(); }
-
-      imgs.forEach(function (img, i) {
-        img.addEventListener('click', function () { show(i); lb.classList.add('open'); });
-      });
-      close.addEventListener('click', hide);
-      prev.addEventListener('click', function (e) { e.stopPropagation(); show(idx - 1); });
-      next.addEventListener('click', function (e) { e.stopPropagation(); show(idx + 1); });
-      lb.addEventListener('click', function (e) { if (e.target === lb) hide(); });
-      document.addEventListener('keydown', function (e) {
-        if (!lb.classList.contains('open')) return;
-        if (e.key === 'Escape') hide();
-        else if (e.key === 'ArrowLeft') show(idx - 1);
-        else if (e.key === 'ArrowRight') show(idx + 1);
-      });
-
-      var scale = 1, tx = 0, ty = 0;
-      var pinchStart = null, panStart = null, swipeStart = null, lastTap = 0;
-      function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
-      function applyTransform() {
-        lbImg.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
-      }
-      function resetZoom() { scale = 1; tx = 0; ty = 0; lbImg.style.transform = ''; }
-      function show(i) {
-        idx = (i + imgs.length) % imgs.length;
-        lbImg.src = imgs[idx].getAttribute('src');
-        resetZoom();
-        caption.textContent = (idx + 1) + ' / ' + imgs.length +
-          (labels[idx] && labels[idx].textContent ? ' — ' + labels[idx].textContent : '');
-      }
-
-      lb.addEventListener('touchstart', function (e) {
-        if (e.touches.length === 2) {
-          pinchStart = {
-            dist: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY),
-            scale: scale
-          };
-          swipeStart = null; panStart = null;
-          lb.classList.add('lb-zooming');
-        } else if (e.touches.length === 1) {
-          var t = e.changedTouches[0];
-          if (scale > 1) {
-            panStart = { x: t.clientX, y: t.clientY, tx: tx, ty: ty };
-            swipeStart = null;
-            lb.classList.add('lb-zooming');
-          } else {
-            swipeStart = { x: t.clientX, y: t.clientY, t: Date.now() };
-            panStart = null;
-          }
-        }
-      }, { passive: true });
-
-      lb.addEventListener('touchmove', function (e) {
-        if (e.touches.length === 2 && pinchStart) {
-          e.preventDefault();
-          var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-          scale = clamp(pinchStart.scale * (d / pinchStart.dist), 1, 4);
-          applyTransform();
-        } else if (e.touches.length === 1 && panStart) {
-          e.preventDefault();
-          var t = e.touches[0];
-          tx = panStart.tx + (t.clientX - panStart.x);
-          ty = panStart.ty + (t.clientY - panStart.y);
-          applyTransform();
-        } else if (e.touches.length === 1 && swipeStart) {
-          e.preventDefault();
-        }
-      }, { passive: false });
-
-      lb.addEventListener('touchend', function (e) {
-        var t = e.changedTouches[0];
-        if (e.touches.length < 2) { pinchStart = null; }
-        if (e.touches.length === 0) {
-          lb.classList.remove('lb-zooming');
-          if (panStart) { panStart = null; return; }
-          if (swipeStart) {
-            var dx = t.clientX - swipeStart.x, dy = t.clientY - swipeStart.y;
-            var dt = Date.now() - swipeStart.t;
-            var isTap = dt < 300 && Math.hypot(dx, dy) < 15;
-            if (isTap) {
-              var now = Date.now();
-              if (now - lastTap < 300) {
-                if (scale > 1) resetZoom();
-                else { scale = 3; applyTransform(); }
-                lastTap = 0;
-              } else { lastTap = now; }
-            } else if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-              if (dx < 0) show(idx + 1); else show(idx - 1);
-            }
-            swipeStart = null;
-          }
-        }
-      });
-
-      lb.addEventListener('wheel', function (e) {
-        e.preventDefault();
-        if (e.deltaY < 0) scale = clamp(scale * 1.12, 1, 4);
-        else scale = clamp(scale / 1.12, 1, 4);
-        applyTransform();
-      }, { passive: false });
-    })();
-  </script>
+const roiHours=document.getElementById("roiHours"),hoursInput=document.getElementById("hours"),daysInput=document.getElementById("days");function calcROI(){if(!roiHours)return;const h=Math.max(1,Number(hoursInput.value)||8);const d=Math.max(1,Number(daysInput.value)||6);const saved=Math.max(.5,Math.round(h*.38*10)/10);roiHours.textContent="≈ "+saved+" h / semaine";}hoursInput?.addEventListener("input",calcROI);daysInput?.addEventListener("input",calcROI);calcROI();
+function faq(b){let q=b.parentElement;document.querySelectorAll(".q").forEach(x=>{if(x!==q)x.classList.remove("open")});q.classList.toggle("open")}
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add("on")}),{threshold:.12});
+document.querySelectorAll(".reveal").forEach(x=>io.observe(x));
+</script>
 </body>
 </html>
