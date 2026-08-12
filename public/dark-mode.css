@@ -339,6 +339,16 @@ html.dark-mode .form-section {
   border-top-color: var(--dark-border, #3a5449);
 }
 
+html.dark-mode .attendance-table .att-col.att-present {
+  background: rgba(45, 160, 110, 0.16);
+}
+html.dark-mode .attendance-table .att-col.att-justified {
+  background: rgba(44, 110, 213, 0.18);
+}
+html.dark-mode .attendance-table .att-col.att-absent {
+  background: rgba(220, 70, 60, 0.16);
+}
+
 html.dark-mode .hint-text,
 html.dark-mode .stat-label {
   color: var(--dark-muted, #9db3ab);

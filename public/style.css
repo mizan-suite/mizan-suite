@@ -921,6 +921,27 @@ html.dark-mode .pagination-bar .page-info {
   color: #c0392b;
 }
 
+/* Professional attendance (pointage) matrix table: colour the day cells so the
+   owner can scan a worker's month at a glance. */
+.attendance-table .att-col {
+  text-align: center;
+  min-width: 46px;
+}
+.attendance-table .att-col.att-present {
+  background: #e3f6ec;
+}
+.attendance-table .att-col.att-justified {
+  background: #e7f0ff;
+}
+.attendance-table .att-col.att-absent {
+  background: #fde9e9;
+}
+.attendance-table .att-summary {
+  white-space: nowrap;
+  text-align: right;
+  min-width: 150px;
+}
+
 /* ---------- POS (Cashier) layout ---------- */
 .container.pos-layout {
   max-width: 1440px;

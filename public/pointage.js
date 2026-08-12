@@ -105,6 +105,100 @@ function renderSummary(summary) {
     </table>`;
 }
 
+// Build the list of YYYY-MM-DD dates spanning [from, to] inclusive.
+function datesInRange(from, to) {
+  const out = [];
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  if (isNaN(d.getTime()) || isNaN(end.getTime())) return [from];
+  while (d <= end) {
+    out.push(localDateStr(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+// Professional attendance table: one row per (active) worker, one column per day
+// in the selected range, each cell marked Present / Justified absent (vacation or
+// sick leave) / Absent. A final column summarises the workers' days for the range.
+function renderAttendanceTable() {
+  const { from, to } = rangeParams();
+  const dates = datesInRange(from, to);
+  const active = staffCache.filter(w => w.active);
+
+  // present: user_id -> Set of YYYY-MM-DD where they have a time entry
+  const presentByUser = {};
+  if (Array.isArray(entriesCache)) {
+    for (const e of entriesCache) {
+      const ds = String(e.clock_in || '').slice(0, 10);
+      if (!ds) continue;
+      (presentByUser[e.user_id] = presentByUser[e.user_id] || new Set()).add(ds);
+    }
+  }
+  // leave: user_id -> { date: { type, note } }
+  const leaveByUser = {};
+  if (Array.isArray(leaveCache)) {
+    for (const l of leaveCache) {
+      (leaveByUser[l.user_id] = leaveByUser[l.user_id] || {})[l.leave_date] = { type: l.type, note: l.note };
+    }
+  }
+
+  if (!active.length) {
+    summaryEl.innerHTML = '';
+    return;
+  }
+
+  const header = dates.map(d => {
+    const short = new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+    return `<th title="${escapeHtml(d)}">${escapeHtml(short)}</th>`;
+  }).join('');
+
+  const rows = active.map(w => {
+    let presentDays = 0, justifiedDays = 0, absentDays = 0;
+    const cells = dates.map(d => {
+      const present = !!(presentByUser[w.id] && presentByUser[w.id].has(d));
+      const leave = leaveByUser[w.id] && leaveByUser[w.id][d];
+      if (present) {
+        presentDays++;
+        return `<td class="att-col att-present" title="${escapeHtml(I18N.t('pointage.present'))}"><span class="badge badge-ok">${I18N.t('pointage.presentShort')}</span></td>`;
+      }
+      if (leave && (leave.type === 'sick' || leave.type === 'vacation')) {
+        justifiedDays++;
+        return `<td class="att-col att-justified" title="${escapeHtml(leaveTypeLabel(leave.type) + (leave.note ? ' - ' + leave.note : ''))}"><span class="badge badge-info">${I18N.t('pointage.justifiedShort')}</span></td>`;
+      }
+      absentDays++;
+      return `<td class="att-col att-absent" title="${escapeHtml(I18N.t('pointage.absent'))}"><span class="badge badge-danger">${I18N.t('pointage.absentShort')}</span></td>`;
+    }).join('');
+    return `<tr>
+      <td>${escapeHtml(w.name)}</td>
+      ${cells}
+      <td class="att-summary" title="${presentDays} ${I18N.t('pointage.present')} / ${justifiedDays} ${I18N.t('pointage.justifiedAbsent')} / ${absentDays} ${I18N.t('pointage.absent')}">
+        <span class="badge badge-ok">${I18N.t('pointage.presentShort')} ${presentDays}</span>
+        <span class="badge badge-info">${I18N.t('pointage.justifiedShort')} ${justifiedDays}</span>
+        <span class="badge badge-danger">${I18N.t('pointage.absentShort')} ${absentDays}</span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  summaryEl.innerHTML = `
+    <div class="po-card" style="padding:1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:0;">
+        <h3 style="margin:0;" data-i18n="pointage.attendanceTitle">${I18N.t('pointage.attendanceTitle')}</h3>
+        <div class="po-filter" style="margin:0; flex-wrap:wrap;">
+          <span><span class="badge badge-ok">${I18N.t('pointage.presentShort')}</span> ${I18N.t('pointage.present')}</span>
+          <span><span class="badge badge-info">${I18N.t('pointage.justifiedShort')}</span> ${I18N.t('pointage.justifiedAbsent')}</span>
+          <span><span class="badge badge-danger">${I18N.t('pointage.absentShort')}</span> ${I18N.t('pointage.absent')}</span>
+        </div>
+      </div>
+      <div style="overflow-x:auto; margin-top:0.75rem;">
+      <table class="product-table attendance-table">
+        <thead><tr><th>${I18N.t('pointage.worker')}</th>${header}<th>${I18N.t('pointage.summary')}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+    </div>`;
+}
+
 function renderEntries() {
   if (!entriesCache.length) {
     listEl.innerHTML = `<div class="po-card empty-cart-msg">${I18N.t('pointage.empty')}</div>`;
@@ -201,7 +295,7 @@ async function loadPointage() {
   }
   renderWorkerSelect();
   renderLeaveWorkerSelect();
-  renderSummary(await summaryRes.json());
+  renderAttendanceTable();
   renderEntries();
   updateClockBtn();
 }

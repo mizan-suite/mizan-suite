@@ -282,6 +282,23 @@ function setupMargeListeners(formPrefix, saleInputId, wholesaleInputId) {
     }
   }
 
+  // When the user types a SALE price, back-fill the wholesale price from the
+  // current margin (the reverse of sale-from-wholesale). Only when a margin is
+  // set and we're not overwriting a just-entered wholesale value.
+  function updateWholesaleFromSale() {
+    const s = parseFloat(saleInput.value) || 0;
+    if (s <= 0) return;
+    let w = 0;
+    if (marginType === 'percent') {
+      const pct = parseFloat(pctInput.value) || 0;
+      if (pct > 0) w = s / (1 + pct / 100);
+    } else if (marginType === 'amount') {
+      const amt = parseFloat(amtInput.value) || 0;
+      if (amt > 0 && s > amt) w = s - amt;
+    }
+    if (w > 0) wholesaleInput.value = w.toFixed(2);
+  }
+
   // When user types in marge % -> use percent mode
   pctInput.addEventListener('input', () => {
     marginType = 'percent';
@@ -299,8 +316,9 @@ function setupMargeListeners(formPrefix, saleInputId, wholesaleInputId) {
     updateSaleFromMarge();
   });
 
-  // When sale price changes -> update marge fields
+  // When sale price changes -> update marge fields and back-fill wholesale
   saleInput.addEventListener('input', () => {
+    updateWholesaleFromSale();
     updateMargeFromSale();
   });
 }
