@@ -129,6 +129,11 @@
     .theme-btn { background: none; border: 1px solid rgba(255,255,255,0.5); color: #fff; }
     .theme-btn:hover { background: rgba(255,255,255,0.12); }
     #header-actions { display: flex; gap: 0.6rem; align-items: center; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-overlay.open { display: flex; }
+    .modal { width: 400px; max-width: calc(100vw - 2rem); }
+    .modal .card { margin-bottom: 0; }
+    .modal-row { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
   </style>
 </head>
 <body>
@@ -218,8 +223,26 @@
     </div>
   </div>
 
+  <!-- Renew modal (window.prompt is unavailable in Electron, so use an in-page dialog) -->
+  <div class="modal-overlay" id="renew-overlay">
+    <div class="card modal">
+      <h2>Renew license</h2>
+      <p style="font-size:0.85rem; color:var(--text-soft); margin-bottom:0.8rem;">Set a new expiry for <strong id="renew-client"></strong> (machine <span id="renew-machine" class="key-cell"></span>)</p>
+      <div class="field">
+        <label for="renew-expires">New expiry (YYYY-MM-DD) — leave empty for permanent</label>
+        <input type="text" id="renew-expires" placeholder="YYYY-MM-DD or empty = permanent">
+      </div>
+      <div class="modal-row">
+        <button class="btn btn-sm" id="renew-cancel">Cancel</button>
+        <button class="btn btn-primary" id="renew-save">Renew</button>
+      </div>
+      <div class="msg" id="renew-msg"></div>
+    </div>
+  </div>
+
   <script>
     let token = sessionStorage.getItem('mizan_dash_token') || '';
+    let licensesCache = [];
 
     // ---------- Theme: match the Mizan Suite blue accent + dark mode ----------
     function applyTheme(dark) {
@@ -282,6 +305,7 @@
       clearMsg(document.getElementById('list-msg'));
       try {
         const licenses = await api('/api/licenses');
+        licensesCache = licenses;
         if (!licenses.length) {
           body.innerHTML = '<tr><td colspan="7" class="empty">No licenses issued yet.</td></tr>';
           return;
@@ -399,11 +423,36 @@
           return;
         }
         if (btn.classList.contains('renew-btn')) {
-          const expiry = prompt('New expiry (YYYY-MM-DD) or leave empty for permanent:', '');
-          if (expiry === null) return;
-          await api('/api/licenses/' + id + '/renew', { method: 'POST', body: JSON.stringify({ expires: expiry.trim() }) });
-          loadLicenses();
+          const lic = licensesCache.find(l => l.id === id);
+          if (lic) {
+            document.getElementById('renew-client').textContent = lic.client;
+            document.getElementById('renew-machine').textContent = (lic.machineId || '(any machine)');
+            document.getElementById('renew-expires').value = lic.expires || '';
+            document.getElementById('renew-overlay').classList.add('open');
+            document.getElementById('renew-expires').focus();
+            renewId = id;
+          }
         }
+      } catch (e) { setMsg(msg, e.message, 'err'); }
+    });
+
+    let renewId = null;
+    document.getElementById('renew-cancel').addEventListener('click', () => {
+      document.getElementById('renew-overlay').classList.remove('open');
+      clearMsg(document.getElementById('renew-msg'));
+    });
+    document.getElementById('renew-overlay').addEventListener('keydown', e => {
+      if (e.key === 'Escape') document.getElementById('renew-cancel').click();
+      if (e.key === 'Enter') document.getElementById('renew-save').click();
+    });
+    document.getElementById('renew-save').addEventListener('click', async () => {
+      const msg = document.getElementById('renew-msg');
+      clearMsg(msg);
+      const expires = document.getElementById('renew-expires').value.trim();
+      try {
+        await api('/api/licenses/' + renewId + '/renew', { method: 'POST', body: JSON.stringify({ expires }) });
+        document.getElementById('renew-overlay').classList.remove('open');
+        loadLicenses();
       } catch (e) { setMsg(msg, e.message, 'err'); }
     });
 
