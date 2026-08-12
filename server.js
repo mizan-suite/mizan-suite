@@ -1117,7 +1117,7 @@ app.post('/api/payroll/pay', (req, res) => {
 
   db.prepare(
     "INSERT INTO expenses (category, amount, description, expense_date) VALUES ('salaries', ?, ?, ?)"
-  ).run(v, `Salary - ${user.name} (${month})`, month + '-01');
+  ).run(v, `Salaires du personnel : ${user.name} (${month})`, month + '-01');
   const info = db.prepare('INSERT INTO payroll_payments (user_id, month, amount) VALUES (?, ?, ?)').run(user.id, month, v);
   logAudit(req, 'payroll_paid', `name: ${user.name}, month: ${month}, amount: ${v}`);
   res.status(201).json(db.prepare('SELECT * FROM payroll_payments WHERE id = ?').get(info.lastInsertRowid));
