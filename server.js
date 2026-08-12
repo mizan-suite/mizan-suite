@@ -1317,7 +1317,7 @@ app.get('/api/products/:id', (req, res) => {
 
 // POST - add a new product
 app.post('/api/products', (req, res) => {
-  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit } = req.body;
+  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit, active } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Product name is required' });
@@ -1379,9 +1379,13 @@ app.post('/api/products', (req, res) => {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO products (barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, unit)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, unit, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+
+  // Any product a user explicitly marks "not available for sale" is created
+  // inactive; everything else defaults to active.
+  const finalActive = req.body.active !== undefined ? (req.body.active ? 1 : 0) : 1;
 
   try {
     db.exec('BEGIN');
@@ -1416,7 +1420,8 @@ app.post('/api/products', (req, res) => {
         max_stock || null,
         expiry_date || null,
         supplier || null,
-        finalUnit
+        finalUnit,
+        finalActive
       );
       id = result.lastInsertRowid;
     }
@@ -1432,7 +1437,7 @@ app.post('/api/products', (req, res) => {
 
 // PUT - update an existing product
 app.put('/api/products/:id', (req, res) => {
-  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit } = req.body;
+  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit, active } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Product name is required' });
@@ -1502,7 +1507,7 @@ app.put('/api/products/:id', (req, res) => {
   const stmt = db.prepare(`
     UPDATE products SET
       barcode = ?, name = ?, category = ?, cost_price = ?, sale_price = ?,
-      wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?, min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, unit = ?
+      wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?, min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, unit = ?, active = ?
     WHERE id = ?
   `);
 
@@ -1515,6 +1520,7 @@ app.put('/api/products/:id', (req, res) => {
       quantity ?? existing.quantity, min_stock ?? existing.min_stock, max_stock ?? existing.max_stock,
       expiry_date ?? existing.expiry_date, supplier ?? existing.supplier,
       finalUnit !== undefined ? finalUnit : existing.unit,
+      active !== undefined ? (active ? 1 : 0) : existing.active,
       req.params.id
     );
     syncProductBarcodes(req.params.id, barcode, extra_barcodes);
@@ -4488,7 +4494,8 @@ app.post('/api/settings', (req, res) => {
     'default_margin_percent', 'language',
     'loyalty_earn_per', 'loyalty_worth',
     'shop_name', 'shop_address', 'shop_phone', 'shop_logo',
-    'scale_label_mode', 'scale_label_prefix', 'scale_price_digits', 'scale_price_divisor', 'scale_serial_baud'
+    'scale_label_mode', 'scale_label_prefix', 'scale_price_digits', 'scale_price_divisor', 'scale_serial_baud',
+    'tva_enabled', 'tva_rate'
   ]);
   const upsert = db.prepare(`
     INSERT INTO settings (key, value) VALUES (?, ?)

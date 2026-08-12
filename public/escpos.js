@@ -113,6 +113,10 @@
     parts.push(line(padLine('Subtotal', receipt.subtotal.toFixed(2), W)));
     if (receipt.discount > 0) parts.push(line(padLine('Discount', '-' + receipt.discount.toFixed(2), W)));
     if (receipt.points > 0) parts.push(line(padLine('Points', '-' + receipt.points.toFixed(2), W)));
+    if (receipt.tva) {
+      parts.push(line(padLine('Net (excl. TVA)', receipt.tva.excl.toFixed(2), W)));
+      parts.push(line(padLine('TVA ' + Number(receipt.tva.rate).toFixed(2) + '%', receipt.tva.amount.toFixed(2), W)));
+    }
     parts.push(line(padLine('TOTAL', receipt.total.toFixed(2) + ' DA', W), { bold: true, size: 0x11 }));
 
     if (receipt.paymentLines) parts.push(line('Paid: ' + receipt.paymentLines));
@@ -167,6 +171,10 @@
     out.push(padLine('Subtotal', receipt.subtotal.toFixed(2), W));
     if (receipt.discount > 0) out.push(padLine('Discount', '-' + receipt.discount.toFixed(2), W));
     if (receipt.points > 0) out.push(padLine('Points', '-' + receipt.points.toFixed(2), W));
+    if (receipt.tva) {
+      out.push(padLine('Net (excl. TVA)', receipt.tva.excl.toFixed(2), W));
+      out.push(padLine('TVA ' + Number(receipt.tva.rate).toFixed(2) + '%', receipt.tva.amount.toFixed(2), W));
+    }
     out.push(padLine('TOTAL', receipt.total.toFixed(2) + ' DA', W));
     if (receipt.paymentLines) out.push('Paid: ' + receipt.paymentLines);
     if (receipt.changeDue > 0) out.push('Change: ' + receipt.changeDue.toFixed(2) + ' DA');

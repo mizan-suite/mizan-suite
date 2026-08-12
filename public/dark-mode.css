@@ -335,6 +335,10 @@ html.dark-mode .nav-links a {
   color: var(--dark-text-soft, #d4ded9);
 }
 
+html.dark-mode .form-section {
+  border-top-color: var(--dark-border, #3a5449);
+}
+
 html.dark-mode .hint-text,
 html.dark-mode .stat-label {
   color: var(--dark-muted, #9db3ab);

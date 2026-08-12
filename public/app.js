@@ -407,6 +407,20 @@ async function loadCategories() {
   }
 }
 
+// Autocomplete the add/edit Supplier field with the suppliers we buy from.
+async function loadSuppliers() {
+  try {
+    const res = await fetch('/api/suppliers');
+    if (!res.ok) return;
+    const suppliers = await res.json();
+    const dl = document.getElementById('suppliers-datalist');
+    // Also feed the edit modal's supplier datalist (same id is reused).
+    if (dl) dl.innerHTML = suppliers.map(s => `<option value="${escapeHtml(s.name)}">`).join('');
+  } catch (err) {
+    console.error('loadSuppliers failed:', err);
+  }
+}
+
 function currentPerPageValue() {
   return parseInt(perPageFilterEl.value, 10) || 100;
 }
@@ -589,6 +603,7 @@ form.addEventListener('submit', async (e) => {
     barcode: document.getElementById('barcode').value.trim(),
     name: document.getElementById('name').value.trim(),
     category: document.getElementById('category').value.trim(),
+    supplier: document.getElementById('supplier').value.trim(),
     expiry_date: document.getElementById('expiry_date').value,
     quantity: parseQuantity(document.getElementById('unit').value, document.getElementById('quantity').value),
     cost_price: parseFloat(document.getElementById('cost_price').value) || 0,
@@ -599,7 +614,8 @@ form.addEventListener('submit', async (e) => {
     min_stock: parseInt(document.getElementById('min_stock').value),
     max_stock: parseInt(document.getElementById('max_stock').value),
     unit: document.getElementById('unit').value || 'piece',
-    extra_barcodes: parseBarcodes(document.getElementById('extra-barcodes').value)
+    extra_barcodes: parseBarcodes(document.getElementById('extra-barcodes').value),
+    active: document.getElementById('active').checked ? 1 : 0
   };
 
   const res = await fetch('/api/products', {
@@ -1011,6 +1027,8 @@ function fillEditForm(p, id) {
   document.getElementById('edit-extra-barcodes').value = (p.extra_barcodes || []).join(', ');
   document.getElementById('edit-expiry_date').value = p.expiry_date || '';
   document.getElementById('edit-category').value = p.category || '';
+  document.getElementById('edit-supplier').value = p.supplier || '';
+  document.getElementById('edit-active').checked = p.active !== 0;
   document.getElementById('edit-quantity').value = p.quantity == null ? '' : p.quantity;
   document.getElementById('edit-cost_price').value = p.cost_price;
   document.getElementById('edit-sale_price').value = p.sale_price;
@@ -1067,6 +1085,7 @@ document.getElementById('edit-save').addEventListener('click', async () => {
       barcode: document.getElementById('edit-barcode').value.trim(),
       name,
       category: document.getElementById('edit-category').value.trim(),
+      supplier: document.getElementById('edit-supplier').value.trim(),
       expiry_date: document.getElementById('edit-expiry_date').value,
       quantity: parseQuantity(document.getElementById('edit-unit').value, document.getElementById('edit-quantity').value),
       cost_price: parseFloat(document.getElementById('edit-cost_price').value) || 0,
@@ -1077,7 +1096,8 @@ document.getElementById('edit-save').addEventListener('click', async () => {
       min_stock: parseInt(document.getElementById('edit-min_stock').value),
       max_stock: parseInt(document.getElementById('edit-max_stock').value),
       unit: document.getElementById('edit-unit').value || 'piece',
-      extra_barcodes: parseBarcodes(document.getElementById('edit-extra-barcodes').value)
+      extra_barcodes: parseBarcodes(document.getElementById('edit-extra-barcodes').value),
+      active: document.getElementById('edit-active').checked ? 1 : 0
     })
   });
 
@@ -1094,6 +1114,7 @@ document.getElementById('edit-save').addEventListener('click', async () => {
 loadProducts();
 loadDefaultMargin();
 loadCategories();
+loadSuppliers();
 currentPerPage = currentPerPageValue();
 
 // Support opening straight into the edit form via ?id=... (e.g. from the

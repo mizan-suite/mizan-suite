@@ -24,6 +24,9 @@ const scalePriceDigits = document.getElementById('scale-price-digits');
 const scalePriceDivisor = document.getElementById('scale-price-divisor');
 const scaleSerialBaud = document.getElementById('scale-serial-baud');
 
+const tvaEnabledToggle = document.getElementById('tva-enabled-toggle');
+const tvaRateInput = document.getElementById('tva-rate');
+
 const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[ch]));
@@ -101,6 +104,10 @@ async function loadSettings() {
     scalePriceDigits.value = s.scale_price_digits === undefined || s.scale_price_digits === '' ? 5 : s.scale_price_digits;
     scalePriceDivisor.value = s.scale_price_divisor === undefined || s.scale_price_divisor === '' ? 100 : s.scale_price_divisor;
     scaleSerialBaud.value = s.scale_serial_baud === undefined || s.scale_serial_baud === '' ? 9600 : s.scale_serial_baud;
+  }
+  if (tvaEnabledToggle) {
+    tvaEnabledToggle.checked = s.tva_enabled === 'true';
+    tvaRateInput.value = s.tva_rate === undefined || s.tva_rate === '' ? 19 : s.tva_rate;
   }
   if (darkToggle.checked) document.documentElement.classList.add('dark-mode');
 }
@@ -266,7 +273,9 @@ document.getElementById('save-settings-btn').addEventListener('click', async () 
       scale_label_prefix: scaleLabelPrefix ? scaleLabelPrefix.value : '2',
       scale_price_digits: scalePriceDigits ? scalePriceDigits.value : '5',
       scale_price_divisor: scalePriceDivisor ? scalePriceDivisor.value : '100',
-      scale_serial_baud: scaleSerialBaud ? scaleSerialBaud.value : '9600'
+      scale_serial_baud: scaleSerialBaud ? scaleSerialBaud.value : '9600',
+      tva_enabled: tvaEnabledToggle ? tvaEnabledToggle.checked : false,
+      tva_rate: tvaRateInput ? tvaRateInput.value : '19'
     })
   });
 

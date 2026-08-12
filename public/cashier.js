@@ -29,6 +29,7 @@ const heldSalesListEl = document.getElementById('held-sales-list');
 let allProducts = [];
 let allClients = [];
 let loyaltySettings = { earnPer: 10, worth: 1 };
+let tvaSettings = { enabled: false, rate: 19 };
 let activeCategory = null;
 let selectedProductId = null;
 let gridPage = 1;
@@ -210,6 +211,10 @@ async function loadLoyaltySettings() {
   loyaltySettings = {
     earnPer: parseFloat(settings.loyalty_earn_per) > 0 ? parseFloat(settings.loyalty_earn_per) : 10,
     worth: parseFloat(settings.loyalty_worth) > 0 ? parseFloat(settings.loyalty_worth) : 0
+  };
+  tvaSettings = {
+    enabled: settings.tva_enabled === 'true',
+    rate: parseFloat(settings.tva_rate) > 0 ? parseFloat(settings.tva_rate) : 19
   };
   // Scale label parsing options (mirrors the Settings page fields).
   window.akScaleOptions = {
@@ -1588,6 +1593,19 @@ document.getElementById('scan-camera-btn').addEventListener('click', () => {
 
 // Builds a printable receipt modal after a completed sale. Uses the browser's
 // print dialog (@media print in style.css hides everything but the receipt).
+// TVA breakdown for a display-only info line on the receipt. The sale total is
+// treated as VAT-inclusive: we show how much of it is VAT. Max 2 decimals.
+function tvaBreakdown(total) {
+  const rate = tvaSettings.rate > 0 ? tvaSettings.rate : 0;
+  if (!tvaSettings.enabled || rate <= 0) return null;
+  const excl = total / (1 + rate / 100);
+  return {
+    rate,
+    excl: excl,
+    amount: total - excl
+  };
+}
+
 function showReceipt(result, tenderedPayments, changeDue, clientName) {
   const items = result.items.map(i => {
     const qty = i.unit === 'kg' ? Number(i.quantity).toFixed(3) + ' kg' : i.quantity;
@@ -1620,6 +1638,7 @@ function showReceipt(result, tenderedPayments, changeDue, clientName) {
         <div style="display:flex; justify-content:space-between;"><span>${I18N.t('cashier.subtotal')}</span><span>${result.subtotal.toFixed(2)}</span></div>
         ${result.discountAmount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>${I18N.t('cashier.discount')}</span><span>-${result.discountAmount.toFixed(2)}</span></div>` : ''}
         ${result.pointsDiscount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>${I18N.t('cashier.points')}</span><span>-${result.pointsDiscount.toFixed(2)}</span></div>` : ''}
+        ${(() => { const tva = tvaBreakdown(result.total); return tva ? `<div style="display:flex; justify-content:space-between;"><span>${I18N.t('cashier.tvaLabel').replace('{rate}', tva.rate)}</span><span>${tva.amount.toFixed(2)}</span></div>` : ''; })()}
         <div style="display:flex; justify-content:space-between; font-weight:bold; margin-top:0.4rem; font-size:1rem;"><span>${I18N.t('cashier.total')}</span><span>${result.total.toFixed(2)} DA</span></div>
         <div style="margin-top:0.3rem;">${I18N.t('cashier.paid')}: ${paymentLines}</div>
         ${changeDue > 0 ? `<div style="margin-top:0.2rem; font-weight:bold;">${I18N.t('cashier.changeDue').replace('{amount}', changeDue.toFixed(2))} DA</div>` : ''}
@@ -1663,6 +1682,7 @@ function showReceipt(result, tenderedPayments, changeDue, clientName) {
         paymentLines: paymentLines,
         changeDue: changeDue || 0,
         pointsEarned: result.pointsEarned || 0,
+        tva: tvaBreakdown(result.total),
         barcode: String(result.saleId)
       });
     } else {

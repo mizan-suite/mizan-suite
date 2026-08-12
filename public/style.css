@@ -307,6 +307,28 @@ html.dark-mode .filter-grid .filter-field input {
   background: #fff;
 }
 
+/* Grouped sections inside the Add/Edit product modal: a titled block that
+   separates Identity / Pricing / Stock / Availability. */
+.form-section {
+  margin-bottom: 1rem;
+  padding: 0.6rem 0 0.2rem;
+  border-top: 1px solid #eee;
+}
+.form-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.form-section-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent, #1b6e5c);
+  margin: 0 0 0.6rem;
+}
+.form-section .form-grid {
+  margin-bottom: 0;
+}
+
 /* Row holding a printer dropdown + its Test button */
 .printer-row {
   display: flex;
