@@ -4,51 +4,131 @@
   <meta charset="UTF-8">
   <title>Mizan Suite License Dashboard</title>
   <style>
+    /* ---------- Blue theme (matches Mizan Suite's blue accent) ---------- */
+    :root {
+      --accent: #2563eb;
+      --accent-strong: #1e40af;
+      --accent-light: #60a5fa;
+      --accent-bright: #93c5fd;
+      --accent-tint: #eef4fd;
+      --bg: #eef2fa;
+      --surface: #ffffff;
+      --border: #dbe3f4;
+      --text: #2b2b2b;
+      --text-soft: #555;
+      --text-muted: #888;
+      --shadow: rgba(30, 64, 175, 0.10);
+      --btn-sm-bg: #eef2fa;
+      --btn-sm-hover: #dbe3f4;
+      --badge-active-bg: #dbeafe;
+      --badge-active-fg: #1d4ed8;
+      --badge-pro-bg: #e0e7ff;
+      --badge-pro-fg: #4338ca;
+      --badge-expiring-bg: #fff3e0;
+      --badge-expiring-fg: #9a5b00;
+      --badge-expired-bg: #fdecea;
+      --badge-expired-fg: #a33327;
+      --badge-revoked-bg: #e5e7eb;
+      --badge-revoked-fg: #6b7280;
+      --msg-ok-bg: #dbeafe;
+      --msg-ok-fg: #1d4ed8;
+      --msg-err-bg: #fdecea;
+      --msg-err-fg: #a33327;
+      --table-line: #eef2f7;
+      --key-cell: #444;
+      --input-bg: #fff;
+      --login-card: #fff;
+    }
+
+    html.dark-mode {
+      --accent: #60a5fa;
+      --accent-strong: #93c5fd;
+      --accent-light: #3b82f6;
+      --accent-bright: #93c5fd;
+      --accent-tint: #172338;
+      --bg: #0f172a;
+      --surface: #172338;
+      --border: #2f4268;
+      --text: #e7edf8;
+      --text-soft: #c3cfe5;
+      --text-muted: #9fb0cf;
+      --shadow: rgba(0, 0, 0, 0.40);
+      --btn-sm-bg: #1e2d4a;
+      --btn-sm-hover: #1b2a4a;
+      --badge-active-bg: #1e2d4a;
+      --badge-active-fg: #93c5fd;
+      --badge-pro-bg: #2d2b6b;
+      --badge-pro-fg: #c4b5fd;
+      --badge-expiring-bg: #33230f;
+      --badge-expiring-fg: #fbbf24;
+      --badge-expired-bg: #3b1f1c;
+      --badge-expired-fg: #fca5a5;
+      --badge-revoked-bg: #232a36;
+      --badge-revoked-fg: #9ca3af;
+      --msg-ok-bg: #1e2d4a;
+      --msg-ok-fg: #93c5fd;
+      --msg-err-bg: #3b1f1c;
+      --msg-err-fg: #fca5a5;
+      --table-line: #243350;
+      --key-cell: #c3cfe5;
+      --input-bg: #0f172a;
+    }
+
+    html.dark-mode header {
+      background: linear-gradient(90deg, #1e3a8a, #1e40af);
+    }
+    html.dark-mode .logout:hover { background: rgba(255,255,255,0.12); }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2b2b2b; background: #f4f7f6; line-height: 1.5; }
-    header { background: #1b6e5c; color: #fff; padding: 1rem 1.6rem; display: flex; align-items: center; justify-content: space-between; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: var(--text); background: var(--bg); line-height: 1.5; transition: background 0.2s, color 0.2s; }
+    header { background: linear-gradient(90deg, #1e40af, #2563eb); color: #fff; padding: 1rem 1.6rem; display: flex; align-items: center; justify-content: space-between; }
     header h1 { font-size: 1.3rem; }
     header .sub { font-size: 0.8rem; opacity: 0.85; }
     .wrap { max-width: 1100px; margin: 0 auto; padding: 1.4rem 1.6rem 3rem; }
-    .card { background: #fff; border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 1.4rem; }
-    .card h2 { font-size: 1rem; margin-bottom: 0.9rem; color: #1b6e5c; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 1.4rem; }
+    .card h2 { font-size: 1rem; margin-bottom: 0.9rem; color: var(--accent); }
     .form-row { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: flex-end; }
     .field { display: flex; flex-direction: column; gap: 0.25rem; }
-    .field label { font-size: 0.78rem; font-weight: 600; color: #555; }
+    .field label { font-size: 0.78rem; font-weight: 600; color: var(--text-soft); }
     input, button { font-family: inherit; }
-    select { font-family: inherit; padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; background: #fff; }
-    input { padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; }
+    select { font-family: inherit; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--input-bg); color: var(--text); }
+    input { padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--input-bg); color: var(--text); }
+    input::placeholder { color: var(--text-muted); }
     input#client-name { width: 12rem; }
     input#machine-id { width: 26rem; font-family: Consolas, monospace; }
     input#expires { width: 9rem; }
-    .btn { border: none; border-radius: 6px; padding: 0.55rem 1.1rem; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
-    .btn-primary { background: #1b6e5c; color: #fff; }
-    .btn-primary:hover { background: #155a4b; }
-    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; background: #eee; color: #333; }
-    .btn-sm:hover { background: #ddd; }
+    .btn { border: none; border-radius: 6px; padding: 0.55rem 1.1rem; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: background 0.15s, color 0.15s; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; background: var(--btn-sm-bg); color: var(--text); }
+    .btn-sm:hover { background: var(--btn-sm-hover); }
     .btn-danger { background: #b3473b; color: #fff; }
+    .btn-danger:hover { background: #8f362c; }
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-    th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid #eee; vertical-align: top; }
-    th { color: #666; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--table-line); vertical-align: top; }
+    th { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
     .badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
-    .badge.active { background: #e4f5ec; color: #16603f; }
-    .badge.expiring { background: #fff3e0; color: #9a5b00; }
-    .badge.expired { background: #fdecea; color: #a33327; }
-    .badge.revoked { background: #eee; color: #666; }
-    .badge.pro { background: #e6efff; color: #1a56db; }
-    .key-cell { font-family: Consolas, monospace; font-size: 0.72rem; word-break: break-all; color: #444; }
-    .hint { font-size: 0.75rem; color: #888; margin-top: 0.6rem; }
+    .badge.active { background: var(--badge-active-bg); color: var(--badge-active-fg); }
+    .badge.pro { background: var(--badge-pro-bg); color: var(--badge-pro-fg); }
+    .badge.expiring { background: var(--badge-expiring-bg); color: var(--badge-expiring-fg); }
+    .badge.expired { background: var(--badge-expired-bg); color: var(--badge-expired-fg); }
+    .badge.revoked { background: var(--badge-revoked-bg); color: var(--badge-revoked-fg); }
+    .key-cell { font-family: Consolas, monospace; font-size: 0.72rem; word-break: break-all; color: var(--key-cell); }
+    .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.6rem; }
     .msg { padding: 0.55rem 0.8rem; border-radius: 6px; font-size: 0.85rem; margin-top: 0.8rem; display: none; }
-    .msg.ok { display: block; background: #e4f5ec; color: #16603f; }
-    .msg.err { display: block; background: #fdecea; color: #a33327; }
-    .empty { color: #999; font-style: italic; padding: 1rem 0; }
+    .msg.ok { display: block; background: var(--msg-ok-bg); color: var(--msg-ok-fg); }
+    .msg.err { display: block; background: var(--msg-err-bg); color: var(--msg-err-fg); }
+    .empty { color: var(--text-muted); font-style: italic; padding: 1rem 0; }
     #login { max-width: 380px; margin: 5rem auto; }
     #login .card { padding: 2rem; }
     #login h1 { font-size: 1.2rem; margin-bottom: 0.3rem; }
-    #login p { font-size: 0.8rem; color: #777; margin-bottom: 1rem; }
+    #login p { font-size: 0.8rem; color: var(--text-soft); margin-bottom: 1rem; }
     #login input { width: 100%; margin-bottom: 0.8rem; text-align: center; font-size: 1.2rem; letter-spacing: 0.3em; }
     .logout { background: none; border: 1px solid rgba(255,255,255,0.5); color: #fff; }
     .logout:hover { background: rgba(255,255,255,0.12); }
+    .theme-btn { background: none; border: 1px solid rgba(255,255,255,0.5); color: #fff; }
+    .theme-btn:hover { background: rgba(255,255,255,0.12); }
+    #header-actions { display: flex; gap: 0.6rem; align-items: center; }
   </style>
 </head>
 <body>
@@ -61,6 +141,7 @@
       </div>
     </div>
     <div id="header-actions" style="display:none;">
+      <button class="btn theme-btn" id="theme-btn" title="Toggle light / dark mode">Dark</button>
       <button class="btn logout" id="logout-btn">Log out</button>
     </div>
   </header>
@@ -140,6 +221,24 @@
   <script>
     let token = sessionStorage.getItem('mizan_dash_token') || '';
 
+    // ---------- Theme: match the Mizan Suite blue accent + dark mode ----------
+    function applyTheme(dark) {
+      document.documentElement.classList.toggle('dark-mode', dark);
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent = dark ? 'Light' : 'Dark';
+    }
+    function initTheme() {
+      let dark = null;
+      try { dark = sessionStorage.getItem('mizan_dash_dark'); } catch (e) {}
+      if (dark === null) dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      applyTheme(!!dark);
+      document.getElementById('theme-btn').addEventListener('click', () => {
+        const next = !document.documentElement.classList.contains('dark-mode');
+        try { sessionStorage.setItem('mizan_dash_dark', next ? '1' : '0'); } catch (e) {}
+        applyTheme(next);
+      });
+    }
+
     function setMsg(el, text, type) {
       el.className = 'msg ' + (type || 'ok');
       el.textContent = text;
@@ -157,7 +256,7 @@
     }
 
     function login() { document.getElementById('login').style.display = 'block'; document.getElementById('main').style.display = 'none'; document.getElementById('header-actions').style.display = 'none'; }
-    function showMain() { document.getElementById('login').style.display = 'none'; document.getElementById('main').style.display = 'block'; document.getElementById('header-actions').style.display = 'block'; }
+    function showMain() { document.getElementById('login').style.display = 'none'; document.getElementById('main').style.display = 'block'; document.getElementById('header-actions').style.display = 'flex'; }
 
     function logout() {
       sessionStorage.removeItem('mizan_dash_token');
@@ -310,6 +409,7 @@
 
     document.getElementById('logout-btn').addEventListener('click', logout);
 
+    initTheme();
     if (token) { showMain(); loadLicenses().catch(() => login()); }
     else login();
   </script>
