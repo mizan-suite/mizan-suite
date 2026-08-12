@@ -779,7 +779,13 @@ function openWeighModal(product) {
     <div class="receipt-box" style="max-width:340px;">
       <div style="font-weight:bold; font-size:1.05rem; margin-bottom:0.2rem;">${I18N.t('cashier.weighTitle')}</div>
       <div class="hint-text" id="weigh-product-line" style="margin-bottom:0.6rem;"></div>
-      <input type="number" id="weigh-input" min="0" step="0.01" placeholder="${I18N.t('cashier.weightPlaceholder')}" style="width:100%; padding:0.6rem; font-size:1.1rem; margin-bottom:0.6rem; box-sizing:border-box;">
+      <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.6rem;">
+        <input type="number" id="weigh-input" min="0" step="0.01" placeholder="${I18N.t('cashier.weightPlaceholder')}" style="flex:1; padding:0.6rem; font-size:1.1rem; box-sizing:border-box;">
+        <div class="unit-toggle" style="display:flex; border:1px solid var(--border,#ccc); border-radius:6px; overflow:hidden;">
+          <button type="button" class="unit-toggle-btn" data-unit="kg" style="padding:0.55rem 0.7rem; background:var(--accent,#2f9e44); color:#fff; border:none; cursor:pointer; font-weight:600;">kg</button>
+          <button type="button" class="unit-toggle-btn" data-unit="g" style="padding:0.55rem 0.7rem; background:transparent; color:inherit; border:none; cursor:pointer;">g</button>
+        </div>
+      </div>
       <div style="display:flex; gap:0.4rem; margin-bottom:0.6rem;">
         <button class="btn btn-outline" id="weigh-scale-btn" type="button">${I18N.t('cashier.scaleConnect')}</button>
         <button class="btn btn-outline" id="weigh-tare-btn" type="button">${I18N.t('cashier.tare')}</button>
@@ -802,9 +808,26 @@ function openWeighModal(product) {
 
   const input = modal.querySelector('#weigh-input');
   const totalEl = modal.querySelector('#weigh-total');
+  let weighUnit = 'kg';
+  const kgBtn = modal.querySelector('.unit-toggle-btn[data-unit="kg"]');
+  const gBtn = modal.querySelector('.unit-toggle-btn[data-unit="g"]');
+  const kgToInput = (kg) => weighUnit === 'g' ? Math.round(Math.max(0, kg) * 1000) : Math.round(Math.max(0, kg) * 1000) / 1000;
+  const inputToKg = (v) => weighUnit === 'g' ? v / 1000 : v;
+  function applyUnitUI() {
+    kgBtn.style.background = weighUnit === 'kg' ? 'var(--accent,#2f9e44)' : 'transparent';
+    kgBtn.style.color = weighUnit === 'kg' ? '#fff' : 'inherit';
+    gBtn.style.background = weighUnit === 'g' ? 'var(--accent,#2f9e44)' : 'transparent';
+    gBtn.style.color = weighUnit === 'g' ? '#fff' : 'inherit';
+    input.placeholder = weighUnit === 'g' ? I18N.t('cashier.gramPlaceholder') : I18N.t('cashier.weightPlaceholder');
+    input.step = weighUnit === 'g' ? '1' : '0.01';
+    updateTotal();
+  }
+  kgBtn.addEventListener('click', () => { weighUnit = 'kg'; applyUnitUI(); input.focus(); });
+  gBtn.addEventListener('click', () => { weighUnit = 'g'; applyUnitUI(); input.focus(); });
   function updateTotal() {
     const w = parseFloat(input.value) || 0;
-    totalEl.textContent = (w * (Number(product.sale_price) || 0)).toFixed(2) + ' DA';
+    const kg = inputToKg(w);
+    totalEl.textContent = (kg * (Number(product.sale_price) || 0)).toFixed(2) + ' DA';
   }
   input.addEventListener('input', updateTotal);
   input.addEventListener('keydown', (e) => {
@@ -812,7 +835,7 @@ function openWeighModal(product) {
     if (e.key === 'Escape') closeWeighModal();
   });
   setTimeout(() => input.focus(), 50);
-  updateTotal();
+  applyUnitUI();
 
   // Web Serial scale: live readout + fills the input with the settled weight.
   if (window.akScaleSerial && window.akScaleSerial.supported()) {
@@ -831,7 +854,7 @@ function openWeighModal(product) {
             updateReadout();
           }, (kg) => {
             if (weighModalEl) {
-              input.value = Math.round(Math.max(0, kg - tareOffset) * 1000) / 1000;
+              input.value = kgToInput(kg - tareOffset);
               updateTotal();
             }
           }, (err) => {
@@ -861,7 +884,12 @@ function openWeighModal(product) {
 
     function updateReadout() {
       if (!weighModalEl || currentKg == null) return;
-      readout.textContent = I18N.t('cashier.scaleLive').replace('{weight}', Math.max(0, currentKg - tareOffset).toFixed(3));
+      const live = Math.max(0, currentKg - tareOffset);
+      if (weighUnit === 'g') {
+        readout.textContent = I18N.t('cashier.scaleLiveG').replace('{weight}', String(Math.round(live * 1000)));
+      } else {
+        readout.textContent = I18N.t('cashier.scaleLive').replace('{weight}', live.toFixed(3));
+      }
     }
 
     tareBtn.addEventListener('click', () => {
@@ -884,8 +912,10 @@ function openWeighModal(product) {
       window.akFocusFix && window.akFocusFix();
       return;
     }
+    const product = weighProduct;
+    const kg = weighUnit === 'g' ? w / 1000 : w;
     closeWeighModal();
-    addKgToCart(weighProduct, w);
+    addKgToCart(product, kg);
     window.akFocusFix && window.akFocusFix();
   });
   modal.querySelector('#weigh-cancel-btn').addEventListener('click', closeWeighModal);
