@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const nacl = require('tweetnacl');
 const util = require('tweetnacl-util');
+const dpapi = require('../license-tools/dpapi.js');
 
 const KEY_PREFIX = 'MZN-'; // must match license-tools/lib.js and electron/license.js
 
@@ -22,12 +23,13 @@ const KEY_PREFIX = 'MZN-'; // must match license-tools/lib.js and electron/licen
 // (license-tools/trial-private.key) - never the master private.key. Set
 // MIZAN_TRIAL_PRIVATE_KEY_B64 to the base64 secret (recommended), or
 // MIZAN_TRIAL_PRIVATE_KEY to a file path. Neither should ever be committed or
-// uploaded anywhere public.
+// uploaded anywhere public. The on-disk key is DPAPI-encrypted at rest
+// (trial-private.key.enc) and decrypted into memory here.
 function loadSecretKey() {
   const b64 = (process.env.MIZAN_TRIAL_PRIVATE_KEY_B64 || '').trim();
   if (b64) return util.decodeBase64(b64);
   const file = process.env.MIZAN_TRIAL_PRIVATE_KEY || path.join(__dirname, '..', 'license-tools', 'trial-private.key');
-  return util.decodeBase64(fs.readFileSync(file, 'utf8').trim());
+  return util.decodeBase64(dpapi.readSecret(file).trim());
 }
 
 // Signs a payload exactly like license-tools/lib.js signLicense().

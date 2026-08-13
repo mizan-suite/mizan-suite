@@ -17,7 +17,7 @@ console.log('before:', before.status);
 // the "installed license" state by re-signing the current machine id.
 const nacl = require('tweetnacl');
 const util = require('tweetnacl-util');
-const priv = util.decodeBase64(fs.readFileSync(path.join(__dirname, 'private.key'), 'utf8').trim());
+const priv = util.decodeBase64(require('./dpapi.js').readSecret(path.join(__dirname, 'private.key')).trim());
 const mid = license.getMachineId();
 const payload = { client: 'Mizan (dev machine)', machineId: mid, expires: null, issued: new Date().toISOString().slice(0, 10) };
 const bytes = util.decodeUTF8(JSON.stringify(payload));

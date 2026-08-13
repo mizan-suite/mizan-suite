@@ -1,15 +1,19 @@
 # Secrets - NEVER commit these
 license-tools/private.key
+license-tools/private.key.enc
 license-tools/trial-private.key
+license-tools/trial-private.key.enc
 license-tools/licenses.json
 license-tools/backup.env.json
 license-dashboard/server/private.key
+license-dashboard/server/private.key.enc
 .scanner-certs/
 
 # Runtime / local data
 trial/ledger.json
 trial/queue.json
 trial/signer.env.json
+trial/signer.env.json.enc
 dist/
 node_modules/
 mizan.db*

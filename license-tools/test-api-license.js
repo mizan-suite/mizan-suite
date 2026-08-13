@@ -7,7 +7,7 @@ const nacl = require('tweetnacl');
 const util = require('tweetnacl-util');
 const { spawn } = require('child_process');
 
-const priv = util.decodeBase64(fs.readFileSync(path.join(__dirname, 'private.key'), 'utf8').trim());
+const priv = util.decodeBase64(require('./dpapi.js').readSecret(path.join(__dirname, 'private.key')).trim());
 const payload = { client: 'API Test Pharmacy', machineId: null, expires: '2027-01-01', issued: '2026-08-07' };
 const bytes = util.decodeUTF8(JSON.stringify(payload));
 const sig = nacl.sign.detached(bytes, priv);

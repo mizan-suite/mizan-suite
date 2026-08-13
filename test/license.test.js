@@ -173,6 +173,46 @@ test('clock rollback is detected', () => {
   assert.strictEqual(rb.status, 'clock_rollback');
 });
 
+test('a machine-bound key is refused, not unlocked, when the fingerprint cannot be read', () => {
+  // A machine-locked license must NEVER silently unlock just because the
+  // fingerprint reader is unavailable (that would let a clone work anywhere).
+  const key = makeKey({ client: 'Cloned Risk', machineId: 'should-be-required', expires: '2030-01-01', issued: '2026-08-07' });
+
+  const nmid = require('node-machine-id');
+  const orig = nmid.machineIdSync;
+  nmid.machineIdSync = () => { throw new Error('reader unavailable'); };
+  try {
+    const r = license.verifyLicense(key, new Date('2026-08-07').getTime(), TEST_PUB);
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.reason, 'machine_unavailable');
+  } finally {
+    nmid.machineIdSync = orig;
+  }
+});
+
+test('machine_unavailable gets a grace window but eventually locks', () => {
+  const dir = makeUserDataDir();
+  const key = makeKey({ client: 'Reader Blip', machineId: 'blip', tier: 'pro', expires: '2030-01-01', issued: '2026-08-07' });
+  license.saveLicense(dir, key);
+  license.touchLastValid(dir, new Date('2026-08-07').getTime());
+
+  const nmid = require('node-machine-id');
+  const orig = nmid.machineIdSync;
+  nmid.machineIdSync = () => { throw new Error('reader unavailable'); };
+  try {
+    // within 3-day grace -> still allowed (transient failure isn't a cold-lock)
+    const grace = license.checkLicenseStatus(dir, new Date('2026-08-08').getTime(), TEST_PUB);
+    assert.strictEqual(grace.status, 'ok');
+    assert.strictEqual(grace.reason, 'machine_grace');
+
+    // beyond grace -> locked until the fingerprint can be read again
+    const blocked = license.checkLicenseStatus(dir, new Date('2026-08-20').getTime(), TEST_PUB);
+    assert.strictEqual(blocked.status, 'machine_unavailable');
+  } finally {
+    nmid.machineIdSync = orig;
+  }
+});
+
 test('stored license persists between calls and can be cleared', () => {
   const dir = makeUserDataDir();
   assert.strictEqual(license.loadStoredLicense(dir), null);

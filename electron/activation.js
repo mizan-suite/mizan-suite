@@ -14,6 +14,7 @@ const REASONS = {
   invalid_signature: 'Cette clé de licence n\'est pas valide pour ce logiciel.',
   expired: 'Cette licence a expiré. Contactez votre fournisseur de logiciel pour une nouvelle clé.',
   wrong_machine: 'Cette clé de licence appartient à un autre ordinateur.',
+  machine_unavailable: 'Impossible de lire l\'identifiant de cet ordinateur. Redémarrez l\'application et réessayez.',
   clock_rollback: 'L\'horloge de l\'ordinateur a été reculée. Corrigez la date et l\'heure, puis redémarrez l\'application.',
   unknown: 'Cette licence n\'a pas pu être vérifiée.'
 };

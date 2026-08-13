@@ -38,7 +38,7 @@ const st = license.checkLicenseStatus(tmp, new Date('2026-08-07').getTime());
 console.log('status after license:', st.status, 'client:', st.client);
 
 // 7. wrong_machine grace: save a REAL key signed for a different machine, check within grace
-const priv = util.decodeBase64(fs.readFileSync(path.join(__dirname, 'private.key'), 'utf8').trim());
+const priv = util.decodeBase64(require('./dpapi.js').readSecret(path.join(__dirname, 'private.key')).trim());
 const otherPayload = { client: 'Other Pharmacy', machineId: '0000000000000000000000000000000000000000000000000000000000000000', expires: '2028-01-01', issued: '2026-08-07' };
 const otherBytes = util.decodeUTF8(JSON.stringify(otherPayload));
 const otherSig = nacl.sign.detached(otherBytes, priv);

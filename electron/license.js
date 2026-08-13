@@ -54,7 +54,9 @@ function parseLicenseKey(keyString) {
 // the trial public key (trial keys are signed on the trial server with a key
 // that is never allowed to create paid licenses).
 // `publicKeyOverride` is used only by tests to verify against a throwaway keypair.
-function verifyLicense(keyString, nowMs = Date.now(), publicKeyOverride) {
+// `userDataDir` lets the machine check fall back to the last known fingerprint
+// when the fingerprint reader is temporarily unavailable.
+function verifyLicense(keyString, nowMs = Date.now(), publicKeyOverride, userDataDir) {
   const parsed = parseLicenseKey(keyString);
   if (!parsed) return { ok: false, reason: 'invalid_key' };
 
@@ -90,7 +92,14 @@ function verifyLicense(keyString, nowMs = Date.now(), publicKeyOverride) {
   // Machine check: only enforced if the license carries a machineId.
   if (payload.machineId) {
     const current = getMachineId();
-    if (current && payload.machineId !== current) {
+    if (current === null) {
+      // The hardware fingerprint cannot be read AT ALL. Never silently unlock:
+      // an attacker could break machine-id reading and clone a license onto
+      // another PC. Refuse with a clear reason instead. checkLicenseStatus
+      // still grants the short grace window for a legitimate transient failure.
+      return { ok: false, reason: 'machine_unavailable', payload };
+    }
+    if (payload.machineId !== current) {
       return { ok: false, reason: 'wrong_machine', payload };
     }
   }
@@ -98,11 +107,14 @@ function verifyLicense(keyString, nowMs = Date.now(), publicKeyOverride) {
   return { ok: true, payload };
 }
 
-// Stable hardware fingerprint. Falls back to null if unavailable (then machine
-// locking is skipped, which is the right thing for a broken/odd environment).
+// Stable hardware fingerprint. Returns null if unavailable; callers MUST treat
+// null as "cannot verify" (never as "unlocked") - verifyLicense refuses with
+// machine_unavailable and checkLicenseStatus applies the grace window.
+// Resolves machine-id at call time (rather than destructuring at load) so tests
+// can stub the reader to exercise the unavailable path.
 function getMachineId() {
   try {
-    return machineIdSync();
+    return require('node-machine-id').machineIdSync();
   } catch (e) {
     return null;
   }
@@ -171,7 +183,9 @@ function tierOf(payload) {
 //   3. expired                                -> expired (needs renewal key)
 //   4. machine mismatch, within grace         -> ok (warned), grace continues
 //   5. machine mismatch, grace over           -> wrong_machine
-//   6. clock moved backwards suspiciously     -> clock_rollback
+//   6. fingerprint unreadable, within grace   -> ok (warned), grace continues
+//   7. fingerprint unreadable, grace over     -> machine_unavailable
+//   8. clock moved backwards suspiciously     -> clock_rollback
 // Returns { status, reason?, payload?, client? }.
 function checkLicenseStatus(userDataDir, nowMs = Date.now(), publicKeyOverride) {
   const key = loadStoredLicense(userDataDir);
@@ -179,13 +193,15 @@ function checkLicenseStatus(userDataDir, nowMs = Date.now(), publicKeyOverride) 
 
   const result = verifyLicense(key, nowMs, publicKeyOverride);
   if (!result.ok) {
-    if (result.reason === 'wrong_machine') {
-      // Grace period on hardware change.
+    if (result.reason === 'wrong_machine' || result.reason === 'machine_unavailable') {
+      // Grace period on hardware change OR on a transient fingerprint-read
+      // failure. Never a permanent unlock: once the window passes the app
+      // refuses to run until a working fingerprint can be read again.
       const last = lastValidTime(userDataDir);
       if (last !== null && nowMs - last <= GRACE_MS && nowMs >= last) {
         return { status: 'ok', reason: 'machine_grace', client: result.payload ? result.payload.client : null, payload: result.payload, tier: tierOf(result.payload) };
       }
-      return { status: 'wrong_machine', reason: 'wrong_machine', client: result.payload ? result.payload.client : null };
+      return { status: result.reason, reason: result.reason, client: result.payload ? result.payload.client : null };
     }
     if (result.reason === 'expired') return { status: 'expired', reason: 'expired', client: result.payload ? result.payload.client : null };
     return { status: 'invalid', reason: result.reason };

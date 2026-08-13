@@ -6,11 +6,15 @@ const fs = require('fs');
 const path = require('path');
 const nacl = require('tweetnacl');
 const util = require('tweetnacl-util');
+const dpapi = require('./dpapi.js');
 
 const KEY_PREFIX = 'MZN-'; // must match electron/license.js and generate-license.js
 
 function keyFiles() {
   return {
+    // The private key may exist as plaintext (private.key) OR DPAPI-encrypted
+    // (private.key.enc). The .enc variant is preferred and never leaves the disk
+    // in plaintext; readSecret decrypts it into memory only.
     privateKeyFile: path.join(__dirname, 'private.key'),
     publicKeyFile: path.join(__dirname, 'public.key')
   };
@@ -20,7 +24,7 @@ function keyFiles() {
 function loadKeypair() {
   const { privateKeyFile, publicKeyFile } = keyFiles();
   return {
-    secretKey: util.decodeBase64(fs.readFileSync(privateKeyFile, 'utf8').trim()),
+    secretKey: util.decodeBase64(dpapi.readSecret(privateKeyFile).trim()),
     publicKey: util.decodeBase64(fs.readFileSync(publicKeyFile, 'utf8').trim())
   };
 }

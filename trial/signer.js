@@ -31,12 +31,33 @@ const path = require('path');
 
 const SCHEDULE_PATH = process.env.MIZAN_SCHEDULE_PATH || path.join(__dirname, 'schedule.json');
 
-// Optional local secret file (trial/signer.env.json). Keeps tokens out of the
-// Windows Task Scheduler definition. Created by install-signer-task.ps1.
+// Secrets live in trial/signer.env.json.enc (DPAPI-encrypted, user-bound) or
+// fall back to trial/signer.env.json for older setups. Real env vars always win.
 function loadEnvFile() {
+  const { execFileSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+  const encFile = path.join(__dirname, 'signer.env.json.enc');
+  const plainFile = path.join(__dirname, 'signer.env.json');
+  let raw = null;
+  if (fs.existsSync(encFile)) {
+    try {
+      raw = execFileSync('powershell', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', path.join(__dirname, 'dpapi.ps1'),
+        '-Action', 'decrypt',
+        '-Path', encFile
+      ], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    } catch (e) {
+      log('ERROR: could not decrypt signer.env.json.enc:', e.message);
+      raw = null;
+    }
+  } else if (fs.existsSync(plainFile)) {
+    raw = fs.readFileSync(plainFile, 'utf8');
+  }
+  if (!raw) return;
+  if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
   try {
-    let raw = fs.readFileSync(path.join(__dirname, 'signer.env.json'), 'utf8');
-    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
     const obj = JSON.parse(raw);
     for (const k of Object.keys(obj)) {
       if (process.env[k] === undefined && typeof obj[k] === 'string') process.env[k] = obj[k];
