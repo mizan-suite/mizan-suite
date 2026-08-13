@@ -903,7 +903,15 @@ app.put('/api/staff/:id', (req, res) => {
 // already clocked in. Owners may clock anyone; a worker may only clock themself.
 // Returns { action: 'in'|'out', entry }.
 app.post('/api/time-entries/clock', (req, res) => {
-  const userId = Number(req.body.user_id);
+  // A worker may omit user_id to clock themselves in/out; the owner must pick.
+  let userId = req.body.user_id === undefined ? null : Number(req.body.user_id);
+  if (userId === null) {
+    const session = currentSession(req);
+    if (!session || session.role !== 'worker') {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+    userId = session.userId;
+  }
   if (!isOwnerOrSelf(req, userId)) {
     return res.status(403).json({ error: 'This action requires the owner account' });
   }

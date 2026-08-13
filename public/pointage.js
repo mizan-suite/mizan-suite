@@ -74,12 +74,13 @@ function renderLeaveWorkerSelect() {
 }
 
 function openEntryFor(workerId) {
+  if (!isOwner) return entriesCache.find(e => !e.clock_out) || null;
   const id = Number(workerId);
   return entriesCache.find(e => e.user_id === id && !e.clock_out) || null;
 }
 
 function updateClockBtn() {
-  const open = openEntryFor(workerSel.value);
+  const open = isOwner ? openEntryFor(workerSel.value) : openEntryFor();
   clockBtn.textContent = open ? I18N.t('pointage.clockOut') : I18N.t('pointage.clockIn');
 }
 
@@ -337,19 +338,19 @@ workerSel.addEventListener('change', updateClockBtn);
 
 clockBtn.addEventListener('click', async () => {
   const id = Number(workerSel.value);
-  if (!id) { alert(I18N.t('pointage.noWorker')); return; }
+  if (isOwner && !id) { alert(I18N.t('pointage.noWorker')); return; }
   const res = await fetch('/api/time-entries/clock', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: id })
+    body: JSON.stringify(isOwner ? { user_id: id } : {})
   });
   if (!res.ok) {
     alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
     return;
   }
   const data = await res.json();
-  const worker = staffCache.find(w => w.id === id);
-  const name = worker ? worker.name : String(id);
+  const worker = isOwner ? staffCache.find(w => w.id === id) : null;
+  const name = worker ? worker.name : (window.AK_NAME || String(id));
   if (data.action === 'in') {
     alert(I18N.t('pointage.clockedIn').replace('{name}', name).replace('{time}', data.entry.clock_in));
   } else {
@@ -440,6 +441,19 @@ if (isOwner) {
   exportCsv.style.display = 'none';
   exportExcel.style.display = 'none';
   exportPdf.style.display = 'none';
+  // Workers only clock themselves: make the button the centre of the page.
+  clockBtn.classList.add('btn-lg');
+  clockBtn.style.flex = '1';
+  clockBtn.style.maxWidth = '320px';
+  clockBtn.style.fontSize = '1.1rem';
+  const hint = document.createElement('div');
+  hint.id = 'worker-clock-hint';
+  hint.className = 'hint-text';
+  hint.style.margin = '0.5rem 0 1rem';
+  hint.textContent = window.AK_NAME
+    ? I18N.t('pointage.workerClockHint').replace('{name}', window.AK_NAME)
+    : I18N.t('pointage.clockIn');
+  clockBtn.parentElement.parentElement.insertBefore(hint, clockBtn.parentElement.nextSibling);
 }
 
 loadPointage();

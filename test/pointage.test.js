@@ -118,6 +118,32 @@ test('attendance endpoint enforces scope', async () => {
   assert.strictEqual(cr.status, 403, JSON.stringify(cr.data));
 });
 
+test('a worker can clock themselves in and out without a user_id', async () => {
+  // Fresh worker so the seeded open entry on Walid (08-04) can't interfere.
+  const w = await srv.request('POST', '/api/users', {
+    name: 'Bouzid', pin: '333444', role: 'worker', permissions: ['pointage']
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(w.status, 201, JSON.stringify(w.data));
+  const lr = await srv.request('POST', '/api/auth/login', { name: 'Bouzid', pin: '333444' });
+  assert.strictEqual(lr.status, 200, JSON.stringify(lr.data));
+  const cookie = lr.setCookie().split(';')[0];
+
+  // Worker posts with an empty body - the server clocks the logged-in worker.
+  const inRes = await srv.request('POST', '/api/time-entries/clock', {}, { Cookie: cookie });
+  assert.strictEqual(inRes.status, 201, JSON.stringify(inRes.data));
+  assert.strictEqual(inRes.data.action, 'in');
+  assert.strictEqual(inRes.data.entry.user_id, w.data.id);
+
+  const outRes = await srv.request('POST', '/api/time-entries/clock', {}, { Cookie: cookie });
+  assert.strictEqual(outRes.status, 200, JSON.stringify(outRes.data));
+  assert.strictEqual(outRes.data.action, 'out');
+  assert.ok(outRes.data.entry.clock_out, 'clock-out is stamped');
+
+  // The owner still needs to pick a worker explicitly.
+  const ownerNoId = await srv.request('POST', '/api/time-entries/clock', {}, { Cookie: ownerCookie });
+  assert.strictEqual(ownerNoId.status, 400, JSON.stringify(ownerNoId.data));
+});
+
 test('attendance CSV export includes the status column', async () => {
   const res = await srv.request('GET', `/api/export/csv?type=attendance&from=${FROM}&to=${TO}`, undefined, { Cookie: ownerCookie });
   assert.strictEqual(res.status, 200, String(res.data));

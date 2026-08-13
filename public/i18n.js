@@ -1352,6 +1352,12 @@ const I18N = (function () {
       'pointage.exportCsv': 'Export CSV',
       'pointage.exportExcel': 'Export Excel',
       'pointage.exportPdf': 'Export PDF',
+      'pointage.late': 'Late',
+      'pointage.lateShort': 'L',
+      'pointage.lateTooltip': 'Late {min} min - clocked in at {in}, expected {shift}',
+      'pointage.missingClockout': 'Missing clock-out',
+      'pointage.missingShort': 'M',
+      'pointage.workerClockHint': 'Hi {name} - press the button to clock in or out.',
 
       // ---------- Administration: Payroll ----------
       'payroll.title': 'Payroll',
@@ -2743,6 +2749,12 @@ const I18N = (function () {
       'pointage.exportCsv': 'Exporter CSV',
       'pointage.exportExcel': 'Exporter Excel',
       'pointage.exportPdf': 'Exporter PDF',
+      'pointage.late': 'Retard',
+      'pointage.lateShort': 'R',
+      'pointage.lateTooltip': 'Retard {min} min - pointage à {in}, attendu {shift}',
+      'pointage.missingClockout': 'Pointage de sortie manquant',
+      'pointage.missingShort': 'M',
+      'pointage.workerClockHint': 'Bonjour {name} - appuyez sur le bouton pour pointer à l\'entrée ou à la sortie.',
 
       // ---------- Administration: Paie ----------
       'payroll.title': 'Paie',
@@ -4081,6 +4093,12 @@ const I18N = (function () {
       'pointage.exportCsv': 'تصدير CSV',
       'pointage.exportExcel': 'تصدير Excel',
       'pointage.exportPdf': 'تصدير PDF',
+      'pointage.late': 'متأخر',
+      'pointage.lateShort': 'ت',
+      'pointage.lateTooltip': 'تأخر {min} دقيقة - الحضور {in}، المتوقع {shift}',
+      'pointage.missingClockout': 'تسجيل خروج ناقص',
+      'pointage.missingShort': 'ن',
+      'pointage.workerClockHint': 'مرحبا {name} - اضغط الزر لتسجيل الدخول أو الخروج.',
       'pointage.late': 'متأخر',
       'pointage.lateShort': 'ت',
       'pointage.lateTooltip': 'تأخر {min} دقيقة - الحضور {in}، المتوقع {shift}',
