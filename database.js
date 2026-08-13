@@ -310,6 +310,27 @@ const MIGRATIONS = [
       `);
       db.exec(`CREATE INDEX IF NOT EXISTS idx_leave_date ON leave_entries(user_id, leave_date)`);
     }
+  },
+  {
+    version: 24,
+    name: 'lan_devices (owner-approved access for cashier terminals / browser registers)',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lan_devices (
+          token TEXT PRIMARY KEY,
+          status TEXT NOT NULL DEFAULT 'pending',
+          name TEXT NOT NULL,
+          code_hash TEXT,
+          code_expires TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          approved_at TEXT,
+          denied_at TEXT,
+          revoked_at TEXT,
+          last_seen TEXT
+        )
+      `);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_lan_devices_status ON lan_devices(status, created_at)`);
+    }
   }
 ];
 

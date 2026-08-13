@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mizan Suite - Settings</title>
-  <script>try{var t=localStorage.getItem('mizan_theme');if(t)document.documentElement.setAttribute('data-theme',t);var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('mizan_theme');document.documentElement.setAttribute('data-theme',t||'blue');var d=localStorage.getItem('mizan_dark');if(d==='true')document.documentElement.classList.add('dark-mode');var l=localStorage.getItem('mizan_lang');if(l==='ar'||l==='fr'){document.documentElement.lang=l;}if(l==='ar')document.documentElement.dir='rtl';}catch(e){}</script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="dark-mode.css">
   <link rel="stylesheet" href="themes.css">
@@ -33,12 +33,12 @@
         <label data-i18n="settings.theme">Theme</label>
         <div class="theme-picker" id="theme-picker">
           <label class="theme-option">
-            <input type="radio" name="theme" value="green" checked>
+            <input type="radio" name="theme" value="green">
             <span class="theme-swatch" style="--sw:#1b6e5c;"></span>
             <span data-i18n="settings.themeGreen">Green</span>
           </label>
           <label class="theme-option">
-            <input type="radio" name="theme" value="blue">
+            <input type="radio" name="theme" value="blue" checked>
             <span class="theme-swatch" style="--sw:#2563eb;"></span>
             <span data-i18n="settings.themeBlue">Blue</span>
           </label>
@@ -292,6 +292,16 @@
         <button type="button" id="contact-support-btn" class="btn" data-i18n="settings.contactSupport">Contact Mizan Suite support</button>
         <button type="button" id="help-guide-btn" class="btn btn-outline" data-i18n="settings.howToUse">How to use this software</button>
       </div>
+    </div>
+
+    
+    <div class="product-form">
+      <h2 data-i18n="settings.devicesSection">Devices on this network</h2>
+      <p class="hint-text" data-i18n="settings.devicesHint">Cashier PCs and phones ask the owner here for permission before they can use the register. Approve a device with the code shown on its screen to let it in. Revoked devices lose access immediately.</p>
+      <h3 data-i18n="settings.pendingDevices">Waiting for approval</h3>
+      <div id="device-pending-list"><p class="hint-text" data-i18n="settings.noPendingDevices">No devices waiting for approval right now.</p></div>
+      <h3 data-i18n="settings.approvedDevices">Approved devices</h3>
+      <div id="device-approved-list"><p class="hint-text" data-i18n="settings.noApprovedDevices">No approved devices yet.</p></div>
     </div>
 
     <button id="save-settings-btn" class="btn" data-i18n="settings.saveSettings">Save Settings</button>

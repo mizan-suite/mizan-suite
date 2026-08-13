@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Device Access</title>
+  <link rel="stylesheet" href="device-bootstrap.css">
+</head>
+<body>
+  <div class="da-card">
+    <div class="da-logo" id="da-logo">M</div>
+    <h1 class="da-title">Mizan Suite</h1>
+
+    <div id="da-request" hidden>
+      <p class="da-sub">This device is not yet allowed to use the register. Ask the owner to approve it.</p>
+      <div class="da-field">
+        <label for="da-name">Device name</label>
+        <input id="da-name" type="text" maxlength="60" placeholder="e.g. Cashier 1">
+      </div>
+      <div class="da-field">
+        <button id="da-request-btn" type="button">Request access</button>
+      </div>
+    </div>
+
+    <div id="da-pending" hidden>
+      <div class="da-loader"></div>
+      <p class="da-sub">Waiting for the owner to approve this device…</p>
+      <div class="da-code-wrap">
+        <span class="da-code-label">Give this code to the owner</span>
+        <div class="da-code" id="da-code">------</div>
+      </div>
+      <p class="da-hint">Codes expire in 10 minutes. This page will open the register automatically once approved.</p>
+      <p class="da-hint">If nothing happens after approval, refresh this page.</p>
+    </div>
+
+    <div id="da-denied" hidden>
+      <p class="da-sub">This device was denied or revoked. Contact the owner to request access again.</p>
+      <p class="da-hint">You can try again with a new request, but only the owner can approve it.</p>
+      <div class="da-field">
+        <button id="da-retry-btn" type="button">Try again</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="device-access.js"></script>
+</body>
+</html>

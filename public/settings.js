@@ -86,7 +86,7 @@ async function loadSettings() {
   const res = await fetch('/api/settings');
   const s = await res.json();
   darkToggle.checked = s.dark_mode === 'true';
-  setTheme(s.theme || 'green');
+  setTheme(s.theme || 'blue');
   printerInput.value = s.printer_name || '';
   labelPrinterInput.value = s.label_printer_name || '';
   a4PrinterInput.value = s.a4_printer_name || '';
@@ -258,7 +258,7 @@ document.getElementById('save-settings-btn').addEventListener('click', async () 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       dark_mode: darkToggle.checked,
-      theme: (themeRadios.find(r => r.checked) || {}).value || 'green',
+      theme: (themeRadios.find(r => r.checked) || {}).value || 'blue',
       printer_name: printerInput.value,
       label_printer_name: labelPrinterInput.value,
       a4_printer_name: a4PrinterInput.value,
@@ -281,7 +281,7 @@ document.getElementById('save-settings-btn').addEventListener('click', async () 
 
   if (res.ok) {
     try {
-      localStorage.setItem('mizan_theme', (themeRadios.find(r => r.checked) || {}).value || 'green');
+      localStorage.setItem('mizan_theme', (themeRadios.find(r => r.checked) || {}).value || 'blue');
     } catch (e) {}
   }
   messageEl.textContent = res.ok ? I18N.t('settings.saved') : I18N.t('settings.saveError');
@@ -774,3 +774,70 @@ document.getElementById('audit-refresh-btn').addEventListener('click', loadAudit
 if (auditFilterEl) auditFilterEl.addEventListener('change', loadAudit);
 
 loadLicenseInfo();
+
+// ---------- DEVICES (LAN register approval) ----------
+async function loadDevices() {
+  const pendingEl = document.getElementById('device-pending-list');
+  const approvedEl = document.getElementById('device-approved-list');
+  if (!pendingEl || !approvedEl) return;
+  const res = await fetch('/api/device/list');
+  if (!res.ok) return;
+  const rows = await res.json();
+  const pending = rows.filter(r => r.status === 'pending');
+  const approved = rows.filter(r => r.status === 'approved');
+  if (pending.length) {
+    pendingEl.innerHTML = pending.map(d => {
+      return '<div class="device-row" style="padding:8px 0;border-bottom:1px solid #eee;">' +
+        '<div><strong>' + escapeHtml(d.name) + '</strong> <span class="hint-text">(' + escapeHtml(new Date(d.created_at).toLocaleString()) + ')</span></div>' +
+        '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">' +
+          '<input type="text" placeholder="6-digit code" maxlength="6" style="width:130px;padding:5px;" data-code-for="' + escapeHtml(d.token) + '">' +
+          '<button class="btn btn-sm" data-approve="' + escapeHtml(d.token) + '">Approve</button>' +
+          '<button class="btn btn-sm btn-outline" data-deny="' + escapeHtml(d.token) + '">Deny</button>' +
+        '</div></div>';
+    }).join('');
+  } else {
+    pendingEl.innerHTML = '<p class="hint-text">No devices waiting for approval.</p>';
+  }
+  if (approved.length) {
+    approvedEl.innerHTML = approved.map(d => {
+      const seen = d.last_seen ? ' / last seen ' + escapeHtml(new Date(d.last_seen).toLocaleString()) : '';
+      return '<div class="device-row" style="padding:8px 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+        '<div><strong>' + escapeHtml(d.name) + '</strong> <span class="hint-text">(approved ' + escapeHtml(new Date(d.approved_at).toLocaleString()) + ')' + seen + '</span></div>' +
+        '<button class="btn btn-sm btn-close" data-revoke="' + escapeHtml(d.token) + '">Revoke</button>' +
+      '</div>';
+    }).join('');
+  } else {
+    approvedEl.innerHTML = '<p class="hint-text">No approved devices yet.</p>';
+  }
+}
+
+document.addEventListener('click', async (e) => {
+  const approve = e.target.closest('[data-approve]');
+  const deny = e.target.closest('[data-deny]');
+  const revoke = e.target.closest('[data-revoke]');
+  if (approve) {
+    const token = approve.getAttribute('data-approve');
+    const codeInput = document.querySelector('[data-code-for="' + token + '"]');
+    const code = codeInput ? codeInput.value.trim() : '';
+    const res = await fetch('/api/device/' + encodeURIComponent(token) + '/pending', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) { loadDevices(); }
+    else { alert(data.error || 'Could not approve device'); }
+  } else if (deny) {
+    const token = deny.getAttribute('data-deny');
+    await fetch('/api/device/' + encodeURIComponent(token) + '/deny', { method: 'POST' });
+    loadDevices();
+  } else if (revoke) {
+    const token = revoke.getAttribute('data-revoke');
+    if (confirm('Revoke access for this device?')) {
+      await fetch('/api/device/' + encodeURIComponent(token) + '/revoke', { method: 'POST' });
+      loadDevices();
+    }
+  }
+});
+
+loadDevices();
+setInterval(loadDevices, 5000);

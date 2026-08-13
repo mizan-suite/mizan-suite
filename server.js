@@ -106,6 +106,51 @@ function lanAllowedOnHttps(req) {
   return LAN_API_ALLOW.some(a => a.method === req.method && a.path === url);
 }
 
+const DEVICE_CODE_TTL_MS = 10 * 60 * 1000; // approval codes last 10 minutes
+
+function deviceTokenFrom(req) {
+  return parseCookies(req).mizan_device || null;
+}
+
+function isApprovedDevice(req) {
+  const token = deviceTokenFrom(req);
+  if (!token) return false;
+  const row = db.prepare('SELECT status FROM lan_devices WHERE token = ?').get(token);
+  return !!(row && row.status === 'approved');
+}
+
+function isDeviceManagementUrl(url) {
+  return url === '/device-access.html' || url === '/device-access.js' || url === '/device-bootstrap.css' || url === '/api/device/request' || url === '/api/device/status';
+}
+
+function serveDeviceAccessPage(res) {
+  const fs2 = require('fs');
+  const html = fs2.readFileSync(path.join(__dirname, 'public', 'device-access.html'), 'utf8');
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.end(html);
+}
+
+function makeDeviceCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function hashDeviceCode(code) {
+  return crypto.createHash('sha256').update('mizan-device-approval' + code).digest('hex');
+}
+
+function httpsAccessDecision(req) {
+  const url = req.originalUrl.split('?')[0];
+  if (isDeviceManagementUrl(url)) return { allow: true, page: true };
+  if (isApprovedDevice(req)) return { allow: true };
+  if (lanAllowedOnHttps(req)) {
+    const token = deviceTokenFrom(req);
+    if (!token && (url === '/' || url === '/index.html')) return { allow: false, page: true };
+    return { allow: true };
+  }
+  return { allow: false };
+}
+
 function isLoopbackRequest(req) {
   const ip = req.socket && req.socket.remoteAddress;
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || !ip;
@@ -540,6 +585,9 @@ function requireAuth(req, res, next) {
   const url = req.originalUrl.split('?')[0];
   if (url.startsWith('/api/auth/')) return next();
   if (url === '/api/scan/pair' || url === '/api/scan/submit') return next();
+  // A device that hasn't been approved yet must be able to request access and
+  // poll the owner's decision before it has any account session.
+  if (url === '/api/device/request' || url === '/api/device/status') return next();
   // The login screen must be able to load the saved language/theme before the
   // user signs in, so GET /api/settings is readable without a session.
   if (url === '/api/settings' && req.method === 'GET') return next();
@@ -5149,10 +5197,18 @@ async function startHttpsServer() {
     return;
   }
   const httpsServer = https.createServer({ key, cert }, (req, res) => {
-    // LAN clients may only reach the phone-facing surface; loopback keeps the
-    // full app (same as the loopback HTTP listener).
-    if (isLoopbackRequest(req) || lanAllowedOnHttps(req)) {
+    // Loopback keeps the full app (same as the loopback HTTP listener). Other
+    // LAN clients get the app only once their device is owner-approved (see the
+    // DEVICE ACCESS section); the existing phone surface stays reachable too.
+    if (isLoopbackRequest(req)) {
       return app(req, res);
+    }
+    const decision = httpsAccessDecision(req, res);
+    if (decision.allow) {
+      return app(req, res);
+    }
+    if (decision.page) {
+      return serveDeviceAccessPage(res);
     }
     res.statusCode = 403;
     res.setHeader('Content-Type', 'application/json');
@@ -5169,6 +5225,113 @@ async function startHttpsServer() {
     console.log(`Phone scanner ready - open https://<this-PC-IP>:${port}/scan.html`);
   });
 }
+
+// ---------- DEVICE REQUEST / STATUS APIs ----------
+// The request-access page and the approved browser both talk to these. They are
+// reachable from the LAN on purpose (they are what lets a device ask to join and
+// check whether the owner said yes yet). Approve/deny/revoke/list are owner-only.
+
+// POST /api/device/request - ask for access. Creates or refreshes the pending
+// record for this browser's token, and hands back a 6-digit code for the owner.
+app.post('/api/device/request', (req, res) => {
+  if (!hasAccounts()) {
+    return res.status(403).json({ error: 'Set up the owner account on the host PC first.' });
+  }
+  let token = deviceTokenFrom(req);
+  if (!token) {
+    token = crypto.randomBytes(24).toString('hex');
+    res.setHeader('Set-Cookie', `mizan_device=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000`);
+  }
+  const name = String(req.body && req.body.name ? req.body.name : '').trim().slice(0, 60) || 'Unknown device';
+  const code = makeDeviceCode();
+  const expires = new Date(Date.now() + DEVICE_CODE_TTL_MS).toISOString();
+  const existing = db.prepare('SELECT status FROM lan_devices WHERE token = ?').get(token);
+  if (existing && existing.status === 'approved') {
+    // Already trusted: nothing to request.
+    return res.json({ status: 'approved', token });
+  }
+  if (existing && existing.status === 'denied') {
+    return res.json({ status: 'denied', token });
+  }
+  db.prepare(`
+    INSERT INTO lan_devices (token, status, name, code_hash, code_expires)
+    VALUES (?, 'pending', ?, ?, ?)
+    ON CONFLICT(token) DO UPDATE SET
+      status = CASE WHEN lan_devices.status = 'pending' THEN 'pending' ELSE lan_devices.status END,
+      name = excluded.name,
+      code_hash = excluded.code_hash,
+      code_expires = excluded.code_expires
+  `).run(token, name, hashDeviceCode(code), expires);
+  logAudit(req, 'device_request', `name: ${name}`);
+  res.json({ status: 'pending', code, token });
+});
+
+// GET /api/device/status - what does the owner say about this token right now?
+app.get('/api/device/status', (req, res) => {
+  const token = deviceTokenFrom(req);
+  if (!token) {
+    return res.json({ status: 'unknown' });
+  }
+  const row = db.prepare('SELECT status, code_expires FROM lan_devices WHERE token = ?').get(token);
+  if (!row) return res.json({ status: 'unknown' });
+  if (row.status === 'pending' && row.code_expires && new Date(row.code_expires).getTime() < Date.now()) {
+    db.prepare("UPDATE lan_devices SET status = 'denied', denied_at = datetime('now') WHERE token = ?").run(token);
+    return res.json({ status: 'denied' });
+  }
+  if (row.status === 'approved') {
+    db.prepare('UPDATE lan_devices SET last_seen = datetime(\'now\') WHERE token = ?').run(token);
+  }
+  res.json({ status: row.status });
+});
+
+// GET /api/device/list - owner only. Pending + approved devices for the UI.
+app.get('/api/device/list', (req, res) => {
+  if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can manage devices' });
+  const rows = db.prepare(`
+    SELECT token, status, name, code_expires, created_at, approved_at, last_seen
+    FROM lan_devices ORDER BY (status = 'pending') DESC, created_at DESC
+  `).all();
+  res.json(rows);
+});
+
+// POST /api/device/:token/-or-action helpers - approve / deny / revoke / delete.
+app.post('/api/device/:token/pending', (req, res) => {
+  if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can approve devices' });
+  const { token } = req.params;
+  const { code } = req.body || {};
+  const row = db.prepare('SELECT * FROM lan_devices WHERE token = ?').get(token);
+  if (!row) return res.status(404).json({ error: 'Device not found' });
+  if (!row.code_hash || !code || hashDeviceCode(String(code)) !== row.code_hash) {
+    return res.status(400).json({ error: 'The approval code does not match. Ask the device to show its code again.' });
+  }
+  if (row.code_expires && new Date(row.code_expires).getTime() < Date.now()) {
+    return res.status(400).json({ error: 'This request expired. Ask the device to request access again.' });
+  }
+  db.prepare(`
+    UPDATE lan_devices SET status = 'approved', approved_at = datetime('now'), code_hash = NULL, code_expires = NULL
+    WHERE token = ?
+  `).run(token);
+  logAudit(req, 'device_approved', `name: ${row.name}`);
+  res.json({ success: true });
+});
+
+// POST /api/device/:token/deny
+app.post('/api/device/:token/deny', (req, res) => {
+  if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can deny devices' });
+  const { token } = req.params;
+  db.prepare("UPDATE lan_devices SET status = 'denied', denied_at = datetime('now'), code_hash = NULL, code_expires = NULL WHERE token = ?").run(token);
+  logAudit(req, 'device_denied', `token: ${String(token).slice(0, 8)}`);
+  res.json({ success: true });
+});
+
+// POST /api/device/:token/revoke
+app.post('/api/device/:token/revoke', (req, res) => {
+  if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can revoke devices' });
+  const { token } = req.params;
+  db.prepare("UPDATE lan_devices SET status = 'denied', revoked_at = datetime('now') WHERE token = ?").run(token);
+  logAudit(req, 'device_revoked', `token: ${String(token).slice(0, 8)}`);
+  res.json({ success: true });
+});
 
 module.exports = { app, startServer, startHttpsServer, loadSessions, maybeAutoBackup, pruneOldBackups };
 
