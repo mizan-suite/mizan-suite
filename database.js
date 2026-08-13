@@ -331,6 +331,38 @@ const MIGRATIONS = [
       `);
       db.exec(`CREATE INDEX IF NOT EXISTS idx_lan_devices_status ON lan_devices(status, created_at)`);
     }
+  },
+  {
+    version: 25,
+    name: 'lan_devices hardening: token expiry + approval-code attempt lockout',
+    up() {
+      const cols = db.prepare("PRAGMA table_info(lan_devices)").all().map(c => c.name);
+      if (!cols.includes('token_expires')) {
+        db.exec(`ALTER TABLE lan_devices ADD COLUMN token_expires TEXT`);
+      }
+      if (!cols.includes('code_attempts')) {
+        db.exec(`ALTER TABLE lan_devices ADD COLUMN code_attempts INTEGER NOT NULL DEFAULT 0`);
+      }
+      if (!cols.includes('code_lock_until')) {
+        db.exec(`ALTER TABLE lan_devices ADD COLUMN code_lock_until TEXT`);
+      }
+      db.exec(`UPDATE lan_devices SET token_expires = datetime(created_at, '+365 days') WHERE token_expires IS NULL`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_lan_devices_token_expires ON lan_devices(token_expires)`);
+    }
+  },
+  {
+    version: 26,
+    name: 'persistent login lockout (survives restarts)',
+    up() {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS login_attempts (
+          key TEXT PRIMARY KEY,
+          fails INTEGER NOT NULL DEFAULT 0,
+          lock_until INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_login_attempts_lock ON login_attempts(lock_until)`);
+    }
   }
 ];
 

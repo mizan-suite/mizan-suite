@@ -10,20 +10,20 @@ const assert = require('node:assert');
 const { startTestServer } = require('./helpers');
 
 let srv;
-test.before(async () => { srv = await startTestServer(); });
-test.after(() => { if (srv) srv.shutdown(); });
-
-async function loginAs(name = 'Owner', pin = '123456') {
-  const u = await srv.request('POST', '/api/users', { name, pin });
+let ownerCookie = null;
+test.before(async () => {
+  srv = await startTestServer();
+  const u = await srv.request('POST', '/api/users', { name: 'Owner', pin: '123456' });
   assert.strictEqual(u.status, 201, JSON.stringify(u.data));
-  const r = await srv.request('POST', '/api/auth/login', { name, pin });
+  const r = await srv.request('POST', '/api/auth/login', { name: 'Owner', pin: '123456' });
   assert.strictEqual(r.status, 200, JSON.stringify(r.data));
-  return { cookie: r.setCookie().split(';')[0] };
-}
+  ownerCookie = r.setCookie().split(';')[0];
+});
+test.after(() => { if (srv) srv.shutdown(); });
 
 test('device request + owner approval flow', async () => {
   // An owner account must exist before a device can ask for access.
-  const { cookie } = await loginAs();
+  const cookie = ownerCookie;
 
   // A LAN browser posts a request (no session needed). A device cookie is set.
   const req = await srv.request('POST', '/api/device/request', { name: 'Cashier 1' });
@@ -83,4 +83,34 @@ test('device request + owner approval flow', async () => {
   assert.strictEqual(allow.status, 200, JSON.stringify(allow.data));
   const st3 = await srv.request('GET', '/api/device/status', undefined, { Cookie: deviceCookie });
   assert.strictEqual(st3.data.status, 'approved');
+});
+
+test('approval code attempts lock the token out after 5 wrong codes', async () => {
+  const cookie = ownerCookie;
+  const req = await srv.request('POST', '/api/device/request', { name: 'Cashier 2' });
+  assert.strictEqual(req.status, 200);
+  const tok = req.setCookie().split(';')[0].replace('mizan_device=', '');
+
+  for (let i = 0; i < 5; i++) {
+    const bad = await srv.request('POST', `/api/device/${tok}/pending`, { code: '000000' }, { cookie });
+    if (i < 4) {
+      assert.strictEqual(bad.status, 400, `attempt ${i + 1} should be a plain mismatch`);
+    } else {
+      assert.strictEqual(bad.status, 400, '5th wrong code arms the lockout but still returns 400');
+    }
+  }
+  // 6th attempt: locked out.
+  const locked = await srv.request('POST', `/api/device/${tok}/pending`, { code: String(req.data.code) }, { cookie });
+  assert.strictEqual(locked.status, 429, 'correct code is still rejected while locked');
+});
+
+test('a re-request with an approved token returns approved without a new code', async () => {
+  const cookie = ownerCookie;
+  const req = await srv.request('POST', '/api/device/request', { name: 'Cashier 3' });
+  const tok = req.setCookie().split(';')[0].replace('mizan_device=', '');
+  const good = await srv.request('POST', `/api/device/${tok}/pending`, { code: String(req.data.code) }, { cookie });
+  assert.strictEqual(good.status, 200);
+  const again = await srv.request('POST', '/api/device/request', { name: 'Cashier 3' }, { Cookie: `mizan_device=${tok}` });
+  assert.strictEqual(again.status, 200);
+  assert.strictEqual(again.data.status, 'approved');
 });

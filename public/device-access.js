@@ -29,6 +29,11 @@
           window.location.reload(); // gate now lets the real app load
           return;
         }
+        if (s.status === 'expired') {
+          // token too old - rotate by requesting again
+          requestAccess();
+          return;
+        }
         if (s.status === 'denied' || s.status === 'unknown') {
           show('denied');
           // keep polling so an "Allow again" from the owner reconnects this device
@@ -74,6 +79,7 @@
     .then(r => r.json())
     .then(s => {
       if (s.status === 'approved') { window.location.reload(); return; }
+      if (s.status === 'expired') { requestAccess(); return; }
       if (s.status === 'pending') {
         codeEl.textContent = '______';
         show('pending');

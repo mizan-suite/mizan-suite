@@ -107,16 +107,36 @@ function lanAllowedOnHttps(req) {
 }
 
 const DEVICE_CODE_TTL_MS = 10 * 60 * 1000; // approval codes last 10 minutes
+const DEVICE_TOKEN_TTL_MS = 365 * 24 * 60 * 60 * 1000; // device cookie tokens last 1 year
+const DEVICE_CODE_MAX_ATTEMPTS = 5; // wrong code entries before the token locks
+const DEVICE_CODE_LOCK_MS = 10 * 60 * 1000; // lockout after too many wrong codes
 
 function deviceTokenFrom(req) {
   return parseCookies(req).mizan_device || null;
+}
+
+function deviceTokenExpired(token) {
+  const row = db.prepare('SELECT token_expires FROM lan_devices WHERE token = ?').get(token);
+  if (!row) return false;
+  if (!row.token_expires) return false;
+  return new Date(row.token_expires).getTime() < Date.now();
+}
+
+// A token older than DEVICE_TOKEN_TTL_MS (or revoked) must be rotated before the
+// device can keep using it. Returns 'ok' when the token is still valid.
+function deviceTokenState(token) {
+  const row = db.prepare('SELECT status, token_expires FROM lan_devices WHERE token = ?').get(token);
+  if (!row) return 'unknown';
+  if (deviceTokenExpired(token)) return 'expired';
+  return row.status;
 }
 
 function isApprovedDevice(req) {
   const token = deviceTokenFrom(req);
   if (!token) return false;
   const row = db.prepare('SELECT status FROM lan_devices WHERE token = ?').get(token);
-  return !!(row && row.status === 'approved');
+  if (!(row && row.status === 'approved')) return false;
+  return !deviceTokenExpired(token);
 }
 
 function isDeviceManagementUrl(url) {
@@ -177,6 +197,8 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const IP_MAX_FAILS = 20;
 const IP_LOCK_MS = 30 * 60 * 1000;
 
+// Login lockouts are stored in the `login_attempts` table so a server restart
+// does not silently reset them (the in-memory Map stays as a fast cache).
 const loginAttempts = new Map(); // key -> { fails, lockUntil }
 
 function loginKey(req, name) {
@@ -188,33 +210,63 @@ function ipLockKey(req) {
   return `ip|${(req.socket && req.socket.remoteAddress) || 'local'}`;
 }
 
+function loadLoginAttempt(key) {
+  let cur = loginAttempts.get(key);
+  if (cur) return cur;
+  try {
+    const row = db.prepare('SELECT fails, lock_until FROM login_attempts WHERE key = ?').get(key);
+    cur = row ? { fails: row.fails, lockUntil: Number(row.lock_until) || 0 } : null;
+  } catch (e) { cur = null; }
+  if (!cur) cur = { fails: 0, lockUntil: 0 };
+  loginAttempts.set(key, cur);
+  return cur;
+}
+
+function persistLoginAttempt(key, cur) {
+  loginAttempts.set(key, cur);
+  try {
+    db.prepare(`
+      INSERT INTO login_attempts (key, fails, lock_until) VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET fails = excluded.fails, lock_until = excluded.lock_until
+    `).run(key, cur.fails, cur.lockUntil);
+  } catch (e) { /* non-fatal */ }
+}
+
+function deleteLoginAttempt(key) {
+  loginAttempts.delete(key);
+  try { db.prepare('DELETE FROM login_attempts WHERE key = ?').run(key); } catch (e) {}
+}
+
 function loginLockSecondsLeft(key) {
-  const cur = loginAttempts.get(key);
-  if (!cur) return 0;
+  const cur = loadLoginAttempt(key);
   const now = Date.now();
   if (cur.lockUntil > now) return Math.ceil((cur.lockUntil - now) / 1000);
-  if (cur.lockUntil) loginAttempts.delete(key);
+  if (cur.lockUntil) {
+    cur.lockUntil = 0;
+    cur.fails = 0;
+    persistLoginAttempt(key, cur);
+  }
   return 0;
 }
 
 function recordLoginFail(key, ipKey) {
   const now = Date.now();
-  const cur = loginAttempts.get(key) || { fails: 0, lockUntil: 0 };
+  const cur = loadLoginAttempt(key);
   if (cur.lockUntil && now > cur.lockUntil) cur.fails = 0;
   cur.fails++;
   if (cur.fails >= LOGIN_MAX_FAILS) cur.lockUntil = now + LOGIN_LOCK_MS;
-  loginAttempts.set(key, cur);
+  persistLoginAttempt(key, cur);
   // Per-IP counter: blocks username rotation from the same machine/IP.
-  const ipCur = loginAttempts.get(ipKey) || { fails: 0, lockUntil: 0 };
+  const ipCur = loadLoginAttempt(ipKey);
   if (ipCur.lockUntil && now > ipCur.lockUntil) ipCur.fails = 0;
   ipCur.fails++;
   if (ipCur.fails >= IP_MAX_FAILS) ipCur.lockUntil = now + IP_LOCK_MS;
-  loginAttempts.set(ipKey, ipCur);
+  persistLoginAttempt(ipKey, ipCur);
 }
 
 function clearLoginFails(key, ipKey) {
-  loginAttempts.delete(key);
-  loginAttempts.delete(ipKey);
+  deleteLoginAttempt(key);
+  deleteLoginAttempt(ipKey);
 }
 
 // ---------- AUTH & ACCOUNTS ----------
@@ -5196,6 +5248,25 @@ async function startHttpsServer() {
     return;
   }
   const httpsServer = https.createServer({ key, cert }, (req, res) => {
+    // HSTS on the HTTPS listener: any future connection to this host must use
+    // TLS. Phones hit the scanner/register over HTTPS already, and enforcing
+    // this keeps a LAN client from silently falling back to plain HTTP.
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline'; " +
+      "style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data: blob:; " +
+      "media-src 'self' blob:; " +
+      "connect-src 'self'; " +
+      "font-src 'self' data:; " +
+      "object-src 'none'; " +
+      "base-uri 'self'; " +
+      "form-action 'self'; " +
+      "frame-ancestors 'none'");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
     // Loopback keeps the full app (same as the loopback HTTP listener). Other
     // LAN clients get the app only once their device is owner-approved (see the
     // DEVICE ACCESS section); the existing phone surface stays reachable too.
@@ -5237,13 +5308,19 @@ app.post('/api/device/request', (req, res) => {
     return res.status(403).json({ error: 'Set up the owner account on the host PC first.' });
   }
   let token = deviceTokenFrom(req);
+  const deviceCookie = (t) => `mizan_device=${t}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${req.secure ? '; Secure' : ''}`;
   if (!token) {
     token = crypto.randomBytes(24).toString('hex');
-    res.setHeader('Set-Cookie', `mizan_device=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000`);
+    res.setHeader('Set-Cookie', deviceCookie(token));
+  } else if (deviceTokenExpired(token)) {
+    // Rotate the stale token: a new identity so the old one can't be reused.
+    token = crypto.randomBytes(24).toString('hex');
+    res.setHeader('Set-Cookie', deviceCookie(token));
   }
   const name = String(req.body && req.body.name ? req.body.name : '').trim().slice(0, 60) || 'Unknown device';
   const code = makeDeviceCode();
   const expires = new Date(Date.now() + DEVICE_CODE_TTL_MS).toISOString();
+  const tokenExpires = new Date(Date.now() + DEVICE_TOKEN_TTL_MS).toISOString();
   const existing = db.prepare('SELECT status FROM lan_devices WHERE token = ?').get(token);
   if (existing && existing.status === 'approved') {
     // Already trusted: nothing to request.
@@ -5253,14 +5330,17 @@ app.post('/api/device/request', (req, res) => {
     return res.json({ status: 'denied', token });
   }
   db.prepare(`
-    INSERT INTO lan_devices (token, status, name, code_hash, code_expires)
-    VALUES (?, 'pending', ?, ?, ?)
+    INSERT INTO lan_devices (token, status, name, code_hash, code_expires, token_expires)
+    VALUES (?, 'pending', ?, ?, ?, ?)
     ON CONFLICT(token) DO UPDATE SET
       status = CASE WHEN lan_devices.status = 'pending' THEN 'pending' ELSE lan_devices.status END,
       name = excluded.name,
       code_hash = excluded.code_hash,
-      code_expires = excluded.code_expires
-  `).run(token, name, hashDeviceCode(code), expires);
+      code_expires = excluded.code_expires,
+      token_expires = excluded.token_expires,
+      code_attempts = 0,
+      code_lock_until = NULL
+  `).run(token, name, hashDeviceCode(code), expires, tokenExpires);
   logAudit(req, 'device_request', `name: ${name}`);
   res.json({ status: 'pending', code, token });
 });
@@ -5273,6 +5353,9 @@ app.get('/api/device/status', (req, res) => {
   }
   const row = db.prepare('SELECT status, code_expires FROM lan_devices WHERE token = ?').get(token);
   if (!row) return res.json({ status: 'unknown' });
+  if (deviceTokenExpired(token)) {
+    return res.json({ status: 'expired' });
+  }
   if (row.status === 'pending' && row.code_expires && new Date(row.code_expires).getTime() < Date.now()) {
     db.prepare("UPDATE lan_devices SET status = 'denied', denied_at = datetime('now') WHERE token = ?").run(token);
     return res.json({ status: 'denied' });
@@ -5300,14 +5383,31 @@ app.post('/api/device/:token/pending', (req, res) => {
   const { code } = req.body || {};
   const row = db.prepare('SELECT * FROM lan_devices WHERE token = ?').get(token);
   if (!row) return res.status(404).json({ error: 'Device not found' });
+  if (deviceTokenExpired(token)) {
+    return res.status(400).json({ error: 'This device request expired. Ask the device to request access again.' });
+  }
+  // Lockout: too many wrong codes for this token and the owner is blocked briefly.
+  const locked = row.code_lock_until && new Date(row.code_lock_until).getTime() > Date.now();
+  if (locked) {
+    const left = Math.ceil((new Date(row.code_lock_until).getTime() - Date.now()) / 1000);
+    return res.status(429).json({ error: `Too many wrong codes. Try again in ${left}s.` });
+  }
   if (!row.code_hash || !code || hashDeviceCode(String(code)) !== row.code_hash) {
-    return res.status(400).json({ error: 'The approval code does not match. Ask the device to show its code again.' });
+    const attempts = (row.code_attempts || 0) + 1;
+    const lock = attempts >= DEVICE_CODE_MAX_ATTEMPTS ? new Date(Date.now() + DEVICE_CODE_LOCK_MS).toISOString() : null;
+    db.prepare('UPDATE lan_devices SET code_attempts = ?, code_lock_until = ? WHERE token = ?').run(attempts, lock, token);
+    logAudit(req, 'device_code_mismatch', `token: ${String(token).slice(0, 8)} attempt ${attempts}`);
+    const msg = lock
+      ? 'Too many wrong codes. The owner is locked out for 10 minutes.'
+      : 'The approval code does not match. Ask the device to show its code again.';
+    return res.status(400).json({ error: msg });
   }
   if (row.code_expires && new Date(row.code_expires).getTime() < Date.now()) {
     return res.status(400).json({ error: 'This request expired. Ask the device to request access again.' });
   }
   db.prepare(`
-    UPDATE lan_devices SET status = 'approved', approved_at = datetime('now'), code_hash = NULL, code_expires = NULL
+    UPDATE lan_devices SET status = 'approved', approved_at = datetime('now'), code_hash = NULL, code_expires = NULL,
+      code_attempts = 0, code_lock_until = NULL
     WHERE token = ?
   `).run(token);
   logAudit(req, 'device_approved', `name: ${row.name}`);
@@ -5318,7 +5418,8 @@ app.post('/api/device/:token/pending', (req, res) => {
 app.post('/api/device/:token/deny', (req, res) => {
   if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can deny devices' });
   const { token } = req.params;
-  db.prepare("UPDATE lan_devices SET status = 'denied', denied_at = datetime('now'), code_hash = NULL, code_expires = NULL WHERE token = ?").run(token);
+  db.prepare(`UPDATE lan_devices SET status = 'denied', denied_at = datetime('now'), code_hash = NULL, code_expires = NULL,
+      code_attempts = 0, code_lock_until = NULL WHERE token = ?`).run(token);
   logAudit(req, 'device_denied', `token: ${String(token).slice(0, 8)}`);
   res.json({ success: true });
 });
@@ -5328,7 +5429,10 @@ app.post('/api/device/:token/deny', (req, res) => {
 app.post('/api/device/:token/allow', (req, res) => {
   if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can allow devices' });
   const { token } = req.params;
-  db.prepare("UPDATE lan_devices SET status = 'approved', approved_at = datetime('now'), denied_at = NULL, revoked_at = NULL WHERE token = ?").run(token);
+  db.prepare(`UPDATE lan_devices SET status = 'approved', approved_at = datetime('now'), denied_at = NULL, revoked_at = NULL,
+      code_hash = NULL, code_expires = NULL, code_attempts = 0, code_lock_until = NULL,
+      token_expires = datetime('now', '+365 days')
+    WHERE token = ?`).run(token);
   logAudit(req, 'device_allowed', 'token: ' + String(token).slice(0, 8));
   res.json({ success: true });
 });
