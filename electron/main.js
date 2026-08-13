@@ -11,6 +11,8 @@ const { app, BrowserWindow, dialog, session, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { execFile } = require('child_process');
+const util = require('util');
 const license = require('./license.js');
 
 // Keep data in the folder the shop already has, even though the product is now
@@ -355,20 +357,32 @@ ipcMain.handle('print:page', async (event, options) => {
 
 // Raw ESC/POS printing. Cheap thermal receipt/label printers usually install a
 // plain "pass-through" driver that cannot render Chromium's raster pages - the
-// job is accepted but nothing comes out. Sending raw bytes through the Windows
-// spooler (via the \\localhost\printer share) is what actually works for those.
-// Falls back to the machine hostname form if localhost is not resolvable.
+// job is accepted but nothing comes out. The primary path here is PowerShell's
+// Write-Printer cmdlet, which pushes raw bytes through the driver itself, so no
+// Windows printer sharing is required and the exact name from the Settings
+// dropdown works as-is. Falls back to the \\localhost\<printer> spooler share.
 ipcMain.handle('print:raw', async (event, { deviceName, data } = {}) => {
   if (!deviceName || !Array.isArray(data) || !data.length) {
     return { ok: false, error: 'bad-request' };
   }
+  // Printer names can't legally end in '|' or whitespace, but stored settings
+  // (and some driver reports) occasionally carry a stray one, which would make
+  // the spooler reject the name. Drop it before any print attempt.
+  const name = String(deviceName).replace(/[\s|]+$/, '');
   const buffer = Buffer.from(data);
-  const targets = [
-    `\\\\localhost\\${deviceName}`,
-    `\\\\${os.hostname()}\\${deviceName}`
-  ];
+
+  try {
+    await printRawViaPowerShell(name, buffer);
+    return { ok: true };
+  } catch (err) {
+    log(`Write-Printer failed for "${name}": ${err.message}`);
+  }
+
+  // Fallback: classic spooler share, which needs the printer to be shared in
+  // Windows with the share name matching the printer name. Tries localhost,
+  // then the machine hostname if localhost is not resolvable.
   let lastErr = null;
-  for (const target of targets) {
+  for (const target of [`\\\\localhost\\${name}`, `\\\\${os.hostname()}\\${name}`]) {
     try {
       await writeToPrinter(target, buffer);
       return { ok: true };
@@ -376,9 +390,81 @@ ipcMain.handle('print:raw', async (event, { deviceName, data } = {}) => {
       lastErr = err;
     }
   }
-  log(`Raw print failed for "${deviceName}": ${lastErr && lastErr.message}`);
+  log(`Raw print failed for "${name}": ${lastErr && lastErr.message}`);
   return { ok: false, error: (lastErr && lastErr.message) || 'printer-not-reachable' };
 });
+
+const execFileAsync = util.promisify(execFile);
+
+function psEncodedCommand(script) {
+  return Buffer.from(script, 'utf16le').toString('base64');
+}
+
+// winspool.drv P/Invoke wrapper compiled on demand by PowerShell's Add-Type.
+// OpenPrinter/WritePrinter send raw bytes through the driver, so no Windows
+// printer sharing is required and the name from the Settings dropdown works.
+// (Write-Printer would be nicer, but it only exists on Windows 11.)
+const RAW_PRINTER_HELPER_CS = [
+  'using System;',
+  'using System.Runtime.InteropServices;',
+  'public class RawPrinterHelper {',
+  '  [DllImport("winspool.drv", EntryPoint="OpenPrinterA", SetLastError=true, CharSet=CharSet.Ansi, ExactSpelling=true)]',
+  '  static extern bool OpenPrinter(string name, out IntPtr h, IntPtr pd);',
+  '  [DllImport("winspool.drv", SetLastError=true)]',
+  '  static extern bool ClosePrinter(IntPtr h);',
+  '  [DllImport("winspool.drv", EntryPoint="StartDocPrinterA", SetLastError=true, CharSet=CharSet.Ansi, ExactSpelling=true)]',
+  '  static extern bool StartDocPrinter(IntPtr h, int level, DOCINFOA di);',
+  '  [DllImport("winspool.drv", SetLastError=true)]',
+  '  static extern bool StartPagePrinter(IntPtr h);',
+  '  [DllImport("winspool.drv", SetLastError=true)]',
+  '  static extern bool WritePrinter(IntPtr h, byte[] bytes, int count, out int written);',
+  '  [DllImport("winspool.drv", SetLastError=true)]',
+  '  static extern bool EndPagePrinter(IntPtr h);',
+  '  [DllImport("winspool.drv", SetLastError=true)]',
+  '  static extern bool EndDocPrinter(IntPtr h);',
+  '  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Ansi)]',
+  '  struct DOCINFOA {',
+  '    [MarshalAs(UnmanagedType.LPStr)] public string pDocName;',
+  '    [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;',
+  '    [MarshalAs(UnmanagedType.LPStr)] public string pDataType;',
+  '  }',
+  '  public static string Send(string printer, byte[] data) {',
+  '    IntPtr h = IntPtr.Zero;',
+  '    if (!OpenPrinter(printer, out h, IntPtr.Zero)) return "OpenPrinter error " + Marshal.GetLastWin32Error();',
+  '    try {',
+  '      var di = new DOCINFOA { pDocName = "Mizan Suite", pDataType = "RAW" };',
+  '      if (!StartDocPrinter(h, 1, di)) return "StartDocPrinter error " + Marshal.GetLastWin32Error();',
+  '      if (!StartPagePrinter(h)) return "StartPagePrinter error " + Marshal.GetLastWin32Error();',
+  '      int written = 0;',
+  '      if (!WritePrinter(h, data, data.Length, out written)) return "WritePrinter error " + Marshal.GetLastWin32Error();',
+  '      EndPagePrinter(h);',
+  '      EndDocPrinter(h);',
+  '    } finally { ClosePrinter(h); }',
+  '    return null;',
+  '  }',
+  '}'
+].join('\n');
+
+async function printRawViaPowerShell(printerName, buffer) {
+  const escapedName = String(printerName).replace(/'/g, "''");
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "$b = [System.Convert]::FromBase64String('" + buffer.toString('base64') + "')",
+    'Add-Type -TypeDefinition @"',
+    RAW_PRINTER_HELPER_CS,
+    '"@',
+    "$err = [RawPrinterHelper]::Send('" + escapedName + "', $b)",
+    'if ($err) { throw $err }',
+    "Write-Output 'OK'"
+  ].join('\n');
+  const { stdout } = await execFileAsync('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+    '-EncodedCommand', psEncodedCommand(script)
+  ], { timeout: 30000, windowsHide: true, maxBuffer: 1024 * 1024 });
+  if (String(stdout).trim() !== 'OK') {
+    throw new Error('unexpected output: ' + String(stdout).trim());
+  }
+}
 
 // Write a raw byte buffer to a Windows printer share (\\localhost\<printer>).
 // This is the standard, dependency-free way to send ESC/POS to a spooled printer.
