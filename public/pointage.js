@@ -3,7 +3,7 @@
 // fix/delete entries and record leave/absences; a worker can only clock
 // themself and sees their own attendance.
 
-const isOwner = window.AK_ROLE === 'owner';
+function isOwner() { return window.AK_ROLE === 'owner'; }
 
 const workerSel = document.getElementById('pointage-worker');
 const clockBtn = document.getElementById('clock-btn');
@@ -58,7 +58,7 @@ function formatDuration(min) {
 }
 
 function renderWorkerSelect() {
-  if (!isOwner) return;
+  if (!isOwner()) return;
   const prev = workerSel.value;
   const workers = staffCache.filter(w => w.active);
   workerSel.innerHTML = workers.length
@@ -76,20 +76,20 @@ function renderLeaveWorkerSelect() {
 }
 
 function openEntryFor(workerId) {
-  if (!isOwner) return entriesCache.find(e => !e.clock_out) || null;
+  if (!isOwner()) return entriesCache.find(e => !e.clock_out) || null;
   const id = Number(workerId);
   return entriesCache.find(e => e.user_id === id && !e.clock_out) || null;
 }
 
 function updateClockBtn() {
-  const open = isOwner ? openEntryFor(workerSel.value) : openEntryFor();
+  const open = isOwner() ? openEntryFor(workerSel.value) : openEntryFor();
   clockBtn.textContent = open ? I18N.t('pointage.clockOut') : I18N.t('pointage.clockIn');
 }
 
 // Owner view: a roster with one Clock in / Clock out button per staff member so
 // the owner can clock people in and out manually.
 function renderManualClock() {
-  if (!isOwner) return;
+  if (!isOwner()) return;
   const active = staffCache.filter(w => w.active && w.role !== 'owner');
   if (!active.length) { manualClockEl.style.display = 'none'; return; }
   const openByUser = {};
@@ -123,7 +123,7 @@ async function clockWorker(id) {
   const res = await fetch('/api/time-entries/clock', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(isOwner ? { user_id: id } : {})
+    body: JSON.stringify(isOwner() ? { user_id: id } : {})
   });
   if (!res.ok) {
     alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
@@ -294,7 +294,7 @@ function renderEntries() {
         <th>${I18N.t('pointage.worker')}</th>
         <th>${I18N.t('pointage.duration')}</th>
         <th>${I18N.t('pointage.status')}</th>
-        ${isOwner ? `<th>${I18N.t('staff.thActions')}</th>` : ''}
+        ${isOwner() ? `<th>${I18N.t('staff.thActions')}</th>` : ''}
       </tr></thead>
       <tbody>
         ${entriesCache.map(e => `
@@ -306,7 +306,7 @@ function renderEntries() {
             <td>${e.clock_out
               ? `<span class="badge badge-ok">${I18N.t('pointage.closed')}</span>`
               : `<span class="badge badge-warning">${I18N.t('pointage.openShift')}</span>`}</td>
-            ${isOwner ? `
+            ${isOwner() ? `
             <td style="white-space:nowrap;">
               <button class="btn btn-outline btn-sm entry-edit" data-id="${e.id}" data-in="${escapeHtml(e.clock_in)}" data-out="${e.clock_out ? escapeHtml(e.clock_out) : ''}">${I18N.t('pointage.editEntry')}</button>
               <button class="btn btn-ghost btn-sm entry-del" data-id="${e.id}">${I18N.t('pointage.deleteEntry')}</button>
@@ -323,7 +323,7 @@ function leaveTypeLabel(type) {
 }
 
 function renderLeave() {
-  if (!isOwner) return;
+  if (!isOwner()) return;
   if (!leaveCache.length) {
     leaveListEl.innerHTML = '';
     return;
@@ -351,7 +351,7 @@ function renderLeave() {
 }
 
 function updateExportLinks() {
-  if (!isOwner) return;
+  if (!isOwner()) return;
   const { from, to } = rangeParams();
   exportCsv.href = `/api/export/csv?type=attendance&from=${from}&to=${to}`;
   exportExcel.href = `/api/export/excel?type=attendance&from=${from}&to=${to}`;
@@ -371,7 +371,7 @@ async function loadPointage() {
   staffCache = await staffRes.json();
   entriesCache = await entriesRes.json();
   attendanceCache = await attRes.json();
-  if (isOwner) {
+  if (isOwner()) {
     const leaveRes = await fetch(`/api/leave?${qs}`);
     if (leaveRes.ok) leaveCache = await leaveRes.json();
     renderLeave();
@@ -438,69 +438,89 @@ listEl.addEventListener('click', async (e) => {
   }
 });
 
-if (isOwner) {
-  workerSel.style.display = 'none';
-  clockBtn.style.display = 'none';
-  leaveSection.style.display = '';
+let workerHintEl = null;
 
-  leaveAddBtn.addEventListener('click', async () => {
-    const workerId = Number(leaveWorkerSel.value);
-    const date = leaveDateInput.value;
-    const type = leaveTypeSel.value;
-    if (!workerId || !date) { alert(I18N.t('err.nameRequired')); return; }
-    const res = await fetch('/api/leave', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: workerId,
-        leave_date: date,
-        type,
-        note: leaveNoteInput.value.trim() || null
-      })
-    });
-    if (!res.ok) {
-      alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
-      return;
-    }
-    leaveNoteInput.value = '';
-    alert(I18N.t('pointage.leaveAdded'));
-    loadPointage();
-  });
-
-  leaveListEl.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.leave-del');
-    if (!btn) return;
-    if (!confirm(I18N.t('pointage.confirmDeleteLeave'))) return;
-    const res = await fetch(`/api/leave/${btn.dataset.id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
-      return;
-    }
-    alert(I18N.t('pointage.leaveDeleted'));
-    loadPointage();
-  });
-} else {
+// Role-dependent UI. Runs once at load and again as soon as the session role is
+// known (auth.js loads before pointage.js but resolves AK_AUTH asynchronously
+// when there is no cached session), so the owner view is never mistaken for the
+// worker view.
+function setupRoleUI() {
   workerSel.style.display = 'none';
-  leaveSection.style.display = 'none';
-  exportCsv.style.display = 'none';
-  exportExcel.style.display = 'none';
-  exportPdf.style.display = 'none';
-  // Workers only clock themselves: make the button the centre of the page.
-  clockBtn.classList.add('btn-lg');
-  clockBtn.style.flex = '1';
-  clockBtn.style.maxWidth = '320px';
-  clockBtn.style.fontSize = '1.1rem';
-  const hint = document.createElement('div');
-  hint.id = 'worker-clock-hint';
-  hint.className = 'hint-text';
-  hint.style.margin = '0.5rem 0 1rem';
-  hint.textContent = window.AK_NAME
-    ? I18N.t('pointage.workerClockHint').replace('{name}', window.AK_NAME)
-    : I18N.t('pointage.clockIn');
-  clockBtn.parentElement.parentElement.insertBefore(hint, clockBtn.parentElement.nextSibling);
+  if (workerHintEl) { workerHintEl.remove(); workerHintEl = null; }
+
+  if (isOwner()) {
+    clockBtn.style.display = 'none';
+    leaveSection.style.display = '';
+    exportCsv.style.display = '';
+    exportExcel.style.display = '';
+    exportPdf.style.display = '';
+
+    if (!leaveAddBtn.dataset.bound) {
+      leaveAddBtn.dataset.bound = '1';
+      leaveAddBtn.addEventListener('click', async () => {
+        const workerId = Number(leaveWorkerSel.value);
+        const date = leaveDateInput.value;
+        const type = leaveTypeSel.value;
+        if (!workerId || !date) { alert(I18N.t('err.nameRequired')); return; }
+        const res = await fetch('/api/leave', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: workerId,
+            leave_date: date,
+            type,
+            note: leaveNoteInput.value.trim() || null
+          })
+        });
+        if (!res.ok) {
+          alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
+          return;
+        }
+        leaveNoteInput.value = '';
+        alert(I18N.t('pointage.leaveAdded'));
+        loadPointage();
+      });
+
+      leaveListEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.leave-del');
+        if (!btn) return;
+        if (!confirm(I18N.t('pointage.confirmDeleteLeave'))) return;
+        const res = await fetch(`/api/leave/${btn.dataset.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
+          return;
+        }
+        alert(I18N.t('pointage.leaveDeleted'));
+        loadPointage();
+      });
+    }
+  } else {
+    clockBtn.style.display = '';
+    leaveSection.style.display = 'none';
+    exportCsv.style.display = 'none';
+    exportExcel.style.display = 'none';
+    exportPdf.style.display = 'none';
+    // Workers only clock themselves: make the button the centre of the page.
+    clockBtn.classList.add('btn-lg');
+    clockBtn.style.flex = '1';
+    clockBtn.style.maxWidth = '320px';
+    clockBtn.style.fontSize = '1.1rem';
+    workerHintEl = document.createElement('div');
+    workerHintEl.id = 'worker-clock-hint';
+    workerHintEl.className = 'hint-text';
+    workerHintEl.style.margin = '0.5rem 0 1rem';
+    workerHintEl.textContent = window.AK_NAME
+      ? I18N.t('pointage.workerClockHint').replace('{name}', window.AK_NAME)
+      : I18N.t('pointage.clockIn');
+    clockBtn.parentElement.parentElement.insertBefore(workerHintEl, clockBtn.parentElement.nextSibling);
+  }
 }
 
-loadPointage();
+setupRoleUI();
+(window.AK_AUTH || Promise.resolve({ role: 'owner' })).then(() => {
+  setupRoleUI();
+  loadPointage();
+});
 
 // Re-translate dynamic content on language change.
 window.addEventListener('languagechange', loadPointage);
