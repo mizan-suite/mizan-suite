@@ -256,6 +256,16 @@ html.dark-mode .p-tile {
   color: var(--dark-text, #e6ede9);
 }
 
+html.dark-mode .p-tile-img,
+html.dark-mode .pd-photo {
+  background: var(--dark-raise, #24382f);
+}
+
+html.dark-mode .p-tile-img-none,
+html.dark-mode .pd-photo-none {
+  color: var(--dark-muted, #9db8ae);
+}
+
 html.dark-mode .p-tile-price { color: var(--accent-bright, #7fd9b9); }
 html.dark-mode .p-tile-stock { color: var(--dark-muted, #9db8ae); }
 

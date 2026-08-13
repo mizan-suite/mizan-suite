@@ -249,9 +249,13 @@ function catColor(category) {
 function productTile(p) {
   const tier = stockTier(p);
   const tag = tier === 'oos' ? I18N.t('cashier.tileOut') : (tier === 'low' ? `${I18N.t('cashier.tileLow')} ${p.quantity}` : `${p.quantity} ${I18N.t('cashier.tileLeft')}`);
+  const photo = p.image
+    ? `<span class="p-tile-img"><img src="${p.image}" alt="" loading="lazy"></span>`
+    : `<span class="p-tile-img p-tile-img-none">${esc((p.name || '?').trim().charAt(0).toUpperCase())}</span>`;
   return `
     <button class="p-tile p-tile-${tier}" type="button" data-id="${p.id}">
       <span class="p-tile-accent" style="background:${catColor(p.category)};"></span>
+      ${photo}
       <span class="p-tile-name">${esc(p.name)}</span>
       <span class="p-tile-meta">${esc(p.category || '')}</span>
       <span class="p-tile-price">${Number(p.sale_price).toFixed(2)} DA</span>
@@ -1022,11 +1026,16 @@ function renderProductDetail() {
         ? `<span class="stock-tag stock-tag-low">${I18N.t('dash.expiresSoon')}</span>`
         : esc(product.expiry_date)));
 
+  const photo = product.image
+    ? `<div class="pd-photo"><img src="${product.image}" alt=""></div>`
+    : `<div class="pd-photo pd-photo-none">${esc((product.name || '?').trim().charAt(0).toUpperCase())}</div>`;
+
   cartDetailEl.innerHTML = `
     <div class="cart-detail-head">
       <span>${I18N.t('cashier.productDetailTitle')}</span>
     </div>
     <div class="cart-detail-list">
+      ${photo}
       <div class="cart-detail-item">
         <div class="cd-main">
           <span class="cd-name">${esc(product.name)}</span>

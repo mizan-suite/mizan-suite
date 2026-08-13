@@ -1364,6 +1364,56 @@ html.dark-mode .pagination-bar .page-info {
 .p-tile-stock-low { color: #e08a00; font-weight: 700; }
 .p-tile-stock-oos { color: #d33; font-weight: 700; }
 
+/* Product photo on cashier tiles */
+.p-tile-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 92px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fafbfa;
+  margin-bottom: 0.25rem;
+}
+
+.p-tile-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.p-tile-img-none {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #cfd8d4;
+}
+
+/* Product photo in the cashier detail panel */
+.pd-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fafbfa;
+  border-bottom: 1px solid #eef1f0;
+  margin-bottom: 0.5rem;
+}
+
+.pd-photo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.pd-photo-none {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #cfd8d4;
+}
+
 .cart-count {
   font-size: 0.8rem;
   color: #888;
