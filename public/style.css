@@ -927,6 +927,31 @@ html.dark-mode .pagination-bar .page-info {
   border: 1px solid #d5d5e0;
 }
 
+.badge-ghost {
+  background-color: #f1f3f5;
+  color: #6b7280;
+  border: 1px solid #e2e6ea;
+}
+
+/* Manual clock-in roster: one row per staff member with a Clock in/out button. */
+.manual-clock-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #eef0f3;
+}
+.manual-clock-row:last-child {
+  border-bottom: none;
+}
+.manual-clock-name {
+  flex: 1;
+  min-width: 0;
+}
+.manual-clock-title {
+  font-weight: 600;
+}
+
 /* Professional attendance (pointage) matrix table: colour the day cells so the
    owner can scan a worker's month at a glance. */
 .attendance-table .att-col {

@@ -7,6 +7,8 @@ const isOwner = window.AK_ROLE === 'owner';
 
 const workerSel = document.getElementById('pointage-worker');
 const clockBtn = document.getElementById('clock-btn');
+const manualClockEl = document.getElementById('manual-clock');
+const manualClockList = document.getElementById('manual-clock-list');
 const summaryEl = document.getElementById('pointage-summary');
 const listEl = document.getElementById('pointage-list');
 const leaveSection = document.getElementById('leave-section');
@@ -82,6 +84,63 @@ function openEntryFor(workerId) {
 function updateClockBtn() {
   const open = isOwner ? openEntryFor(workerSel.value) : openEntryFor();
   clockBtn.textContent = open ? I18N.t('pointage.clockOut') : I18N.t('pointage.clockIn');
+}
+
+// Owner view: a roster with one Clock in / Clock out button per staff member so
+// the owner can clock people in and out manually.
+function renderManualClock() {
+  if (!isOwner) return;
+  const active = staffCache.filter(w => w.active && w.role !== 'owner');
+  if (!active.length) { manualClockEl.style.display = 'none'; return; }
+  const openByUser = {};
+  for (const e of entriesCache) {
+    if (!e.clock_out && openByUser[e.user_id] == null) openByUser[e.user_id] = e;
+  }
+  manualClockList.innerHTML = active.map(w => {
+    const open = openByUser[w.id] || null;
+    const shift = w.expected_shift_start
+      ? `${w.expected_shift_start}${w.expected_shift_end ? ' - ' + w.expected_shift_end : ''}`
+      : '';
+    const status = open
+      ? `<span class="badge badge-warning">${I18N.t('pointage.clockedInAt')} ${escapeHtml(String(open.clock_in).slice(11, 16))}</span>`
+      : `<span class="badge badge-ghost">${I18N.t('pointage.notClockedIn')}</span>`;
+    return `
+      <div class="manual-clock-row">
+        <div class="manual-clock-name">
+          <div class="manual-clock-title">${escapeHtml(w.name)}</div>
+          ${shift ? `<div class="hint-text">${escapeHtml(shift)}</div>` : ''}
+        </div>
+        ${status}
+        <button class="btn ${open ? 'btn-ghost' : ''}" data-clock="${w.id}">${open ? I18N.t('pointage.clockOut') : I18N.t('pointage.clockIn')}</button>
+      </div>`;
+  }).join('');
+  manualClockEl.style.display = '';
+}
+
+// Shared clock action: used by the worker self button (id = null) and by the
+// owner's roster buttons.
+async function clockWorker(id) {
+  const res = await fetch('/api/time-entries/clock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(isOwner ? { user_id: id } : {})
+  });
+  if (!res.ok) {
+    alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
+    return;
+  }
+  const data = await res.json();
+  const worker = staffCache.find(w => w.id === id);
+  const name = worker ? worker.name : (window.AK_NAME || String(id));
+  if (data.action === 'in') {
+    alert(I18N.t('pointage.clockedIn').replace('{name}', name).replace('{time}', data.entry.clock_in));
+  } else {
+    const mins = data.entry.clock_out
+      ? Math.max(0, Math.round((new Date(data.entry.clock_out) - new Date(data.entry.clock_in)) / 60000))
+      : 0;
+    alert(I18N.t('pointage.clockedOut').replace('{name}', name).replace('{duration}', formatDuration(mins)));
+  }
+  loadPointage();
 }
 
 function renderSummary(summary) {
@@ -322,6 +381,7 @@ async function loadPointage() {
   renderLeaveWorkerSelect();
   renderAttendanceTable();
   renderEntries();
+  renderManualClock();
   updateClockBtn();
 }
 
@@ -336,30 +396,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 workerSel.addEventListener('change', updateClockBtn);
 
-clockBtn.addEventListener('click', async () => {
-  const id = Number(workerSel.value);
-  if (isOwner && !id) { alert(I18N.t('pointage.noWorker')); return; }
-  const res = await fetch('/api/time-entries/clock', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(isOwner ? { user_id: id } : {})
-  });
-  if (!res.ok) {
-    alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
-    return;
-  }
-  const data = await res.json();
-  const worker = isOwner ? staffCache.find(w => w.id === id) : null;
-  const name = worker ? worker.name : (window.AK_NAME || String(id));
-  if (data.action === 'in') {
-    alert(I18N.t('pointage.clockedIn').replace('{name}', name).replace('{time}', data.entry.clock_in));
-  } else {
-    const mins = data.entry.clock_out
-      ? Math.max(0, Math.round((new Date(data.entry.clock_out) - new Date(data.entry.clock_in)) / 60000))
-      : 0;
-    alert(I18N.t('pointage.clockedOut').replace('{name}', name).replace('{duration}', formatDuration(mins)));
-  }
-  loadPointage();
+clockBtn.addEventListener('click', () => clockWorker(null));
+
+manualClockList.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-clock]');
+  if (!btn) return;
+  clockWorker(Number(btn.dataset.clock));
 });
 
 listEl.addEventListener('click', async (e) => {
@@ -397,6 +439,8 @@ listEl.addEventListener('click', async (e) => {
 });
 
 if (isOwner) {
+  workerSel.style.display = 'none';
+  clockBtn.style.display = 'none';
   leaveSection.style.display = '';
 
   leaveAddBtn.addEventListener('click', async () => {
