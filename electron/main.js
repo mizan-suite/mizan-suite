@@ -45,6 +45,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    fullscreen: true,
     icon: path.join(__dirname, 'build-assets', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
