@@ -71,4 +71,16 @@ test('device request + owner approval flow', async () => {
   assert.strictEqual(rev.status, 200);
   const st2 = await srv.request('GET', '/api/device/status', undefined, { Cookie: deviceCookie });
   assert.strictEqual(st2.data.status, 'denied');
+
+  // The denied device shows up in the owner's denied list.
+  const list3 = await srv.request('GET', '/api/device/list', undefined, { cookie });
+  const deniedRow = list3.data.find(d => d.token === tok);
+  assert.strictEqual(deniedRow.status, 'denied');
+  assert.ok(deniedRow.denied_at || deniedRow.revoked_at, 'blocked timestamp is recorded');
+
+  // The owner can re-allow a device they denied by mistake.
+  const allow = await srv.request('POST', `/api/device/${tok}/allow`, undefined, { cookie });
+  assert.strictEqual(allow.status, 200, JSON.stringify(allow.data));
+  const st3 = await srv.request('GET', '/api/device/status', undefined, { Cookie: deviceCookie });
+  assert.strictEqual(st3.data.status, 'approved');
 });

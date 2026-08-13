@@ -31,6 +31,8 @@
         }
         if (s.status === 'denied' || s.status === 'unknown') {
           show('denied');
+          // keep polling so an "Allow again" from the owner reconnects this device
+          pollTimer = setTimeout(poll, 3000);
           return;
         }
         // still pending (or just requested) -> keep polling
@@ -78,6 +80,7 @@
         poll();
       } else if (s.status === 'denied') {
         show('denied');
+        poll();
       }
     })
     .catch(() => { show('request'); });

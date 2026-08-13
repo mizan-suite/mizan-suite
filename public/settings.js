@@ -779,12 +779,16 @@ loadLicenseInfo();
 async function loadDevices() {
   const pendingEl = document.getElementById('device-pending-list');
   const approvedEl = document.getElementById('device-approved-list');
-  if (!pendingEl || !approvedEl) return;
+  const deniedEl = document.getElementById('device-denied-list');
+  if (!pendingEl || !approvedEl || !deniedEl) return;
   const res = await fetch('/api/device/list');
   if (!res.ok) return;
   const rows = await res.json();
   const pending = rows.filter(r => r.status === 'pending');
   const approved = rows.filter(r => r.status === 'approved');
+  const denied = rows.filter(r => r.status === 'denied');
+  const typed = {};
+  document.querySelectorAll('[data-code-for]').forEach(i => { typed[i.getAttribute('data-code-for')] = i.value; });
   if (pending.length) {
     pendingEl.innerHTML = pending.map(d => {
       return '<div class="device-row" style="padding:8px 0;border-bottom:1px solid #eee;">' +
@@ -809,12 +813,27 @@ async function loadDevices() {
   } else {
     approvedEl.innerHTML = '<p class="hint-text">No approved devices yet.</p>';
   }
+  if (denied.length) {
+    deniedEl.innerHTML = denied.map(d => {
+      const when = d.denied_at ? 'blocked ' + escapeHtml(new Date(d.denied_at).toLocaleString()) : (d.revoked_at ? 'revoked ' + escapeHtml(new Date(d.revoked_at).toLocaleString()) : 'blocked');
+      return '<div class="device-row" style="padding:8px 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+        '<div><strong>' + escapeHtml(d.name) + '</strong> <span class="hint-text">(' + when + ')</span></div>' +
+        '<button class="btn btn-sm" data-allow="' + escapeHtml(d.token) + '">Allow again</button>' +
+      '</div>';
+    }).join('');
+  } else {
+    deniedEl.innerHTML = '<p class="hint-text">No denied devices.</p>';
+  }
+  document.querySelectorAll('[data-code-for]').forEach(i => {
+    if (typed[i.getAttribute('data-code-for')] !== undefined) i.value = typed[i.getAttribute('data-code-for')];
+  });
 }
 
 document.addEventListener('click', async (e) => {
   const approve = e.target.closest('[data-approve]');
   const deny = e.target.closest('[data-deny]');
   const revoke = e.target.closest('[data-revoke]');
+  const allow = e.target.closest('[data-allow]');
   if (approve) {
     const token = approve.getAttribute('data-approve');
     const codeInput = document.querySelector('[data-code-for="' + token + '"]');
@@ -834,6 +853,12 @@ document.addEventListener('click', async (e) => {
     const token = revoke.getAttribute('data-revoke');
     if (confirm('Revoke access for this device?')) {
       await fetch('/api/device/' + encodeURIComponent(token) + '/revoke', { method: 'POST' });
+      loadDevices();
+    }
+  } else if (allow) {
+    const token = allow.getAttribute('data-allow');
+    if (confirm('Allow this device to connect again?')) {
+      await fetch('/api/device/' + encodeURIComponent(token) + '/allow', { method: 'POST' });
       loadDevices();
     }
   }

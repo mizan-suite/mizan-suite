@@ -5287,7 +5287,7 @@ app.get('/api/device/status', (req, res) => {
 app.get('/api/device/list', (req, res) => {
   if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can manage devices' });
   const rows = db.prepare(`
-    SELECT token, status, name, code_expires, created_at, approved_at, last_seen
+    SELECT token, status, name, code_expires, created_at, approved_at, denied_at, revoked_at, last_seen
     FROM lan_devices ORDER BY (status = 'pending') DESC, created_at DESC
   `).all();
   res.json(rows);
@@ -5320,6 +5320,16 @@ app.post('/api/device/:token/deny', (req, res) => {
   const { token } = req.params;
   db.prepare("UPDATE lan_devices SET status = 'denied', denied_at = datetime('now'), code_hash = NULL, code_expires = NULL WHERE token = ?").run(token);
   logAudit(req, 'device_denied', `token: ${String(token).slice(0, 8)}`);
+  res.json({ success: true });
+});
+
+// POST /api/device/:token/allow - owner re-allows a device denied or revoked
+// by mistake. The device returns to 'approved' and reconnects on its next poll.
+app.post('/api/device/:token/allow', (req, res) => {
+  if (!isOwnerRequest(req)) return res.status(403).json({ error: 'Only the owner can allow devices' });
+  const { token } = req.params;
+  db.prepare("UPDATE lan_devices SET status = 'approved', approved_at = datetime('now'), denied_at = NULL, revoked_at = NULL WHERE token = ?").run(token);
+  logAudit(req, 'device_allowed', 'token: ' + String(token).slice(0, 8));
   res.json({ success: true });
 });
 
