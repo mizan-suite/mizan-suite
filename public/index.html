@@ -207,6 +207,16 @@
               <label for="supplier" data-i18n="inv.supplier">Supplier</label>
               <input type="text" id="supplier" list="suppliers-datalist" autocomplete="off">
             </div>
+            <div class="field span2">
+              <label data-i18n="inv.productImage">Image</label>
+              <div class="img-upload-row">
+                <img id="add-image-preview" class="img-preview" alt="" hidden>
+                <input type="file" id="add-image-input" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" hidden>
+                <button type="button" id="add-image-btn" class="btn btn-outline" data-i18n="inv.chooseImage">Choose image</button>
+                <button type="button" id="add-image-remove" class="btn btn-outline" data-i18n="inv.removeImage" hidden>Remove</button>
+              </div>
+              <p class="hint-text" data-i18n="inv.imageHint">Optional photo shown next to the product in the inventory list.</p>
+            </div>
           </div>
         </div>
 
@@ -322,6 +332,16 @@
             <div class="field">
               <label for="edit-supplier" data-i18n="inv.supplier">Supplier</label>
               <input type="text" id="edit-supplier" list="suppliers-datalist" autocomplete="off">
+            </div>
+            <div class="field span2">
+              <label data-i18n="inv.productImage">Image</label>
+              <div class="img-upload-row">
+                <img id="edit-image-preview" class="img-preview" alt="" hidden>
+                <input type="file" id="edit-image-input" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" hidden>
+                <button type="button" id="edit-image-btn" class="btn btn-outline" data-i18n="inv.chooseImage">Choose image</button>
+                <button type="button" id="edit-image-remove" class="btn btn-outline" data-i18n="inv.removeImage" hidden>Remove</button>
+              </div>
+              <p class="hint-text" data-i18n="inv.imageHint">Optional photo shown next to the product in the inventory list.</p>
             </div>
           </div>
         </div>

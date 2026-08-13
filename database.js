@@ -376,6 +376,11 @@ const MIGRATIONS = [
         db.exec(`ALTER TABLE users ADD COLUMN expected_shift_end TEXT`);
       }
     }
+  },
+  {
+    version: 28,
+    name: 'products.image (base64 data URL photo)',
+    up() { ensureColumn('products', 'image', 'TEXT'); }
   }
 ];
 
@@ -418,6 +423,7 @@ db.exec(`
     max_stock INTEGER,
     expiry_date TEXT,
     supplier TEXT,
+    image TEXT,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now'))
   )

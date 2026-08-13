@@ -92,6 +92,43 @@ h2 {
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
+/* Product image upload (add/edit modals) */
+.img-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.img-preview {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+/* Product thumbnail in the inventory table's name column */
+.prod-thumb {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background: #fff;
+  padding: 2px;
+  box-sizing: border-box;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}
+
+.name-cell span {
+  vertical-align: middle;
+}
+
 /* Hardware barcode scanner bar (USB scanners type into it like a keyboard) */
 .scanner-bar {
   display: flex;

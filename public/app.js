@@ -6,10 +6,19 @@ const productList = document.getElementById('product-list');
 const form = document.getElementById('product-form');
 const addModal = document.getElementById('add-modal');
 
+let addImageData = null; // base64 data URL of the image for the product being added
+let editImageData;       // undefined = keep current, null = removed, string = new image
+
 function openAddModal() {
   form.reset();
   const margePercentInput = document.getElementById('marge_percent');
   if (margePercentInput && defaultMarginPercent > 0) margePercentInput.value = defaultMarginPercent;
+  addImageData = null;
+  const pv = document.getElementById('add-image-preview');
+  pv.hidden = true;
+  pv.removeAttribute('src');
+  document.getElementById('add-image-remove').hidden = true;
+  document.getElementById('add-image-input').value = '';
   addModal.hidden = false;
   document.getElementById('name').focus();
 }
@@ -61,6 +70,52 @@ function parseQuantity(unit, raw) {
   if (!Number.isFinite(n) || n <= 0) return 0;
   if (unit === 'kg') return Math.round(n * 1000) / 1000;
   return n;
+}
+
+// Read an image file and downscale it to at most 600px so the stored data URL
+// stays small (a compressed product photo is a few tens of KB, not megabytes).
+// `done(dataUrl)` is called with the result, or with null if the file is not a
+// usable image.
+function processImageFile(file, done) {
+  if (!file || !/^image\/(png|jpeg|jpg|gif|webp|bmp)$/.test(file.type)) {
+    alert(I18N.t('inv.imageInvalidType'));
+    done(null);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 600;
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      if (w > maxSize || h > maxSize) {
+        const scale = maxSize / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (/png|gif|webp/.test(file.type)) {
+        ctx.drawImage(img, 0, 0, w, h);
+        done(canvas.toDataURL('image/png'));
+      } else {
+        // JPEG has no transparency - fill a white background first.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        done(canvas.toDataURL('image/jpeg', 0.85));
+      }
+    };
+    img.onerror = () => {
+      alert(I18N.t('inv.imageInvalidType'));
+      done(null);
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // Calculate sale price from wholesale price and margin
@@ -331,7 +386,7 @@ function renderProducts() {
     ? allProducts.map(p => `
         <tr data-id="${p.id}" class="${selectedIds.has(p.id) ? 'row-selected' : ''}">
           <td class="chk-col"><input type="checkbox" class="row-chk" data-id="${p.id}" ${selectedIds.has(p.id) ? 'checked' : ''}></td>
-          <td>${escapeHtml(p.name)}</td>
+          <td class="name-cell">${p.image ? `<img class="prod-thumb" src="${p.image}" alt="" loading="lazy">` : ''}<span>${escapeHtml(p.name)}</span></td>
           <td>${escapeHtml(p.category || '-')}</td>
           <td>
             ${p.barcode ? `<span class="mono">${escapeHtml(p.barcode)}</span>` : ''}
@@ -633,7 +688,8 @@ form.addEventListener('submit', async (e) => {
     max_stock: parseInt(document.getElementById('max_stock').value),
     unit: document.getElementById('unit').value || 'piece',
     extra_barcodes: parseBarcodes(document.getElementById('extra-barcodes').value),
-    active: document.getElementById('active').checked ? 1 : 0
+    active: document.getElementById('active').checked ? 1 : 0,
+    image: addImageData
   };
 
   const res = await fetch('/api/products', {
@@ -687,6 +743,56 @@ document.getElementById('edit-scan-btn').addEventListener('click', () => {
 });
 document.getElementById('edit-extra-scan-btn').addEventListener('click', () => {
   openScanner((code) => appendExtraBarcode('edit-extra-barcodes', code), { continuous: true });
+});
+
+// ---------- Product image upload (add modal) ----------
+document.getElementById('add-image-btn').addEventListener('click', () => {
+  document.getElementById('add-image-input').click();
+});
+document.getElementById('add-image-input').addEventListener('change', () => {
+  const file = document.getElementById('add-image-input').files && document.getElementById('add-image-input').files[0];
+  if (!file) return;
+  processImageFile(file, (dataUrl) => {
+    if (!dataUrl) return;
+    addImageData = dataUrl;
+    const pv = document.getElementById('add-image-preview');
+    pv.src = dataUrl;
+    pv.hidden = false;
+    document.getElementById('add-image-remove').hidden = false;
+  });
+});
+document.getElementById('add-image-remove').addEventListener('click', () => {
+  addImageData = null;
+  document.getElementById('add-image-input').value = '';
+  const pv = document.getElementById('add-image-preview');
+  pv.hidden = true;
+  pv.removeAttribute('src');
+  document.getElementById('add-image-remove').hidden = true;
+});
+
+// ---------- Product image upload (edit modal) ----------
+document.getElementById('edit-image-btn').addEventListener('click', () => {
+  document.getElementById('edit-image-input').click();
+});
+document.getElementById('edit-image-input').addEventListener('change', () => {
+  const file = document.getElementById('edit-image-input').files && document.getElementById('edit-image-input').files[0];
+  if (!file) return;
+  processImageFile(file, (dataUrl) => {
+    if (!dataUrl) return;
+    editImageData = dataUrl;
+    const pv = document.getElementById('edit-image-preview');
+    pv.src = dataUrl;
+    pv.hidden = false;
+    document.getElementById('edit-image-remove').hidden = false;
+  });
+});
+document.getElementById('edit-image-remove').addEventListener('click', () => {
+  editImageData = null; // cleared: the saved product will have no image
+  document.getElementById('edit-image-input').value = '';
+  const pv = document.getElementById('edit-image-preview');
+  pv.hidden = true;
+  pv.removeAttribute('src');
+  document.getElementById('edit-image-remove').hidden = true;
 });
 
 // ---------- Row options menu (the "three dots" button) ----------
@@ -1040,6 +1146,20 @@ function openEditModal(id) {
 
 function fillEditForm(p, id) {
   editingId = id;
+  editImageData = undefined; // no image change until the user picks/removes one
+  const eimgInput = document.getElementById('edit-image-input');
+  const eimgPrev = document.getElementById('edit-image-preview');
+  const eimgRemove = document.getElementById('edit-image-remove');
+  eimgInput.value = '';
+  if (p.image) {
+    eimgPrev.src = p.image;
+    eimgPrev.hidden = false;
+    eimgRemove.hidden = false;
+  } else {
+    eimgPrev.hidden = true;
+    eimgPrev.removeAttribute('src');
+    eimgRemove.hidden = true;
+  }
   document.getElementById('edit-name').value = p.name;
   document.getElementById('edit-barcode').value = p.barcode || '';
   document.getElementById('edit-extra-barcodes').value = (p.extra_barcodes || []).join(', ');
@@ -1096,27 +1216,32 @@ document.getElementById('edit-save').addEventListener('click', async () => {
   const editMarginType = editPct > 0 ? 'percent' : (editAmt > 0 ? 'amount' : '');
   const editMarginValue = editMarginType === 'percent' ? editPct : (editMarginType === 'amount' ? editAmt : 0);
 
+  const payload = {
+    barcode: document.getElementById('edit-barcode').value.trim(),
+    name,
+    category: document.getElementById('edit-category').value.trim(),
+    supplier: document.getElementById('edit-supplier').value.trim(),
+    expiry_date: document.getElementById('edit-expiry_date').value,
+    quantity: parseQuantity(document.getElementById('edit-unit').value, document.getElementById('edit-quantity').value),
+    cost_price: parseFloat(document.getElementById('edit-cost_price').value) || 0,
+    sale_price: parseFloat(document.getElementById('edit-sale_price').value) || 0,
+    wholesale_price: parseFloat(document.getElementById('edit-wholesale_price').value) || 0,
+    margin_type: editMarginType,
+    margin_value: editMarginValue,
+    min_stock: parseInt(document.getElementById('edit-min_stock').value),
+    max_stock: parseInt(document.getElementById('edit-max_stock').value),
+    unit: document.getElementById('edit-unit').value || 'piece',
+    extra_barcodes: parseBarcodes(document.getElementById('edit-extra-barcodes').value),
+    active: document.getElementById('edit-active').checked ? 1 : 0
+  };
+  // Only send the image when the user actually changed it (chose a new file or
+  // removed it) - otherwise the current image is kept untouched.
+  if (editImageData !== undefined) payload.image = editImageData;
+
   const res = await fetch(`/api/products/${editingId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      barcode: document.getElementById('edit-barcode').value.trim(),
-      name,
-      category: document.getElementById('edit-category').value.trim(),
-      supplier: document.getElementById('edit-supplier').value.trim(),
-      expiry_date: document.getElementById('edit-expiry_date').value,
-      quantity: parseQuantity(document.getElementById('edit-unit').value, document.getElementById('edit-quantity').value),
-      cost_price: parseFloat(document.getElementById('edit-cost_price').value) || 0,
-      sale_price: parseFloat(document.getElementById('edit-sale_price').value) || 0,
-      wholesale_price: parseFloat(document.getElementById('edit-wholesale_price').value) || 0,
-      margin_type: editMarginType,
-      margin_value: editMarginValue,
-      min_stock: parseInt(document.getElementById('edit-min_stock').value),
-      max_stock: parseInt(document.getElementById('edit-max_stock').value),
-      unit: document.getElementById('edit-unit').value || 'piece',
-      extra_barcodes: parseBarcodes(document.getElementById('edit-extra-barcodes').value),
-      active: document.getElementById('edit-active').checked ? 1 : 0
-    })
+    body: JSON.stringify(payload)
   });
 
   if (res.ok) {

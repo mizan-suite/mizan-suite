@@ -1521,6 +1521,20 @@ function firstInvalidBarcode(primary, extras) {
   return null;
 }
 
+// A product image is stored as a base64 data URL (same pattern as the shop logo
+// setting, so it rides along in backups/restores with no extra files to manage).
+// Accept only raster image MIME types and cap the decoded size so a huge file
+// can't bloat the database. Null/empty (no image) is always fine.
+function validateImageDataUrl(value) {
+  if (value === null || value === undefined || value === '') return { ok: true };
+  if (typeof value !== 'string') return { ok: false, reason: 'Image must be a data URL' };
+  const m = /^data:image\/(png|jpeg|jpg|gif|webp|bmp);base64,([A-Za-z0-9+/=\s]+)$/.exec(value);
+  if (!m) return { ok: false, reason: 'Image must be a base64 data URL (png/jpeg/gif/webp/bmp)' };
+  const decodedLen = (m[2].length / 4) * 3; // approximate decoded byte length
+  if (decodedLen > 1024 * 1024) return { ok: false, reason: 'Image must be smaller than 1 MB' };
+  return { ok: true };
+}
+
 // GET all products (active ones only, unless ?include_inactive=1 is passed)
 app.get('/api/products', (req, res) => {
   const query = req.query.include_inactive
@@ -1624,11 +1638,18 @@ app.get('/api/products/:id', (req, res) => {
 
 // POST - add a new product
 app.post('/api/products', (req, res) => {
-  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit, active } = req.body;
+  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit, active, image } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Product name is required' });
   }
+
+  // A product image is an optional base64 data URL (validated below).
+  const imgCheck = validateImageDataUrl(image);
+  if (!imgCheck.ok) {
+    return res.status(400).json({ error: imgCheck.reason });
+  }
+  const finalImage = image ? image : null;
 
   // "unit" decides how the product is sold: 'piece' (one item, default) or
   // 'kg' (sold by weight; quantity is a kilogram amount, sale_price is per kg).
@@ -1686,8 +1707,8 @@ app.post('/api/products', (req, res) => {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO products (barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, unit, active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, image, unit, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   // Any product a user explicitly marks "not available for sale" is created
@@ -1709,9 +1730,9 @@ app.post('/api/products', (req, res) => {
       db.prepare(`
         UPDATE products SET active = 1, name = ?, category = ?, cost_price = ?, sale_price = ?,
           wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?,
-          min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, unit = ?
+          min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, image = ?, unit = ?
         WHERE id = ?
-      `).run(name, category || null, cost_price || 0, finalSalePrice, finalWholesalePrice, finalMarginType, finalMarginValue, quantity || 0, min_stock || 5, max_stock || null, expiry_date || null, supplier || null, finalUnit, id);
+      `).run(name, category || null, cost_price || 0, finalSalePrice, finalWholesalePrice, finalMarginType, finalMarginValue, quantity || 0, min_stock || 5, max_stock || null, expiry_date || null, supplier || null, finalImage, finalUnit, id);
     } else {
       const result = stmt.run(
         barcode || null,
@@ -1727,6 +1748,7 @@ app.post('/api/products', (req, res) => {
         max_stock || null,
         expiry_date || null,
         supplier || null,
+        finalImage,
         finalUnit,
         finalActive
       );
@@ -1744,10 +1766,17 @@ app.post('/api/products', (req, res) => {
 
 // PUT - update an existing product
 app.put('/api/products/:id', (req, res) => {
-  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit, active } = req.body;
+  const { barcode, name, category, cost_price, sale_price, wholesale_price, margin_type, margin_value, quantity, min_stock, max_stock, expiry_date, supplier, extra_barcodes, unit, active, image } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Product name is required' });
+  }
+
+  // Optional image (base64 data URL). Omitted = keep the current image;
+  // empty/null = clear it. Validated before anything is written.
+  const imgCheck = validateImageDataUrl(image);
+  if (!imgCheck.ok) {
+    return res.status(400).json({ error: imgCheck.reason });
   }
 
   // 'piece' = one item (default); 'kg' = sold by weight (quantity in kg).
@@ -1783,6 +1812,7 @@ app.put('/api/products/:id', (req, res) => {
   // Preserve existing values for any field the caller omitted. A partial update
   // (e.g. just changing the sale price) must never zero out quantity/stock.
   const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+  const finalImage = image !== undefined ? (image || null) : existing.image;
 
   // Auto-calculate sale_price from wholesale_price + margin if not provided
   let finalSalePrice = sale_price || 0;
@@ -1814,7 +1844,7 @@ app.put('/api/products/:id', (req, res) => {
   const stmt = db.prepare(`
     UPDATE products SET
       barcode = ?, name = ?, category = ?, cost_price = ?, sale_price = ?,
-      wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?, min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, unit = ?, active = ?
+      wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?, min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, image = ?, unit = ?, active = ?
     WHERE id = ?
   `);
 
@@ -1826,6 +1856,7 @@ app.put('/api/products/:id', (req, res) => {
       finalWholesalePrice ?? existing.wholesale_price, finalMarginType || existing.margin_type, finalMarginValue || existing.margin_value,
       quantity ?? existing.quantity, min_stock ?? existing.min_stock, max_stock ?? existing.max_stock,
       expiry_date ?? existing.expiry_date, supplier ?? existing.supplier,
+      finalImage,
       finalUnit !== undefined ? finalUnit : existing.unit,
       active !== undefined ? (active ? 1 : 0) : existing.active,
       req.params.id
