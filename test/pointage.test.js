@@ -150,3 +150,32 @@ test('attendance CSV export includes the status column', async () => {
   assert.ok(String(res.data).includes('Late (20 min)'), 'export flags the late day');
   assert.ok(String(res.data).includes('Missing clock-out'), 'export flags the open day');
 });
+
+test('the owner can edit a time entry to fix clock in/out times', async () => {
+  const closed = await srv.request('PUT', `/api/time-entries/1`, {
+    clock_in: '2026-08-01T08:30', clock_out: '2026-08-01T17:30'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(closed.status, 200, JSON.stringify(closed.data));
+  assert.strictEqual(closed.data.clock_in, '2026-08-01 08:30:00');
+  assert.strictEqual(closed.data.clock_out, '2026-08-01 17:30:00');
+
+  // An open entry may stay open (blank clock-out) while fixing the clock-in time.
+  const open = await srv.request('PUT', `/api/time-entries/4`, {
+    clock_in: '2026-08-04T08:15', clock_out: ''
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(open.status, 200, JSON.stringify(open.data));
+  assert.strictEqual(open.data.clock_in, '2026-08-04 08:15:00');
+  assert.strictEqual(open.data.clock_out, null, 'stays open');
+
+  // A closed shift cannot be reopened by clearing its clock-out.
+  const reopen = await srv.request('PUT', `/api/time-entries/1`, {
+    clock_in: '2026-08-01T08:30', clock_out: ''
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(reopen.status, 400, JSON.stringify(reopen.data));
+
+  // Workers cannot edit time entries.
+  const workerEdit = await srv.request('PUT', `/api/time-entries/1`, {
+    clock_in: '2026-08-01T09:00'
+  }, { Cookie: workerCookie });
+  assert.strictEqual(workerEdit.status, 403, JSON.stringify(workerEdit.data));
+});

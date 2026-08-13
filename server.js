@@ -1126,6 +1126,9 @@ app.put('/api/time-entries/:id', (req, res) => {
   }
   if (req.body.clock_out !== undefined) {
     if (req.body.clock_out === null || req.body.clock_out === '') {
+      // A closed shift cannot be reopened; an open shift may stay open so the
+      // owner can fix just the clock-in time of someone currently clocked in.
+      if (entry.clock_out) return res.status(400).json({ error: 'Clock out must be after clock in' });
       clockOut = null;
     } else {
       const v = normalizeDateTime(req.body.clock_out);
@@ -1134,7 +1137,7 @@ app.put('/api/time-entries/:id', (req, res) => {
       clockOut = v;
     }
   }
-  if (!clockOut || clockOut <= clockIn) {
+  if (clockOut && clockOut <= clockIn) {
     return res.status(400).json({ error: 'Clock out must be after clock in' });
   }
   db.prepare('UPDATE time_entries SET clock_in = ?, clock_out = ? WHERE id = ?').run(clockIn, clockOut, entry.id);

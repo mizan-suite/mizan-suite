@@ -404,19 +404,37 @@ manualClockList.addEventListener('click', (e) => {
   clockWorker(Number(btn.dataset.clock));
 });
 
-listEl.addEventListener('click', async (e) => {
-  const editBtn = e.target.closest('.entry-edit');
-  const delBtn = e.target.closest('.entry-del');
-  if (editBtn) {
-    const inVal = editBtn.dataset.in.replace(' ', 'T').slice(0, 16);
-    const outVal = editBtn.dataset.out.replace(' ', 'T').slice(0, 16);
-    const newIn = prompt(I18N.t('pointage.clockedInAt') + ' (YYYY-MM-DDTHH:MM)', inVal);
-    if (newIn === null) return;
-    const newOut = prompt(I18N.t('pointage.clockedOutAt') + ' (YYYY-MM-DDTHH:MM)', outVal || '');
-    if (newOut === null) return;
-    const payload = { clock_in: newIn };
-    if (newOut.trim()) payload.clock_out = newOut;
-    const res = await fetch(`/api/time-entries/${editBtn.dataset.id}`, {
+// Inline editor for a time entry (Electron does not support prompt()).
+function openEntryEditor(tr, id, inVal, outVal) {
+  const table = tr.parentElement;
+  table.querySelectorAll('tr.entry-editor-row').forEach(r => r.remove());
+  const editorRow = document.createElement('tr');
+  editorRow.className = 'entry-editor-row';
+  const colCount = tr.children.length || 6;
+  editorRow.innerHTML = `
+    <td colspan="${colCount}" style="padding:0.75rem; background:var(--panel,#fff);">
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center;">
+        <label style="font-size:0.85rem;">${I18N.t('pointage.clockedInAt')}
+          <input type="datetime-local" id="entry-ed-in" value="${escapeHtml(inVal)}" style="display:block; margin-top:0.25rem; padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;">
+        </label>
+        <label style="font-size:0.85rem;">${I18N.t('pointage.clockedOutAt')}
+          <input type="datetime-local" id="entry-ed-out" value="${escapeHtml(outVal || '')}" style="display:block; margin-top:0.25rem; padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;">
+          <span class="hint-text">${I18N.t('pointage.editKeepOpenHint')}</span>
+        </label>
+        <button class="btn" id="entry-ed-save">${I18N.t('pointage.save')}</button>
+        <button class="btn btn-ghost" id="entry-ed-cancel">${I18N.t('pointage.cancel')}</button>
+      </div>
+    </td>`;
+  tr.after(editorRow);
+  const inInput = editorRow.querySelector('#entry-ed-in');
+  const outInput = editorRow.querySelector('#entry-ed-out');
+  editorRow.querySelector('#entry-ed-cancel').addEventListener('click', () => editorRow.remove());
+  editorRow.querySelector('#entry-ed-save').addEventListener('click', async () => {
+    const newIn = inInput.value;
+    const newOut = outInput.value;
+    if (!newIn) { alert(I18N.t('inv.error') + ' ' + I18N.t('pointage.clockedInAt')); return; }
+    const payload = { clock_in: newIn, clock_out: newOut || '' };
+    const res = await fetch(`/api/time-entries/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -427,14 +445,27 @@ listEl.addEventListener('click', async (e) => {
     }
     alert(I18N.t('pointage.entrySaved'));
     loadPointage();
+  });
+}
+
+listEl.addEventListener('click', (e) => {
+  const editBtn = e.target.closest('.entry-edit');
+  const delBtn = e.target.closest('.entry-del');
+  if (editBtn) {
+    const tr = editBtn.closest('tr');
+    const inVal = editBtn.dataset.in.replace(' ', 'T').slice(0, 16);
+    const outVal = editBtn.dataset.out ? editBtn.dataset.out.replace(' ', 'T').slice(0, 16) : '';
+    openEntryEditor(tr, editBtn.dataset.id, inVal, outVal);
   } else if (delBtn) {
     if (!confirm(I18N.t('pointage.confirmDeleteEntry'))) return;
-    const res = await fetch(`/api/time-entries/${delBtn.dataset.id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
-      return;
-    }
-    loadPointage();
+    (async () => {
+      const res = await fetch(`/api/time-entries/${delBtn.dataset.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
+        return;
+      }
+      loadPointage();
+    })();
   }
 });
 
