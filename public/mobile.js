@@ -35,7 +35,7 @@
   async function api(path) {
     const res = await fetch(path, { headers: { 'Accept': 'application/json' } });
     if (res.status === 401) {
-      window.location.href = 'login.html?next=/m';
+      window.location.href = 'login.html';
       throw new Error('unauthorized');
     }
     if (!res.ok) throw new Error(path + ' -> ' + res.status);
@@ -192,16 +192,20 @@
       role = auth.role || 'owner';
       perms = auth.permissions || [];
       if (!auth.authorized || !auth.accounts_exist) {
-        window.location.href = 'login.html?next=/m';
+        window.location.href = 'login.html';
         return;
-      }    } catch (e) {
-      window.location.href = 'login.html?next=/m';
+      }
+      // Phone users go straight to the desktop app (no read-only stats page).
+      window.location.href = auth.home || 'dashboard.html';
+      return;
+    } catch (e) {
+      window.location.href = 'login.html';
       return;
     }
 
     $('m-logout').addEventListener('click', async () => {
       await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-      window.location.href = 'login.html?next=/m';
+      window.location.href = 'login.html';
     });
     $('m-desktop').addEventListener('click', () => { window.location.href = 'index.html'; });
     $('m-refresh').addEventListener('click', () => refresh().then(() => toast(I18N.t('mobile.updated'))));
