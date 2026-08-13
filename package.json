@@ -66,6 +66,8 @@
     "chart.js": "^4.4.0",
     "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
-    "qrcode-generator": "^2.0.4"
+    "png-to-ico": "^3.0.2",
+    "qrcode-generator": "^2.0.4",
+    "sharp": "^0.35.3"
   }
 }

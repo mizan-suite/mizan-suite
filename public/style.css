@@ -2312,6 +2312,14 @@ html.dark-mode .perm-chip:has(input:checked) {
   margin-bottom: 0.4rem;
 }
 
+.login-logo img {
+  display: block;
+  width: 190px;
+  max-width: 70%;
+  height: auto;
+  margin: 0 auto 0.4rem;
+}
+
 .login-subtitle {
   color: #888;
   font-size: 0.9rem;
