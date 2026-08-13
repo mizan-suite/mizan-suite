@@ -623,3 +623,8 @@ document.querySelectorAll('.fact-toggle').forEach(btn => {
     btn.textContent = I18N.t(hidden ? 'dash.show' : 'dash.hide');
   });
 });
+// ---------- Clock in shortcut (visible to anyone with the pointage permission) ----------
+(function () {
+  const btn = document.getElementById('dash-clock-btn');
+  if (btn && userHasPerm('pointage')) btn.style.display = '';
+})();
