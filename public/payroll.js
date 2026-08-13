@@ -104,19 +104,72 @@ function renderPayroll() {
             <td>${formatMoney(i.base_amount)}</td>
             <td>${i.bonuses > 0 ? formatMoney(i.bonuses) : '-'}</td>
             <td>${i.advances > 0 ? formatMoney(i.advances) : '-'}</td>
-            <td>${i.deductions > 0 ? formatMoney(i.deductions) : '-'}</td>
+            <td>${i.deductions > 0 ? formatMoney(i.deductions) : '-'}${renderDeductionReasons(i.id)}</td>
             <td>${i.absence_days > 0 ? i.absence_days : '-'}</td>
             <td><strong>${formatMoney(i.amount)}</strong></td>
             <td>${i.paid
               ? `<span class="badge badge-ok" title="${escapeHtml(String(i.paid_at))}">${I18N.t('payroll.paid')}</span>`
               : `<span class="badge badge-warning">${I18N.t('payroll.unpaid')}</span>`}</td>
             <td style="white-space:nowrap;">
+              ${i.paid ? '' : `<button class="btn btn-ghost btn-sm reduce-btn" data-id="${i.id}" data-name="${escapeHtml(i.name)}">${I18N.t('payroll.reducePay')}</button> `}
               ${i.paid ? '' : `<button class="btn btn-outline btn-sm pay-btn" data-id="${i.id}" data-name="${escapeHtml(i.name)}" data-amount="${i.amount}">${I18N.t('payroll.markPaid')}</button> `}
               <a class="btn btn-ghost btn-sm" href="/api/payroll/${i.id}/${monthInput.value}/pdf" target="_blank" rel="noopener">${I18N.t('payroll.paySlip')}</a>
             </td>
           </tr>`).join('')}
       </tbody>
     </table>` : `<div class="po-card empty-cart-msg">${I18N.t('payroll.empty')}</div>`;
+}
+
+// One-time pay reductions (kind=deduction) with their reason, under the total.
+function renderDeductionReasons(userId) {
+  const lines = adjCache.filter(a => a.user_id === userId && a.kind === 'deduction');
+  if (!lines.length) return '';
+  return lines.map(d =>
+    `<div class="hint-text" style="font-size:0.78rem;">- ${escapeHtml(formatMoney(d.amount))}${d.note ? ' · ' + escapeHtml(d.note) : ''}</div>`
+  ).join('');
+}
+
+// Inline "reduce pay" editor: amount + reason saved as a one-time deduction.
+function openReduceEditor(tr, userId, name) {
+  const table = tr.parentElement;
+  table.querySelectorAll('tr.reduce-editor-row').forEach(r => r.remove());
+  const editorRow = document.createElement('tr');
+  editorRow.className = 'reduce-editor-row';
+  const colCount = tr.children.length || 10;
+  editorRow.innerHTML = `
+    <td colspan="${colCount}" style="padding:0.75rem; background:var(--panel,#fff);">
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center;">
+        <strong>${I18N.t('payroll.reducePay')} — ${escapeHtml(name)}</strong>
+        <input type="number" class="reduce-amount" placeholder="${I18N.t('payroll.adjAmount')}" style="width:130px; padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;" step="0.01" min="0">
+        <input type="text" class="reduce-note" placeholder="${I18N.t('payroll.reduceReason')}" style="flex:1; min-width:160px; padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;">
+        <button class="btn reduce-save">${I18N.t('pointage.save')}</button>
+        <button class="btn btn-ghost reduce-cancel">${I18N.t('pointage.cancel')}</button>
+      </div>
+    </td>`;
+  tr.after(editorRow);
+  editorRow.querySelector('.reduce-cancel').addEventListener('click', () => editorRow.remove());
+  editorRow.querySelector('.reduce-save').addEventListener('click', async () => {
+    const amount = parseFloat(editorRow.querySelector('.reduce-amount').value);
+    const note = editorRow.querySelector('.reduce-note').value.trim();
+    if (!(amount > 0)) { alert(I18N.t('err.positiveNumber')); return; }
+    const res = await fetch('/api/payroll/adjustments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        kind: 'deduction',
+        amount,
+        month: monthInput.value,
+        note: note || null
+      })
+    });
+    if (!res.ok) {
+      alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
+      return;
+    }
+    alert(I18N.t('payroll.adjustmentAdded'));
+    loadPayroll();
+  });
 }
 
 function renderAdjustments() {
@@ -191,6 +244,12 @@ adjListEl.addEventListener('click', async (e) => {
 });
 
 listEl.addEventListener('click', async (e) => {
+  const reduce = e.target.closest('.reduce-btn');
+  if (reduce) {
+    const worker = payrollCache.items.find(i => i.id === Number(reduce.dataset.id));
+    openReduceEditor(reduce.closest('tr'), Number(reduce.dataset.id), worker ? worker.name : '');
+    return;
+  }
   const btn = e.target.closest('.pay-btn');
   if (!btn) return;
   const { id, name, amount } = btn.dataset;

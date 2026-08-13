@@ -1444,12 +1444,15 @@ app.get('/api/payroll/:userId/:month/pdf', (req, res) => {
       absence_days: 0, gross: 0, amount: 0, paid: false
     };
     const paid = db.prepare('SELECT * FROM payroll_payments WHERE user_id = ? AND month = ?').get(user.id, month);
+    const deductions = db.prepare(
+      "SELECT amount, note FROM staff_advances WHERE user_id = ? AND month = ? AND kind = 'deduction' ORDER BY id"
+    ).all(user.id, month);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="payslip-${String(user.name).replace(/\s+/g, '-')}-${month}.pdf"`);
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     doc.pipe(res);
-    buildPaySlipPdf(doc, { user, month, item, paid });
+    buildPaySlipPdf(doc, { user, month, item, paid, deductions });
     doc.end();
   } catch (err) { sendPdfError(res, err); }
 });
@@ -4545,6 +4548,25 @@ function buildPaySlipPdf(doc, opts) {
     doc.fontSize(10).text(label, startX, y, { width: labelW });
     doc.text(String(value), startX + labelW, y, { width: valueW, align: 'right' });
     y += 22;
+  }
+
+  const deductions = opts.deductions || [];
+  if (deductions.length) {
+    if (y > doc.page.height - doc.page.margins.bottom - 40) {
+      doc.addPage();
+      y = doc.page.margins.top;
+    }
+    doc.font('Helvetica-Bold').fontSize(9).text('Retenues - motifs :', startX, y, { width: labelW + valueW });
+    y += 14;
+    doc.font('Helvetica');
+    for (const d of deductions) {
+      if (y > doc.page.height - doc.page.margins.bottom - 40) {
+        doc.addPage();
+        y = doc.page.margins.top;
+      }
+      doc.fontSize(9).text((d.note || 'Retenue') + ' : -' + moneyPdf(d.amount), startX, y, { width: labelW + valueW });
+      y += 16;
+    }
   }
 
   doc.moveDown(1);
