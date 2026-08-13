@@ -9,6 +9,13 @@ const workerSel = document.getElementById('pointage-worker');
 const clockBtn = document.getElementById('clock-btn');
 const manualClockEl = document.getElementById('manual-clock');
 const manualClockList = document.getElementById('manual-clock-list');
+const ptgTabs = document.getElementById('ptg-tabs');
+const ptgTabToday = document.getElementById('ptg-tab-today');
+const ptgTabHistory = document.getElementById('ptg-tab-history');
+const clockSelectedIn = document.getElementById('clock-selected-in');
+const clockSelectedOut = document.getElementById('clock-selected-out');
+const clockAllOut = document.getElementById('clock-all-out');
+const ptgSelCount = document.getElementById('ptg-sel-count');
 const summaryEl = document.getElementById('pointage-summary');
 const listEl = document.getElementById('pointage-list');
 const leaveSection = document.getElementById('leave-section');
@@ -25,8 +32,11 @@ const exportPdf = document.getElementById('ptg-export-pdf');
 let range = 'today';
 let staffCache = [];
 let entriesCache = [];
+let todayEntries = [];
 let leaveCache = [];
 let attendanceCache = [];
+let activeTab = 'today';
+const selectedWorkerIds = new Set();
 
 const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -86,14 +96,35 @@ function updateClockBtn() {
   clockBtn.textContent = open ? I18N.t('pointage.clockOut') : I18N.t('pointage.clockIn');
 }
 
+// Total minutes worked today for a worker (open shifts count up to now).
+function todayHoursFor(id) {
+  let mins = 0;
+  for (const e of todayEntries) {
+    if (e.user_id !== id) continue;
+    if (e.clock_out) {
+      mins += Math.max(0, Math.round((new Date(e.clock_out) - new Date(e.clock_in)) / 60000));
+    } else {
+      mins += Math.max(0, Math.round((Date.now() - new Date(e.clock_in)) / 60000));
+    }
+  }
+  return mins;
+}
+
+function updateSelCount() {
+  ptgSelCount.textContent = selectedWorkerIds.size
+    ? I18N.t('pointage.selected').replace('{n}', selectedWorkerIds.size)
+    : '';
+}
+
 // Owner view: a roster with one Clock in / Clock out button per staff member so
-// the owner can clock people in and out manually.
+// the owner can clock people in and out manually, a checkbox for multi-select
+// batch actions, today's hours and an inline editor to fix times.
 function renderManualClock() {
   if (!isOwner()) return;
   const active = staffCache.filter(w => w.active && w.role !== 'owner');
-  if (!active.length) { manualClockEl.style.display = 'none'; return; }
+  if (!active.length) { manualClockEl.style.display = 'none'; updateSelCount(); return; }
   const openByUser = {};
-  for (const e of entriesCache) {
+  for (const e of todayEntries) {
     if (!e.clock_out && openByUser[e.user_id] == null) openByUser[e.user_id] = e;
   }
   manualClockList.innerHTML = active.map(w => {
@@ -101,20 +132,29 @@ function renderManualClock() {
     const shift = w.expected_shift_start
       ? `${w.expected_shift_start}${w.expected_shift_end ? ' - ' + w.expected_shift_end : ''}`
       : '';
+    const hours = todayHoursFor(w.id);
+    const hoursTxt = hours > 0
+      ? `<span class="hint-text">${escapeHtml(I18N.t('pointage.todayHours').replace('{h}', formatDuration(hours)))}</span>`
+      : '';
     const status = open
       ? `<span class="badge badge-warning">${I18N.t('pointage.clockedInAt')} ${escapeHtml(String(open.clock_in).slice(11, 16))}</span>`
       : `<span class="badge badge-ghost">${I18N.t('pointage.notClockedIn')}</span>`;
+    const checked = selectedWorkerIds.has(w.id) ? ' checked' : '';
     return `
       <div class="manual-clock-row">
+        <input type="checkbox" class="roster-check" data-sel="${w.id}"${checked} aria-label="${escapeHtml(w.name)}">
         <div class="manual-clock-name">
           <div class="manual-clock-title">${escapeHtml(w.name)}</div>
           ${shift ? `<div class="hint-text">${escapeHtml(shift)}</div>` : ''}
         </div>
+        ${hoursTxt}
         ${status}
         <button class="btn ${open ? 'btn-ghost' : ''}" data-clock="${w.id}">${open ? I18N.t('pointage.clockOut') : I18N.t('pointage.clockIn')}</button>
+        <button class="btn btn-outline btn-sm" data-roster-edit="${w.id}" title="${I18N.t('pointage.editEntry')}">${I18N.t('pointage.editEntry')}</button>
       </div>`;
   }).join('');
   manualClockEl.style.display = '';
+  updateSelCount();
 }
 
 // Shared clock action: used by the worker self button (id = null) and by the
@@ -140,6 +180,77 @@ async function clockWorker(id) {
       : 0;
     alert(I18N.t('pointage.clockedOut').replace('{name}', name).replace('{duration}', formatDuration(mins)));
   }
+  loadPointage();
+}
+
+// Inline time editor on a roster row: set a custom clock-in (and optional
+// clock-out) time for one staff member. Uses the custom-time clock endpoint.
+function openRosterEditor(rowEl, worker) {
+  manualClockList.querySelectorAll('.roster-editor').forEach(el => el.remove());
+  const open = todayEntries.find(e => e.user_id === worker.id && !e.clock_out) || null;
+  const today = localDateStr(new Date());
+  const inVal = open ? String(open.clock_in).replace(' ', 'T').slice(0, 16) : (today + 'T08:00');
+  const outVal = open ? '' : '';
+  const editor = document.createElement('div');
+  editor.className = 'roster-editor';
+  editor.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center; padding:0.6rem 0; border-bottom:1px solid #eef0f3;">
+      <label style="font-size:0.85rem;">${I18N.t('pointage.clockedInAt')}
+        <input type="datetime-local" class="roster-ed-in" value="${escapeHtml(inVal)}" style="display:block; margin-top:0.25rem; padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;">
+      </label>
+      <label style="font-size:0.85rem;">${I18N.t('pointage.clockedOutAt')}
+        <input type="datetime-local" class="roster-ed-out" value="${escapeHtml(outVal)}" style="display:block; margin-top:0.25rem; padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;">
+        <span class="hint-text">${I18N.t('pointage.editKeepOpenHint')}</span>
+      </label>
+      <button class="btn roster-ed-save">${I18N.t('pointage.save')}</button>
+      <button class="btn btn-ghost roster-ed-cancel">${I18N.t('pointage.cancel')}</button>
+    </div>`;
+  rowEl.after(editor);
+  editor.querySelector('.roster-ed-cancel').addEventListener('click', () => editor.remove());
+  editor.querySelector('.roster-ed-save').addEventListener('click', async () => {
+    const newIn = editor.querySelector('.roster-ed-in').value;
+    const newOut = editor.querySelector('.roster-ed-out').value;
+    if (!newIn) { alert(I18N.t('inv.error') + ' ' + I18N.t('pointage.clockedInAt')); return; }
+    const payload = { user_id: worker.id, clock_in: newIn };
+    if (newOut) payload.clock_out = newOut;
+    const res = await fetch('/api/time-entries/clock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
+      return;
+    }
+    alert(I18N.t('pointage.entrySaved'));
+    loadPointage();
+  });
+}
+
+// Batch clock several staff at once via /clock-many (owner only).
+async function clockMany(ids, action) {
+  if (!ids.length) {
+    alert(I18N.t(action === 'in' ? 'pointage.selectToClockIn' : 'pointage.selectToClockOut'));
+    return;
+  }
+  const res = await fetch('/api/time-entries/clock-many', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_ids: ids, action })
+  });
+  if (!res.ok) {
+    alert(I18N.t('inv.error') + ' ' + I18N.serverError((await res.json()).error));
+    return;
+  }
+  const data = await res.json();
+  const done = data.results.filter(r => r.action === 'in' || r.action === 'out');
+  if (done.length) {
+    const key = action === 'in' ? 'pointage.clockedManyIn' : 'pointage.clockedManyOut';
+    alert(I18N.t(key).replace('{names}', done.map(r => r.name).join(', ')));
+  } else {
+    alert(I18N.t(action === 'in' ? 'pointage.noneToClockIn' : 'pointage.noneToClockOut'));
+  }
+  selectedWorkerIds.clear();
   loadPointage();
 }
 
@@ -361,15 +472,19 @@ function updateExportLinks() {
 async function loadPointage() {
   const rp = rangeParams();
   const qs = `from=${rp.from}&to=${rp.to}`;
-  const [staffRes, entriesRes, summaryRes, attRes] = await Promise.all([
+  const today = localDateStr(new Date());
+  const tqs = `from=${today}&to=${today}`;
+  const [staffRes, entriesRes, todayRes, summaryRes, attRes] = await Promise.all([
     fetch('/api/staff'),
     fetch(`/api/time-entries?${qs}`),
+    fetch(`/api/time-entries?${tqs}`),
     fetch(`/api/time-entries/summary?${qs}`),
     fetch(`/api/time-entries/attendance?${qs}`)
   ]);
-  if (!staffRes.ok || !entriesRes.ok || !summaryRes.ok || !attRes.ok) return;
+  if (!staffRes.ok || !entriesRes.ok || !todayRes.ok || !summaryRes.ok || !attRes.ok) return;
   staffCache = await staffRes.json();
   entriesCache = await entriesRes.json();
+  todayEntries = await todayRes.json();
   attendanceCache = await attRes.json();
   if (isOwner()) {
     const leaveRes = await fetch(`/api/leave?${qs}`);
@@ -398,10 +513,48 @@ workerSel.addEventListener('change', updateClockBtn);
 
 clockBtn.addEventListener('click', () => clockWorker(null));
 
+// Owner view tabs (Today / History). Distinct class from .tab-btn on purpose:
+// those are bound to the range switch above.
+function showTab(tab) {
+  activeTab = tab;
+  if (!isOwner()) return;
+  ptgTabToday.style.display = tab === 'today' ? '' : 'none';
+  ptgTabHistory.style.display = tab === 'history' ? '' : 'none';
+}
+document.querySelectorAll('.view-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.view-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    showTab(btn.dataset.tab);
+  });
+});
+
+// Batch actions on the roster.
+clockSelectedIn.addEventListener('click', () => clockMany([...selectedWorkerIds], 'in'));
+clockSelectedOut.addEventListener('click', () => clockMany([...selectedWorkerIds], 'out'));
+clockAllOut.addEventListener('click', () => {
+  const ids = staffCache.filter(w => w.active && w.role !== 'owner').map(w => w.id);
+  if (!ids.length) return;
+  if (!confirm(I18N.t('pointage.confirmClockOutAll'))) return;
+  clockMany(ids, 'out');
+});
+
 manualClockList.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-clock]');
-  if (!btn) return;
-  clockWorker(Number(btn.dataset.clock));
+  const clock = e.target.closest('[data-clock]');
+  if (clock) { clockWorker(Number(clock.dataset.clock)); return; }
+  const edit = e.target.closest('[data-roster-edit]');
+  if (edit) {
+    const worker = staffCache.find(w => w.id === Number(edit.dataset.rosterEdit));
+    if (worker) openRosterEditor(edit.closest('.manual-clock-row'), worker);
+  }
+});
+
+manualClockList.addEventListener('change', (e) => {
+  const cb = e.target.closest('.roster-check');
+  if (!cb) return;
+  const id = Number(cb.dataset.sel);
+  if (cb.checked) selectedWorkerIds.add(id); else selectedWorkerIds.delete(id);
+  updateSelCount();
 });
 
 // Inline editor for a time entry (Electron does not support prompt()).
@@ -485,6 +638,8 @@ function setupRoleUI() {
     exportCsv.style.display = '';
     exportExcel.style.display = '';
     exportPdf.style.display = '';
+    ptgTabs.style.display = '';
+    showTab(activeTab);
 
     if (!leaveAddBtn.dataset.bound) {
       leaveAddBtn.dataset.bound = '1';
@@ -531,6 +686,9 @@ function setupRoleUI() {
     exportCsv.style.display = 'none';
     exportExcel.style.display = 'none';
     exportPdf.style.display = 'none';
+    ptgTabs.style.display = 'none';
+    ptgTabToday.style.display = 'none';
+    ptgTabHistory.style.display = '';
     // Workers only clock themselves: make the button the centre of the page.
     clockBtn.classList.add('btn-lg');
     clockBtn.style.flex = '1';
@@ -539,7 +697,8 @@ function setupRoleUI() {
     workerHintEl = document.createElement('div');
     workerHintEl.id = 'worker-clock-hint';
     workerHintEl.className = 'hint-text';
-    workerHintEl.style.margin = '0.5rem 0 1rem';
+    workerHintEl.style.margin = '0.4rem 0 0.75rem';
+    workerHintEl.style.fontSize = '0.85rem';
     workerHintEl.textContent = window.AK_NAME
       ? I18N.t('pointage.workerClockHint').replace('{name}', window.AK_NAME)
       : I18N.t('pointage.clockIn');

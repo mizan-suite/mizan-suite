@@ -951,6 +951,27 @@ html.dark-mode .pagination-bar .page-info {
 .manual-clock-title {
   font-weight: 600;
 }
+.roster-check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary, #1664f5);
+  cursor: pointer;
+  flex: none;
+}
+.roster-editor {
+  background: var(--panel, #fff);
+  border-bottom: 1px solid #eef0f3;
+}
+
+/* Owner view tabs (Today / History) mirror the range .tab-btn style. */
+.view-tab-btn {
+  border-radius: 6px;
+}
+.view-tab-btn.active {
+  background-color: var(--accent, #1b6e5c);
+  color: white;
+  border-color: var(--accent, #1b6e5c);
+}
 
 /* Professional attendance (pointage) matrix table: colour the day cells so the
    owner can scan a worker's month at a glance. */

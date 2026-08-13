@@ -179,3 +179,98 @@ test('the owner can edit a time entry to fix clock in/out times', async () => {
   }, { Cookie: workerCookie });
   assert.strictEqual(workerEdit.status, 403, JSON.stringify(workerEdit.data));
 });
+
+test('the owner can clock a worker with a custom time via the clock endpoint', async () => {
+  const w = await srv.request('POST', '/api/users', {
+    name: 'Sofiane', pin: '444555', role: 'worker', permissions: ['pointage']
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(w.status, 201, JSON.stringify(w.data));
+
+  // Custom clock-in only -> new open entry with the given time.
+  const inRes = await srv.request('POST', '/api/time-entries/clock', {
+    user_id: w.data.id, clock_in: '2026-08-06T09:00'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(inRes.status, 201, JSON.stringify(inRes.data));
+  assert.strictEqual(inRes.data.action, 'in');
+  assert.strictEqual(inRes.data.entry.clock_in, '2026-08-06 09:00:00');
+  assert.strictEqual(inRes.data.entry.clock_out, null);
+
+  // Custom in + out on a worker with an open shift -> the open entry is fixed.
+  const outRes = await srv.request('POST', '/api/time-entries/clock', {
+    user_id: w.data.id, clock_in: '2026-08-06T09:15', clock_out: '2026-08-06T17:00'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(outRes.status, 200, JSON.stringify(outRes.data));
+  assert.strictEqual(outRes.data.action, 'edited');
+  assert.strictEqual(outRes.data.entry.clock_in, '2026-08-06 09:15:00');
+  assert.strictEqual(outRes.data.entry.clock_out, '2026-08-06 17:00:00');
+
+  // Workers cannot use custom times (self clock-in only).
+  const workerCustom = await srv.request('POST', '/api/time-entries/clock', {
+    user_id: w.data.id, clock_in: '2026-08-06T10:00'
+  }, { Cookie: workerCookie });
+  assert.strictEqual(workerCustom.status, 403, JSON.stringify(workerCustom.data));
+
+  // Invalid times are rejected.
+  const bad = await srv.request('POST', '/api/time-entries/clock', {
+    user_id: w.data.id, clock_in: 'not-a-time'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(bad.status, 400, JSON.stringify(bad.data));
+  const after = await srv.request('POST', '/api/time-entries/clock', {
+    user_id: w.data.id, clock_in: '2026-08-06T17:30', clock_out: '2026-08-06T09:00'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(after.status, 400, 'clock out must follow clock in');
+});
+
+test('clock-many batches clock in / clock out across selected staff (owner only)', async () => {
+  const mk = async (name, pin) => {
+    const r = await srv.request('POST', '/api/users', {
+      name, pin, role: 'worker', permissions: ['pointage']
+    }, { Cookie: ownerCookie });
+    assert.strictEqual(r.status, 201, JSON.stringify(r.data));
+    return r.data.id;
+  };
+  const a = await mk('BatchA', '555666');
+  const b = await mk('BatchB', '666777');
+
+  // Clock both in.
+  const inRes = await srv.request('POST', '/api/time-entries/clock-many', {
+    user_ids: [a, b], action: 'in'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(inRes.status, 200, JSON.stringify(inRes.data));
+  assert.deepStrictEqual(inRes.data.results.map(x => x.action), ['in', 'in']);
+  assert.ok(inRes.data.results.every(x => x.entry && !x.entry.clock_out));
+
+  // Already clocked in -> skipped, not duplicated.
+  const again = await srv.request('POST', '/api/time-entries/clock-many', {
+    user_ids: [a, b], action: 'in'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(again.status, 200, JSON.stringify(again.data));
+  assert.deepStrictEqual(again.data.results.map(x => x.action), ['skip', 'skip']);
+
+  // Clock both out.
+  const outRes = await srv.request('POST', '/api/time-entries/clock-many', {
+    user_ids: [a, b], action: 'out'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(outRes.status, 200, JSON.stringify(outRes.data));
+  assert.deepStrictEqual(outRes.data.results.map(x => x.action), ['out', 'out']);
+  assert.ok(outRes.data.results.every(x => x.entry.clock_out), 'clock-out stamped');
+
+  // Not clocked in -> skipped.
+  const outAgain = await srv.request('POST', '/api/time-entries/clock-many', {
+    user_ids: [a, b], action: 'out'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(outAgain.status, 200, JSON.stringify(outAgain.data));
+  assert.deepStrictEqual(outAgain.data.results.map(x => x.action), ['skip', 'skip']);
+
+  // A worker cannot run batch actions.
+  const workerBatch = await srv.request('POST', '/api/time-entries/clock-many', {
+    user_ids: [a, b], action: 'in'
+  }, { Cookie: workerCookie });
+  assert.strictEqual(workerBatch.status, 403, JSON.stringify(workerBatch.data));
+
+  // Empty selection is rejected.
+  const none = await srv.request('POST', '/api/time-entries/clock-many', {
+    user_ids: [], action: 'in'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(none.status, 400, JSON.stringify(none.data));
+});

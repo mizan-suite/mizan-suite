@@ -922,6 +922,33 @@ app.post('/api/time-entries/clock', (req, res) => {
   if (!user) return res.status(404).json({ error: 'Staff member not found' });
   if (!user.active) return res.status(400).json({ error: 'Staff member is not active' });
 
+  // Owner may clock someone in (or fix an open shift) with a custom time.
+  if (req.body.clock_in !== undefined) {
+    if (!isOwnerRequest(req)) {
+      return res.status(403).json({ error: 'This action requires the owner account' });
+    }
+    const v = normalizeDateTime(req.body.clock_in);
+    if (!v) return res.status(400).json({ error: 'Invalid clock in time' });
+    let clockOut = null;
+    if (req.body.clock_out !== undefined && req.body.clock_out !== null && req.body.clock_out !== '') {
+      const vo = normalizeDateTime(req.body.clock_out);
+      if (!vo) return res.status(400).json({ error: 'Invalid clock out time' });
+      if (vo <= v) return res.status(400).json({ error: 'Clock out must be after clock in' });
+      clockOut = vo;
+    }
+    const open = db.prepare(
+      'SELECT * FROM time_entries WHERE user_id = ? AND clock_out IS NULL ORDER BY id DESC LIMIT 1'
+    ).get(userId);
+    if (open) {
+      db.prepare('UPDATE time_entries SET clock_in = ?, clock_out = ? WHERE id = ?').run(v, clockOut, open.id);
+      logAudit(req, 'time_entry_edited', `name: ${user.name}, entry: ${open.id}`);
+      return res.json({ action: 'edited', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(open.id) });
+    }
+    const info = db.prepare('INSERT INTO time_entries (user_id, clock_in, clock_out) VALUES (?, ?, ?)').run(userId, v, clockOut);
+    logAudit(req, 'time_clock_in', `name: ${user.name}`);
+    return res.status(201).json({ action: 'in', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(info.lastInsertRowid) });
+  }
+
   const open = db.prepare(
     'SELECT * FROM time_entries WHERE user_id = ? AND clock_out IS NULL ORDER BY id DESC LIMIT 1'
   ).get(userId);
@@ -935,6 +962,42 @@ app.post('/api/time-entries/clock', (req, res) => {
   ).run(userId);
   logAudit(req, 'time_clock_in', `name: ${user.name}`);
   res.status(201).json({ action: 'in', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(info.lastInsertRowid) });
+});
+
+// POST /api/time-entries/clock-many - clock several staff at once (owner only).
+// Used by the roster's multi-select and "clock out everyone". action 'in'
+// opens shifts for anyone not currently clocked in; action 'out' closes open
+// shifts. Skipped staff are reported, never error out the whole request.
+app.post('/api/time-entries/clock-many', (req, res) => {
+  if (!isOwnerRequest(req)) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const ids = Array.isArray(req.body.user_ids)
+    ? [...new Set(req.body.user_ids.map(Number).filter(n => Number.isInteger(n) && n > 0))]
+    : [];
+  const action = req.body.action === 'out' ? 'out' : 'in';
+  if (!ids.length) return res.status(400).json({ error: 'Select at least one staff member' });
+
+  const results = [];
+  for (const userId of ids) {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!user || !user.active) continue;
+    const open = db.prepare(
+      'SELECT * FROM time_entries WHERE user_id = ? AND clock_out IS NULL ORDER BY id DESC LIMIT 1'
+    ).get(userId);
+    if (open) {
+      if (action === 'in') { results.push({ user_id: userId, name: user.name, action: 'skip', reason: 'already clocked in' }); continue; }
+      db.prepare('UPDATE time_entries SET clock_out = datetime(\'now\', \'localtime\') WHERE id = ?').run(open.id);
+      logAudit(req, 'time_clock_out', `name: ${user.name}, entry: ${open.id}`);
+      results.push({ user_id: userId, name: user.name, action: 'out', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(open.id) });
+    } else {
+      if (action === 'out') { results.push({ user_id: userId, name: user.name, action: 'skip', reason: 'not clocked in' }); continue; }
+      const info = db.prepare("INSERT INTO time_entries (user_id, clock_in) VALUES (?, datetime('now', 'localtime'))").run(userId);
+      logAudit(req, 'time_clock_in', `name: ${user.name}`);
+      results.push({ user_id: userId, name: user.name, action: 'in', entry: db.prepare('SELECT * FROM time_entries WHERE id = ?').get(info.lastInsertRowid) });
+    }
+  }
+  res.json({ results });
 });
 
 // Helper for the time-entries queries below. Returns { where, params }.

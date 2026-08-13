@@ -19,53 +19,73 @@
       <h1 data-i18n="pointage.title">Pointage</h1>
     </div>
 
-    <!-- Manual clock in / out (owner): one button per staff member -->
-    <div id="manual-clock" class="po-card" style="display:none; margin-bottom:1.5rem;">
-      <h3 style="margin-top:0;" data-i18n="pointage.manualClockTitle">Clock staff in / out</h3>
-      <div id="manual-clock-list"></div>
+    <!-- Owner view tabs -->
+    <div class="po-filter" id="ptg-tabs" style="display:none;">
+      <button class="filter-btn view-tab-btn active" data-tab="today" data-i18n="pointage.tabToday">Today</button>
+      <button class="filter-btn view-tab-btn" data-tab="history" data-i18n="pointage.tabHistory">History</button>
     </div>
 
-    <!-- Clock in / out -->
-    <div class="po-filter">
-      <select id="pointage-worker" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; max-width:220px;"></select>
-      <button class="btn" id="clock-btn">Clock in</button>
-      <span style="flex:1;"></span>
-      <a class="btn btn-ghost btn-sm" href="/api/export/csv?type=attendance&from=__FROM__&to=__TO__" id="ptg-export-csv" data-i18n="pointage.exportCsv" target="_blank" rel="noopener">Export CSV</a>
-      <a class="btn btn-ghost btn-sm" href="/api/export/excel?type=attendance&from=__FROM__&to=__TO__" id="ptg-export-excel" data-i18n="pointage.exportExcel" target="_blank" rel="noopener">Export Excel</a>
-      <a class="btn btn-ghost btn-sm" href="/api/export/pdf?type=attendance&from=__FROM__&to=__TO__" id="ptg-export-pdf" data-i18n="pointage.exportPdf" target="_blank" rel="noopener">Export PDF</a>
-    </div>
-
-    <!-- Range filter -->
-    <div class="po-filter">
-      <button class="filter-btn tab-btn active" data-range="today" data-i18n="pointage.today">Today</button>
-      <button class="filter-btn tab-btn" data-range="week" data-i18n="pointage.week">This week</button>
-      <button class="filter-btn tab-btn" data-range="month" data-i18n="pointage.month">This month</button>
-    </div>
-
-    <!-- Leave & absences (owner only) -->
-    <div id="leave-section" style="margin-bottom:1.5rem; display:none;">
-      <div class="po-card">
-        <h3 style="margin-top:0;" data-i18n="pointage.leaveTitle">Leave & Absences</h3>
-        <div class="po-filter" style="flex-wrap:wrap;">
-          <select id="leave-worker" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; max-width:220px;"></select>
-          <input type="date" id="leave-date" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;" data-i18n="pointage.leaveDate">
-          <select id="leave-type" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;" data-i18n="pointage.leaveType">
-            <option value="absence" data-i18n="pointage.typeAbsence">Absence</option>
-            <option value="vacation" data-i18n="pointage.typeVacation">Vacation</option>
-            <option value="sick" data-i18n="pointage.typeSick">Sick leave</option>
-          </select>
-          <input type="text" id="leave-note" placeholder="Note" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; flex:1; min-width:140px;" data-i18n="pointage.leaveNote">
-          <button class="btn" id="leave-add" data-i18n="pointage.leaveAdd">Add</button>
+    <!-- Today: manual clock roster (owner only) -->
+    <div id="ptg-tab-today" style="display:none;">
+      <div id="manual-clock" class="po-card" style="display:none; margin-bottom:1.5rem;">
+        <h3 style="margin-top:0;" data-i18n="pointage.manualClockTitle">Clock staff in / out</h3>
+        <div class="po-filter" style="flex-wrap:wrap; margin:0 0 0.75rem;">
+          <button class="btn" id="clock-selected-in" data-i18n="pointage.clockSelectedIn">Clock in selected</button>
+          <button class="btn" id="clock-selected-out" data-i18n="pointage.clockSelectedOut">Clock out selected</button>
+          <button class="btn btn-outline" id="clock-all-out" data-i18n="pointage.clockAllOut">Clock out everyone</button>
+          <span id="ptg-sel-count" class="hint-text" style="align-self:center;"></span>
         </div>
-        <div id="leave-list" style="margin-top:0.75rem;"></div>
+        <div id="manual-clock-list"></div>
       </div>
     </div>
 
-    <!-- Per-worker summary -->
-    <div id="pointage-summary" style="margin-bottom:1.5rem;"></div>
+    <!-- Worker self clock button (hidden for the owner) -->
+    <div class="po-filter">
+      <select id="pointage-worker" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; max-width:220px;"></select>
+      <button class="btn" id="clock-btn">Clock in</button>
+    </div>
 
-    <!-- Entries -->
-    <div id="pointage-list"></div>
+    <!-- History: exports, range filter, leave, attendance, entries -->
+    <div id="ptg-tab-history">
+      <div class="po-filter">
+        <span style="flex:1;"></span>
+        <a class="btn btn-ghost btn-sm" href="/api/export/csv?type=attendance&from=__FROM__&to=__TO__" id="ptg-export-csv" data-i18n="pointage.exportCsv" target="_blank" rel="noopener">Export CSV</a>
+        <a class="btn btn-ghost btn-sm" href="/api/export/excel?type=attendance&from=__FROM__&to=__TO__" id="ptg-export-excel" data-i18n="pointage.exportExcel" target="_blank" rel="noopener">Export Excel</a>
+        <a class="btn btn-ghost btn-sm" href="/api/export/pdf?type=attendance&from=__FROM__&to=__TO__" id="ptg-export-pdf" data-i18n="pointage.exportPdf" target="_blank" rel="noopener">Export PDF</a>
+      </div>
+
+      <!-- Range filter -->
+      <div class="po-filter">
+        <button class="filter-btn tab-btn active" data-range="today" data-i18n="pointage.today">Today</button>
+        <button class="filter-btn tab-btn" data-range="week" data-i18n="pointage.week">This week</button>
+        <button class="filter-btn tab-btn" data-range="month" data-i18n="pointage.month">This month</button>
+      </div>
+
+      <!-- Leave & absences (owner only) -->
+      <div id="leave-section" style="margin-bottom:1.5rem; display:none;">
+        <div class="po-card">
+          <h3 style="margin-top:0;" data-i18n="pointage.leaveTitle">Leave & Absences</h3>
+          <div class="po-filter" style="flex-wrap:wrap;">
+            <select id="leave-worker" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; max-width:220px;"></select>
+            <input type="date" id="leave-date" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;" data-i18n="pointage.leaveDate">
+            <select id="leave-type" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px;" data-i18n="pointage.leaveType">
+              <option value="absence" data-i18n="pointage.typeAbsence">Absence</option>
+              <option value="vacation" data-i18n="pointage.typeVacation">Vacation</option>
+              <option value="sick" data-i18n="pointage.typeSick">Sick leave</option>
+            </select>
+            <input type="text" id="leave-note" placeholder="Note" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; flex:1; min-width:140px;" data-i18n="pointage.leaveNote">
+            <button class="btn" id="leave-add" data-i18n="pointage.leaveAdd">Add</button>
+          </div>
+          <div id="leave-list" style="margin-top:0.75rem;"></div>
+        </div>
+      </div>
+
+      <!-- Per-worker summary -->
+      <div id="pointage-summary" style="margin-bottom:1.5rem;"></div>
+
+      <!-- Entries -->
+      <div id="pointage-list"></div>
+    </div>
   </main>
 
   <script src="i18n.js"></script>
