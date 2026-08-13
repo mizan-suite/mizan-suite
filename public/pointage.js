@@ -24,6 +24,7 @@ let range = 'today';
 let staffCache = [];
 let entriesCache = [];
 let leaveCache = [];
+let attendanceCache = [];
 
 const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -118,34 +119,31 @@ function datesInRange(from, to) {
   return out;
 }
 
-// Professional attendance table: one row per (active) worker, one column per day
-// in the selected range, each cell marked Present / Justified absent (vacation or
-// sick leave) / Absent. A final column summarises the workers' days for the range.
+// Professional attendance table: one row per (active) worker, one column per
+// day in the selected range. Each cell shows the server-computed status:
+// Present / Late (minutes over the expected shift start) / Missing clock-out /
+// Justified absent (sick/vacation leave) / Absent. A final column summarises the
+// worker's days for the range.
 function renderAttendanceTable() {
   const { from, to } = rangeParams();
   const dates = datesInRange(from, to);
   const active = staffCache.filter(w => w.active);
+  if (!active.length) { summaryEl.innerHTML = ''; return; }
 
-  // present: user_id -> Set of YYYY-MM-DD where they have a time entry
-  const presentByUser = {};
-  if (Array.isArray(entriesCache)) {
-    for (const e of entriesCache) {
-      const ds = String(e.clock_in || '').slice(0, 10);
-      if (!ds) continue;
-      (presentByUser[e.user_id] = presentByUser[e.user_id] || new Set()).add(ds);
+  // attendance: user_id -> date -> status record from /api/time-entries/attendance
+  const attByUser = {};
+  if (Array.isArray(attendanceCache)) {
+    for (const a of attendanceCache) {
+      (attByUser[a.user_id] = attByUser[a.user_id] || {})[a.date] = a;
     }
   }
-  // leave: user_id -> { date: { type, note } }
+
+  // leave: user_id -> { date: { type, note } } for justified-cell tooltips.
   const leaveByUser = {};
   if (Array.isArray(leaveCache)) {
     for (const l of leaveCache) {
       (leaveByUser[l.user_id] = leaveByUser[l.user_id] || {})[l.leave_date] = { type: l.type, note: l.note };
     }
-  }
-
-  if (!active.length) {
-    summaryEl.innerHTML = '';
-    return;
   }
 
   const header = dates.map(d => {
@@ -154,26 +152,48 @@ function renderAttendanceTable() {
   }).join('');
 
   const rows = active.map(w => {
-    let presentDays = 0, justifiedDays = 0, absentDays = 0;
+    let presentDays = 0, lateDays = 0, missingDays = 0, justifiedDays = 0, absentDays = 0;
     const cells = dates.map(d => {
-      const present = !!(presentByUser[w.id] && presentByUser[w.id].has(d));
+      const a = attByUser[w.id] && attByUser[w.id][d];
       const leave = leaveByUser[w.id] && leaveByUser[w.id][d];
-      if (present) {
-        presentDays++;
-        return `<td class="att-col att-present" title="${escapeHtml(I18N.t('pointage.present'))}"><span class="badge badge-ok">${I18N.t('pointage.presentShort')}</span></td>`;
+      if (!a || a.status === 'absent') {
+        absentDays++;
+        return `<td class="att-col att-absent" title="${escapeHtml(I18N.t('pointage.absent'))}"><span class="badge badge-danger">${I18N.t('pointage.absentShort')}</span></td>`;
       }
-      if (leave && (leave.type === 'sick' || leave.type === 'vacation')) {
+      if (a.status === 'late') {
+        lateDays++;
+        const inTime = a.first_clock_in ? String(a.first_clock_in).slice(11, 16) : '-';
+        const tip = I18N.t('pointage.lateTooltip')
+          .replace('{min}', a.late_minutes)
+          .replace('{in}', inTime)
+          .replace('{shift}', a.shift_start || '-');
+        return `<td class="att-col att-late" title="${escapeHtml(tip)}"><span class="badge badge-warning">${I18N.t('pointage.lateShort')}</span></td>`;
+      }
+      if (a.status === 'missing_clockout') {
+        missingDays++;
+        return `<td class="att-col att-missing" title="${escapeHtml(I18N.t('pointage.missingClockout'))}"><span class="badge badge-missing">${I18N.t('pointage.missingShort')}</span></td>`;
+      }
+      if (a.status === 'justified') {
         justifiedDays++;
-        return `<td class="att-col att-justified" title="${escapeHtml(leaveTypeLabel(leave.type) + (leave.note ? ' - ' + leave.note : ''))}"><span class="badge badge-info">${I18N.t('pointage.justifiedShort')}</span></td>`;
+        const lt = leave && (leave.type === 'sick' || leave.type === 'vacation');
+        const tip = lt ? (leaveTypeLabel(leave.type) + (leave.note ? ' - ' + leave.note : '')) : I18N.t('pointage.justifiedAbsent');
+        return `<td class="att-col att-justified" title="${escapeHtml(tip)}"><span class="badge badge-info">${I18N.t('pointage.justifiedShort')}</span></td>`;
       }
-      absentDays++;
-      return `<td class="att-col att-absent" title="${escapeHtml(I18N.t('pointage.absent'))}"><span class="badge badge-danger">${I18N.t('pointage.absentShort')}</span></td>`;
+      presentDays++;
+      const inTime = a.first_clock_in ? String(a.first_clock_in).slice(11, 16) : '-';
+      return `<td class="att-col att-present" title="${escapeHtml(I18N.t('pointage.present') + ' - ' + inTime)}"><span class="badge badge-ok">${I18N.t('pointage.presentShort')}</span></td>`;
     }).join('');
+
+    const shift = w.expected_shift_start
+      ? `<div class="hint-text">${escapeHtml(w.expected_shift_start)}${w.expected_shift_end ? ' - ' + escapeHtml(w.expected_shift_end) : ''}</div>`
+      : '';
     return `<tr>
-      <td>${escapeHtml(w.name)}</td>
+      <td>${escapeHtml(w.name)}${shift}</td>
       ${cells}
-      <td class="att-summary" title="${presentDays} ${I18N.t('pointage.present')} / ${justifiedDays} ${I18N.t('pointage.justifiedAbsent')} / ${absentDays} ${I18N.t('pointage.absent')}">
+      <td class="att-summary" title="${presentDays} ${I18N.t('pointage.present')} / ${lateDays} ${I18N.t('pointage.late')} / ${missingDays} ${I18N.t('pointage.missingClockout')} / ${justifiedDays} ${I18N.t('pointage.justifiedAbsent')} / ${absentDays} ${I18N.t('pointage.absent')}">
         <span class="badge badge-ok">${I18N.t('pointage.presentShort')} ${presentDays}</span>
+        <span class="badge badge-warning">${I18N.t('pointage.lateShort')} ${lateDays}</span>
+        <span class="badge badge-missing">${I18N.t('pointage.missingShort')} ${missingDays}</span>
         <span class="badge badge-info">${I18N.t('pointage.justifiedShort')} ${justifiedDays}</span>
         <span class="badge badge-danger">${I18N.t('pointage.absentShort')} ${absentDays}</span>
       </td>
@@ -186,6 +206,8 @@ function renderAttendanceTable() {
         <h3 style="margin:0;" data-i18n="pointage.attendanceTitle">${I18N.t('pointage.attendanceTitle')}</h3>
         <div class="po-filter" style="margin:0; flex-wrap:wrap;">
           <span><span class="badge badge-ok">${I18N.t('pointage.presentShort')}</span> ${I18N.t('pointage.present')}</span>
+          <span><span class="badge badge-warning">${I18N.t('pointage.lateShort')}</span> ${I18N.t('pointage.late')}</span>
+          <span><span class="badge badge-missing">${I18N.t('pointage.missingShort')}</span> ${I18N.t('pointage.missingClockout')}</span>
           <span><span class="badge badge-info">${I18N.t('pointage.justifiedShort')}</span> ${I18N.t('pointage.justifiedAbsent')}</span>
           <span><span class="badge badge-danger">${I18N.t('pointage.absentShort')}</span> ${I18N.t('pointage.absent')}</span>
         </div>
@@ -279,14 +301,16 @@ function updateExportLinks() {
 async function loadPointage() {
   const rp = rangeParams();
   const qs = `from=${rp.from}&to=${rp.to}`;
-  const [staffRes, entriesRes, summaryRes] = await Promise.all([
+  const [staffRes, entriesRes, summaryRes, attRes] = await Promise.all([
     fetch('/api/staff'),
     fetch(`/api/time-entries?${qs}`),
-    fetch(`/api/time-entries/summary?${qs}`)
+    fetch(`/api/time-entries/summary?${qs}`),
+    fetch(`/api/time-entries/attendance?${qs}`)
   ]);
-  if (!staffRes.ok || !entriesRes.ok || !summaryRes.ok) return;
+  if (!staffRes.ok || !entriesRes.ok || !summaryRes.ok || !attRes.ok) return;
   staffCache = await staffRes.json();
   entriesCache = await entriesRes.json();
+  attendanceCache = await attRes.json();
   if (isOwner) {
     const leaveRes = await fetch(`/api/leave?${qs}`);
     if (leaveRes.ok) leaveCache = await leaveRes.json();

@@ -1,0 +1,126 @@
+// test/pointage.test.js
+// Covers the extended time-tracking feature:
+//  - staff shift times are saved/validated (expected_shift_start/end)
+//  - the attendance endpoint reports present / late / missing-clockout /
+//    justified / absent status per worker per day, with late minutes
+//  - only the owner and the worker themselves can read attendance
+//  - the attendance export includes the status column
+const test = require('node:test');
+const assert = require('node:assert');
+const { DatabaseSync } = require('node:sqlite');
+const { startTestServer } = require('./helpers');
+
+let srv;
+let ownerCookie = null;
+let workerId = null;
+let workerCookie = null;
+let cashierCookie = null;
+let db = null;
+
+const FROM = '2026-08-01';
+const TO = '2026-08-06';
+
+test.before(async () => {
+  srv = await startTestServer();
+  db = new DatabaseSync(srv.dbPath);
+
+  const u = await srv.request('POST', '/api/users', { name: 'Owner', pin: '123456' });
+  assert.strictEqual(u.status, 201, JSON.stringify(u.data));
+  const r = await srv.request('POST', '/api/auth/login', { name: 'Owner', pin: '123456' });
+  assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+  ownerCookie = r.setCookie().split(';')[0];
+
+  const w = await srv.request('POST', '/api/users', {
+    name: 'Walid', pin: '222333', role: 'worker', permissions: ['pointage']
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(w.status, 201, JSON.stringify(w.data));
+  workerId = w.data.id;
+  const wr = await srv.request('POST', '/api/auth/login', { name: 'Walid', pin: '222333' });
+  assert.strictEqual(wr.status, 200, JSON.stringify(wr.data));
+  workerCookie = wr.setCookie().split(';')[0];
+
+  const c = await srv.request('POST', '/api/users', { name: 'CashierA', pin: '111222' }, { Cookie: ownerCookie });
+  assert.strictEqual(c.status, 201, JSON.stringify(c.data));
+  const cr = await srv.request('POST', '/api/auth/login', { name: 'CashierA', pin: '111222' });
+  assert.strictEqual(cr.status, 200, JSON.stringify(cr.data));
+  cashierCookie = cr.setCookie().split(';')[0];
+
+  // Give Walid an 08:00-16:00 shift.
+  const sh = await srv.request('PUT', `/api/staff/${workerId}`, {
+    expected_shift_start: '08:00',
+    expected_shift_end: '16:00'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(sh.status, 200, JSON.stringify(sh.data));
+  assert.strictEqual(sh.data.expected_shift_start, '08:00');
+  assert.strictEqual(sh.data.expected_shift_end, '16:00');
+
+  // Seed clock entries directly (the clock API stamps 'now').
+  const ins = db.prepare(
+    'INSERT INTO time_entries (user_id, clock_in, clock_out) VALUES (?, ?, ?)'
+  );
+  // 08-01 on time, 08-02 20 min late, 08-03 3 min late (within the 5 min grace),
+  // 08-04 clocked in but never out (missing clock-out).
+  ins.run(workerId, '2026-08-01 08:00:00', '2026-08-01 17:00:00');
+  ins.run(workerId, '2026-08-02 08:20:00', '2026-08-02 17:00:00');
+  ins.run(workerId, '2026-08-03 08:03:00', '2026-08-03 17:00:00');
+  ins.run(workerId, '2026-08-04 08:30:00', null);
+  // Justified absence on 08-05.
+  const lv = await srv.request('POST', '/api/leave', {
+    user_id: workerId, leave_date: '2026-08-05', type: 'sick', note: 'flu'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(lv.status, 201, JSON.stringify(lv.data));
+});
+test.after(() => { if (db) db.close(); if (srv) srv.shutdown(); });
+
+test('staff shift time is validated', async () => {
+  const bad = await srv.request('PUT', `/api/staff/${workerId}`, { expected_shift_start: '25:00' }, { Cookie: ownerCookie });
+  assert.strictEqual(bad.status, 400, JSON.stringify(bad.data));
+  const clear = await srv.request('PUT', `/api/staff/${workerId}`, { expected_shift_start: '' }, { Cookie: ownerCookie });
+  assert.strictEqual(clear.status, 200, JSON.stringify(clear.data));
+  assert.strictEqual(clear.data.expected_shift_start, null);
+  // Restore for the attendance assertions below.
+  const ok = await srv.request('PUT', `/api/staff/${workerId}`, { expected_shift_start: '08:00' }, { Cookie: ownerCookie });
+  assert.strictEqual(ok.status, 200, JSON.stringify(ok.data));
+});
+
+test('attendance reports present / late / missing-clockout / justified / absent', async () => {
+  const res = await srv.request('GET', `/api/time-entries/attendance?from=${FROM}&to=${TO}`, undefined, { Cookie: ownerCookie });
+  assert.strictEqual(res.status, 200, JSON.stringify(res.data));
+  const mine = res.data.filter(x => x.user_id === workerId);
+  const byDate = Object.fromEntries(mine.map(x => [x.date, x]));
+
+  assert.strictEqual(byDate['2026-08-01'].status, 'present');
+  assert.strictEqual(byDate['2026-08-01'].late_minutes, 0);
+
+  assert.strictEqual(byDate['2026-08-02'].status, 'late');
+  assert.strictEqual(byDate['2026-08-02'].late_minutes, 20);
+
+  assert.strictEqual(byDate['2026-08-03'].status, 'present', 'within grace minutes');
+  assert.strictEqual(byDate['2026-08-03'].late_minutes, 3);
+
+  assert.strictEqual(byDate['2026-08-04'].status, 'missing_clockout');
+  assert.strictEqual(byDate['2026-08-04'].worked_minutes, 0);
+
+  assert.strictEqual(byDate['2026-08-05'].status, 'justified');
+
+  assert.strictEqual(byDate['2026-08-06'].status, 'absent');
+});
+
+test('attendance endpoint enforces scope', async () => {
+  // Worker sees only their own days.
+  const wr = await srv.request('GET', `/api/time-entries/attendance?from=${FROM}&to=${TO}`, undefined, { Cookie: workerCookie });
+  assert.strictEqual(wr.status, 200, JSON.stringify(wr.data));
+  assert.ok(wr.data.length > 0);
+  assert.ok(wr.data.every(x => x.user_id === workerId), 'worker only sees themself');
+
+  // Cashier without the pointage permission is denied.
+  const cr = await srv.request('GET', `/api/time-entries/attendance?from=${FROM}&to=${TO}`, undefined, { Cookie: cashierCookie });
+  assert.strictEqual(cr.status, 403, JSON.stringify(cr.data));
+});
+
+test('attendance CSV export includes the status column', async () => {
+  const res = await srv.request('GET', `/api/export/csv?type=attendance&from=${FROM}&to=${TO}`, undefined, { Cookie: ownerCookie });
+  assert.strictEqual(res.status, 200, String(res.data));
+  assert.ok(String(res.data).includes('Late (20 min)'), 'export flags the late day');
+  assert.ok(String(res.data).includes('Missing clock-out'), 'export flags the open day');
+});

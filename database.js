@@ -363,6 +363,19 @@ const MIGRATIONS = [
       `);
       db.exec(`CREATE INDEX IF NOT EXISTS idx_login_attempts_lock ON login_attempts(lock_until)`);
     }
+  },
+  {
+    version: 27,
+    name: 'expected shift times on staff (late detection)',
+    up() {
+      const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+      if (!cols.includes('expected_shift_start')) {
+        db.exec(`ALTER TABLE users ADD COLUMN expected_shift_start TEXT`);
+      }
+      if (!cols.includes('expected_shift_end')) {
+        db.exec(`ALTER TABLE users ADD COLUMN expected_shift_end TEXT`);
+      }
+    }
   }
 ];
 

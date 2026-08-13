@@ -921,6 +921,12 @@ html.dark-mode .pagination-bar .page-info {
   color: #c0392b;
 }
 
+.badge-missing {
+  background-color: #ececf2;
+  color: #5a5a72;
+  border: 1px solid #d5d5e0;
+}
+
 /* Professional attendance (pointage) matrix table: colour the day cells so the
    owner can scan a worker's month at a glance. */
 .attendance-table .att-col {
@@ -935,6 +941,12 @@ html.dark-mode .pagination-bar .page-info {
 }
 .attendance-table .att-col.att-absent {
   background: #fde9e9;
+}
+.attendance-table .att-col.att-late {
+  background: #fff3cd;
+}
+.attendance-table .att-col.att-missing {
+  background: #f0f0f5;
 }
 .attendance-table .att-summary {
   white-space: nowrap;

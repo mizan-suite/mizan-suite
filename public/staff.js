@@ -11,6 +11,8 @@ const phoneInput = document.getElementById('staff-phone');
 const hireInput = document.getElementById('staff-hire');
 const hourlyInput = document.getElementById('staff-hourly');
 const monthlyInput = document.getElementById('staff-monthly');
+const shiftStartInput = document.getElementById('staff-shift-start');
+const shiftEndInput = document.getElementById('staff-shift-end');
 const activeCheck = document.getElementById('staff-active');
 const formTitle = document.getElementById('staff-form-title');
 const submitBtn = document.getElementById('staff-submit');
@@ -67,7 +69,7 @@ async function loadStaff() {
       <tbody>
         ${staffCache.map(w => `
           <tr>
-            <td>${escapeHtml(w.name)}${w.role !== 'cashier' ? ` <span class="badge">${escapeHtml(roleLabel(w))}</span>` : ''}</td>
+            <td>${escapeHtml(w.name)}${w.role !== 'cashier' ? ` <span class="badge">${escapeHtml(roleLabel(w))}</span>` : ''}${w.expected_shift_start ? `<div class="hint-text">${escapeHtml(w.expected_shift_start)}${w.expected_shift_end ? ' - ' + escapeHtml(w.expected_shift_end) : ''}</div>` : ''}</td>
             <td>${w.job_title ? escapeHtml(w.job_title) : '-'}</td>
             <td>${w.phone ? escapeHtml(w.phone) : '-'}</td>
             <td>${w.hire_date ? escapeHtml(w.hire_date) : '-'}</td>
@@ -92,6 +94,8 @@ function startEdit(w) {
   hireInput.value = w.hire_date || '';
   hourlyInput.value = w.hourly_rate || '';
   monthlyInput.value = w.monthly_salary || '';
+  shiftStartInput.value = w.expected_shift_start || '';
+  shiftEndInput.value = w.expected_shift_end || '';
   activeCheck.checked = !!w.active;
   formTitle.textContent = I18N.t('staff.edit') + ': ' + w.name;
   submitBtn.textContent = I18N.t('staff.save');
@@ -111,6 +115,8 @@ form.addEventListener('submit', async (e) => {
       job_title: jobInput.value.trim(),
       phone: phoneInput.value.trim(),
       hire_date: hireInput.value || null,
+      expected_shift_start: shiftStartInput.value || null,
+      expected_shift_end: shiftEndInput.value || null,
       active: activeCheck.checked ? 1 : 0
     };
     const res = await fetch(`/api/staff/${id}`, {

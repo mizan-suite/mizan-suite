@@ -480,7 +480,7 @@ const PERMISSIONS = [
   ]},
   { key: 'pointage', label: 'nav.pointage', routes: [
     { method: 'GET', re: /^\/api\/staff$/ },
-    { method: 'GET', re: /^\/api\/time-entries(\/summary)?$/ },
+    { method: 'GET', re: /^\/api\/time-entries(\/summary|\/attendance)?$/ },
     { method: 'POST', re: /^\/api\/time-entries\/clock$/ },
     { method: 'PUT', re: /^\/api\/time-entries\/\d+$/ },
     { method: 'DELETE', re: /^\/api\/time-entries\/\d+$/ },
@@ -829,7 +829,7 @@ app.delete('/api/users/:id', (req, res) => {
 
 // ---------- ADMINISTRATION: STAFF ----------
 
-const STAFF_COLS = 'id, name, role, active, hourly_rate, monthly_salary, job_title, phone, hire_date';
+const STAFF_COLS = 'id, name, role, active, hourly_rate, monthly_salary, job_title, phone, hire_date, expected_shift_start, expected_shift_end';
 
 // GET /api/staff - every account plus its pay/profile fields (owner only; a
 // worker sees only their own row so they can self-clock on the Pointage page).
@@ -873,6 +873,16 @@ app.put('/api/staff/:id', (req, res) => {
   }
   if (req.body.phone !== undefined) {
     fields.phone = String(req.body.phone).trim().slice(0, 30);
+  }
+  if (req.body.expected_shift_start !== undefined) {
+    const v = normalizeShiftTime(req.body.expected_shift_start);
+    if (v === false) return res.status(400).json({ error: 'Invalid shift time, use HH:MM' });
+    fields.expected_shift_start = v;
+  }
+  if (req.body.expected_shift_end !== undefined) {
+    const v = normalizeShiftTime(req.body.expected_shift_end);
+    if (v === false) return res.status(400).json({ error: 'Invalid shift time, use HH:MM' });
+    fields.expected_shift_end = v;
   }
   if (req.body.hire_date !== undefined) {
     const hd = req.body.hire_date ? String(req.body.hire_date).slice(0, 10) : null;
@@ -968,6 +978,127 @@ app.get('/api/time-entries/summary', (req, res) => {
     FROM time_entries t JOIN users u ON u.id = t.user_id
     ${scope.where} GROUP BY t.user_id ORDER BY u.name`).all(...scope.params);
   res.json(rows.map(r => ({ ...r, hours: Math.round(Number(r.hours) * 100) / 100 })));
+});
+
+// How many minutes past the expected shift start a worker may clock in before
+// they count as late. Keep in sync with the UI legend.
+const LATE_GRACE_MINUTES = 5;
+
+// Local YYYY-MM-DD (server clock) - matches datetime('now','localtime') rows.
+function localDateString() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// List of YYYY-MM-DD dates spanning [from, to] inclusive ([] if invalid).
+function dateRangeList(from, to) {
+  const out = [];
+  if (!from || !to || from > to) return out;
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  if (isNaN(d.getTime()) || isNaN(end.getTime())) return out;
+  while (d <= end) {
+    out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+// Per-day attendance for each worker over a date range. status is one of:
+//   present            - clocked in, not late
+//   late               - first clock-in more than LATE_GRACE_MINUTES after shift start
+//   missing_clockout   - clocked in on a past day but never clocked out
+//   justified          - sick/vacation leave, no clock-in
+//   absent             - no clock-in and no justified leave
+function computeAttendanceDays(workers, entries, leave, from, to, today) {
+  const justifiedLeave = {};
+  for (const l of leave) {
+    if (l.type === 'sick' || l.type === 'vacation') {
+      (justifiedLeave[l.user_id] = justifiedLeave[l.user_id] || new Set()).add(l.leave_date);
+    }
+  }
+
+  const byDay = {};
+  for (const e of entries) {
+    const ds = String(e.clock_in || '').slice(0, 10);
+    if (!ds) continue;
+    const day = (byDay[e.user_id] = byDay[e.user_id] || {});
+    const rec = (day[ds] = day[ds] || { first_in: null, last_out: null, minutes: 0, open: false });
+    if (!rec.first_in || e.clock_in < rec.first_in) rec.first_in = e.clock_in;
+    if (e.clock_out && (!rec.last_out || e.clock_out > rec.last_out)) rec.last_out = e.clock_out;
+    if (e.clock_out) {
+      rec.minutes += Math.max(0, (new Date(e.clock_out) - new Date(e.clock_in)) / 60000);
+    } else {
+      rec.open = true;
+    }
+  }
+
+  const dates = dateRangeList(from, to);
+  const out = [];
+  for (const w of workers) {
+    const daysMap = byDay[w.id] || {};
+    for (const date of dates) {
+      const rec = daysMap[date];
+      const justified = justifiedLeave[w.id] && justifiedLeave[w.id].has(date);
+      let status, late = 0;
+      if (!rec) {
+        status = justified ? 'justified' : 'absent';
+      } else {
+        late = lateMinutesFor(rec.first_in, w.expected_shift_start);
+        if (rec.open && date < today) status = 'missing_clockout';
+        else status = late > LATE_GRACE_MINUTES ? 'late' : 'present';
+      }
+      out.push({
+        date,
+        user_id: w.id,
+        user_name: w.name,
+        role: w.role,
+        active: w.active,
+        shift_start: w.expected_shift_start,
+        shift_end: w.expected_shift_end,
+        status,
+        late_minutes: late,
+        first_clock_in: rec ? rec.first_in : null,
+        last_clock_out: rec ? rec.last_out : null,
+        worked_minutes: rec ? Math.round(rec.minutes) : 0
+      });
+    }
+  }
+  return out;
+}
+
+// GET /api/time-entries/attendance?from=&to= - per-day status per worker
+// (present/late/missing_clockout/justified/absent + late minutes). Owners see
+// everyone; workers only themselves (mirrors timeEntryScope).
+app.get('/api/time-entries/attendance', (req, res) => {
+  const isOwner = isOwnerRequest(req);
+  const session = isOwner ? null : currentSession(req);
+  if (!isOwner && (!session || session.role !== 'worker')) {
+    return res.status(403).json({ error: 'This action requires the owner account' });
+  }
+  const uid = isOwner ? null : session.userId;
+  const from = req.query.from ? String(req.query.from) : null;
+  const to = req.query.to ? String(req.query.to) : null;
+
+  const userWhere = uid ? 'WHERE u.id = ?' : '';
+  const userParams = uid ? [uid] : [];
+  const workers = db.prepare(`SELECT ${STAFF_COLS} FROM users u ${userWhere} ORDER BY u.name`).all(...userParams);
+
+  let ew = 'WHERE 1=1';
+  const ep = [];
+  if (uid) { ew += ' AND t.user_id = ?'; ep.push(uid); }
+  if (from) { ew += ' AND t.clock_in >= ?'; ep.push(from + ' 00:00:00'); }
+  if (to) { ew += ' AND t.clock_in <= ?'; ep.push(to + ' 23:59:59'); }
+  const entries = db.prepare(`SELECT * FROM time_entries t ${ew} ORDER BY t.clock_in`).all(...ep);
+
+  let lw = 'WHERE 1=1';
+  const lp = [];
+  if (uid) { lw += ' AND l.user_id = ?'; lp.push(uid); }
+  if (from) { lw += ' AND l.leave_date >= ?'; lp.push(from); }
+  if (to) { lw += ' AND l.leave_date <= ?'; lp.push(to); }
+  const leave = db.prepare(`SELECT * FROM leave_entries l ${lw} ORDER BY l.leave_date`).all(...lp);
+
+  res.json(computeAttendanceDays(workers, entries, leave, from, to, localDateString()));
 });
 
 // PUT /api/time-entries/:id - fix a mis-entered clock in/out (owner only).
@@ -3788,6 +3919,33 @@ function validDateStr(s) {
   return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
 }
 
+// Normalizes a shift time ("HH:MM", 24h) or empty value to store on a staff member.
+// Returns null when cleared, "HH:MM" when valid, or false when the format is bad.
+function normalizeShiftTime(v) {
+  const t = String(v == null ? '' : v).trim();
+  if (!t) return null;
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(t);
+  return m ? t : false;
+}
+
+// Minutes-since-midnight for an "HH:MM" string, or -1 if unparsable.
+function hhmmToMinutes(v) {
+  if (typeof v !== 'string' || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(v)) return -1;
+  const [h, m] = v.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Lateness (whole minutes) of a clock-in against an expected shift start, capped
+// at 0 when on time. Pass -1/undefined for expected to get 0 (no shift set).
+function lateMinutesFor(clockInStr, expectedStart) {
+  const exp = hhmmToMinutes(expectedStart);
+  if (exp < 0) return 0;
+  const hm = String(clockInStr || '').slice(11, 16);
+  const act = hhmmToMinutes(hm);
+  if (act < 0) return 0;
+  return Math.max(0, act - exp);
+}
+
 // Buckets a "YYYY-MM-DD HH:MM:SS" (or date) string into the label for a period.
 // Weekly is Monday-based (UTC), matching bucketSqlExpr().
 function bucketFor(dateStr, period) {
@@ -3996,26 +4154,35 @@ function buildReportData(type, from, to) {
   }
 
   if (type === 'attendance') {
-    let query = 'SELECT t.*, u.name AS user_name FROM time_entries t JOIN users u ON u.id = t.user_id WHERE 1=1';
+    let query = 'SELECT t.*, u.name AS user_name, u.expected_shift_start AS expected_shift_start FROM time_entries t JOIN users u ON u.id = t.user_id WHERE 1=1';
     const params = [];
     if (from) { query += ' AND t.clock_in >= ?'; params.push(String(from) + ' 00:00:00'); }
     if (to) { query += ' AND t.clock_in <= ?'; params.push(String(to) + ' 23:59:59'); }
     query += ' ORDER BY t.clock_in';
     const entries = db.prepare(query).all(...params);
 
+    const today = localDateString();
     return {
       title: 'Attendance Report',
-      columns: ['Date', 'Employee', 'Clock In', 'Clock Out', 'Hours'],
+      columns: ['Date', 'Employee', 'Clock In', 'Clock Out', 'Hours', 'Status'],
       rows: entries.map(e => {
         const minutes = e.clock_out
           ? Math.max(0, (new Date(e.clock_out) - new Date(e.clock_in)) / 60000)
           : 0;
+        let status;
+        if (!e.clock_out) {
+          status = String(e.clock_in).slice(0, 10) < today ? 'Missing clock-out' : 'Open';
+        } else {
+          const late = lateMinutesFor(e.clock_in, e.expected_shift_start);
+          status = late > LATE_GRACE_MINUTES ? 'Late (' + late + ' min)' : 'On time';
+        }
         return [
           String(e.clock_in).slice(0, 10),
           e.user_name,
           String(e.clock_in).slice(11, 16),
           e.clock_out ? String(e.clock_out).slice(11, 16) : '',
-          (minutes / 60).toFixed(2)
+          (minutes / 60).toFixed(2),
+          status
         ];
       })
     };
