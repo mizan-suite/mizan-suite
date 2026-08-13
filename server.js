@@ -101,7 +101,7 @@ const LAN_API_ALLOW = [
 ];
 
 function lanAllowedOnHttps(req) {
-  const url = req.originalUrl.split('?')[0];
+  const url = (req.originalUrl || req.url || '').split('?')[0];
   if (LAN_STATIC_ALLOW.includes(url)) return true;
   return LAN_API_ALLOW.some(a => a.method === req.method && a.path === url);
 }
@@ -140,13 +140,12 @@ function hashDeviceCode(code) {
 }
 
 function httpsAccessDecision(req) {
-  const url = req.originalUrl.split('?')[0];
+  const url = (req.originalUrl || req.url || '').split('?')[0];
   if (isDeviceManagementUrl(url)) return { allow: true, page: true };
   if (isApprovedDevice(req)) return { allow: true };
-  if (lanAllowedOnHttps(req)) {
-    const token = deviceTokenFrom(req);
-    if (!token && (url === '/' || url === '/index.html')) return { allow: false, page: true };
-    return { allow: true };
+  if (lanAllowedOnHttps(req)) return { allow: true };
+  if (url.endsWith('.html') || url === '/' || url === '') {
+    return { allow: false, page: true };
   }
   return { allow: false };
 }
