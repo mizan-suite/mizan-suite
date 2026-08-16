@@ -31,6 +31,14 @@
       <a class="btn btn-ghost btn-sm" href="/api/export/pdf?type=payroll&from=__MONTH__" id="pay-export-pdf" data-i18n="pointage.exportPdf" target="_blank" rel="noopener">Export PDF</a>
     </div>
 
+    <!-- Algerian payroll mode banner (shown when the feature is off) -->
+    <div class="po-card" id="payroll-mode-banner" style="margin-bottom:1.5rem; display:none;">
+      <div style="display:flex; align-items:flex-start; gap:0.6rem;">
+        <span aria-hidden="true">&#9888;</span>
+        <span data-i18n="payroll.modeOff">Algerian payroll rules (CNAS, IRG, auto primes) are currently off. Enable them in Settings &rarr; Payroll.</span>
+      </div>
+    </div>
+
     <!-- Payroll rules (primes) -->
     <div class="po-card" style="margin-bottom:1.5rem;">
       <h3 style="margin-top:0;" data-i18n="payroll.rules">Payroll rules (primes)</h3>

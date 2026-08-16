@@ -1292,6 +1292,29 @@ function getPaySetting(key, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+// Read a boolean-ish setting ('1'/'true' count as true). Used for toggles that
+// can be posted as booleans from the UI (e.g. pay_algerian_enabled).
+function getPayFlag(key, fallback) {
+  const v = getSetting(key);
+  if (v === null || v === '') return fallback;
+  const s = String(v);
+  return s === 'true' || s === '1';
+}
+
+// Current license tier for feature gating. In test mode we default to PRO so
+// the full payroll engine is exercised; PARAVIE_TEST_TIER=basic lets a test
+// simulate a Basic license (the Algerian payroll feature is PRO-only).
+function licenseTier() {
+  if (IS_TEST_MODE) return process.env.PARAVIE_TEST_TIER === 'basic' ? 'basic' : 'pro';
+  const info = licenseInfoFromFile(process.env.PARAVIE_LICENSE_FILE);
+  return info.licensed ? info.tier : null;
+}
+
+// The Algerian payroll engine (CNAS, IRG, auto primes) is a PRO-only feature.
+function isProLicense() {
+  return licenseTier() === 'pro';
+}
+
 // Full years of service completed between a hire date and a month-end date.
 function yearsOfService(hireDate, endDate) {
   const h = new Date(hireDate + 'T00:00:00');
@@ -1347,41 +1370,59 @@ function irgForBaseMonthly(grossTaxable, baseAfterCnas) {
 }
 
 // Build one worker's full monthly bulletin from its attendance/leave context.
+// When `algerian` is false the payroll is kept simple: base + manual bonuses
+// minus advances, one-time deductions and unpaid absences - no auto primes,
+// no CNAS and no IRG. The Algerian additions (primes, CNAS, IRG, employer
+// cost) are PRO-only and toggled from Settings via pay_algerian_enabled.
 function buildWorkerBulletin(w, ctx) {
   const {
     hours, workedDays, skippedDays, absenceDays, adj, paid,
-    transportDefault, panierRate, assiduiteAmount, endDate
+    transportDefault, panierRate, assiduiteAmount, endDate, algerian
   } = ctx;
 
   const hourly = !(w.monthly_salary > 0);
   const base = hourly ? (hours * w.hourly_rate) : w.monthly_salary;
 
   let anciennete = 0;
-  if (w.hire_date && base > 0) {
-    const years = Math.min(yearsOfService(w.hire_date, endDate), 20);
-    if (years > 0) anciennete = round2(base * years / 100);
-  }
+  let transport = 0;
+  let panier = 0;
+  let assiduite = 0;
 
-  // Primes only for a worker who actually earns a base that month.
-  const hasActivity = base > 0;
-  const transport = hasActivity ? transportDefault : 0;
-  const panier = hasActivity ? round2(panierRate * workedDays) : 0;
-  const assiduiteEligible = hasActivity && workedDays >= 1 && skippedDays === 0 && absenceDays === 0;
-  const assiduite = assiduiteEligible ? assiduiteAmount : 0;
+  if (algerian) {
+    if (w.hire_date && base > 0) {
+      const years = Math.min(yearsOfService(w.hire_date, endDate), 20);
+      if (years > 0) anciennete = round2(base * years / 100);
+    }
+
+    // Primes only for a worker who actually earns a base that month.
+    const hasActivity = base > 0;
+    transport = hasActivity ? transportDefault : 0;
+    panier = hasActivity ? round2(panierRate * workedDays) : 0;
+    const assiduiteEligible = hasActivity && workedDays >= 1 && skippedDays === 0 && absenceDays === 0;
+    assiduite = assiduiteEligible ? assiduiteAmount : 0;
+  }
 
   const bonus = adj.bonus;
   const gross = round2(base + anciennete + transport + panier + assiduite + bonus);
 
-  // CNAS salariale (9%) on the subject base (base + seniority + attendance
-  // bonus + manual bonuses; transport & meal allowance are exempt).
-  const cnasBase = round2(base + anciennete + assiduite + bonus);
-  const cnas = round2(cnasBase * 0.09);
+  let cnasBase = 0;
+  let cnas = 0;
+  let grossTaxable = 0;
+  let irgBase = 0;
+  let irg = 0;
 
-  // Taxable gross = subject base + the exempt ceilings exceeded by the
-  // transport (3,000 DA) and meal allowances (rate x worked days).
-  const grossTaxable = round2(cnasBase + Math.max(0, transport - 3000) + Math.max(0, panier - panierRate * workedDays));
-  const irgBase = round2(grossTaxable - cnas);
-  const irg = irgForBaseMonthly(grossTaxable, irgBase);
+  if (algerian) {
+    // CNAS salariale (9%) on the subject base (base + seniority + attendance
+    // bonus + manual bonuses; transport & meal allowance are exempt).
+    cnasBase = round2(base + anciennete + assiduite + bonus);
+    cnas = round2(cnasBase * 0.09);
+
+    // Taxable gross = subject base + the exempt ceilings exceeded by the
+    // transport (3,000 DA) and meal allowances (rate x worked days).
+    grossTaxable = round2(cnasBase + Math.max(0, transport - 3000) + Math.max(0, panier - panierRate * workedDays));
+    irgBase = round2(grossTaxable - cnas);
+    irg = irgForBaseMonthly(grossTaxable, irgBase);
+  }
 
   const dailyRate = hourly ? (w.hourly_rate * 8) : (w.monthly_salary / 30);
   const absenceDeduction = round2(absenceDays * dailyRate);
@@ -1420,12 +1461,17 @@ function buildWorkerBulletin(w, ctx) {
 }
 
 // Compute one month's payroll for every worker (owner account excluded).
+// When the PRO-only Algerian payroll feature is enabled (Settings >
+// Payroll > "Algerian payroll rules"), each bulletin uses the full engine:
 //   base  = hours x hourly rate, or the flat monthly salary when set
 //   gross = base + primes (anciennete, transport, panier, assiduite, bonuses)
 //   net   = gross - CNAS - IRG - advances - deductions - unpaid absences, >= 0
 // Absences use one day = salary/30 or hourly rate x 8; vacation/sick days are
 // paid and only shown. Adjustments are recorded in staff_advances.
+// When disabled (or under a Basic license), payroll stays simple:
+//   net = base + bonuses - advances - deductions - unpaid absences
 function computePayrollRows(month) {
+  const algerian = isProLicense() && getPayFlag('pay_algerian_enabled', false);
   const next = db.prepare(`SELECT strftime('%Y-%m', '${month}-01', '+1 month') AS m`).get().m;
   const workers = db.prepare(
     `SELECT ${STAFF_COLS} FROM users WHERE role != 'owner' ORDER BY name`
@@ -1485,21 +1531,25 @@ function computePayrollRows(month) {
   const panierRate = getPaySetting('pay_panier_rate', 160);
   const assiduiteAmount = getPaySetting('pay_assiduite_amount', 2000);
 
-  return workers.map(w => {
-    const ctx = {
-      hours: hoursByUser[w.id] || 0,
-      workedDays: (statByUser[w.id] || {}).worked || 0,
-      skippedDays: (statByUser[w.id] || {}).skipped || 0,
-      absenceDays: absenceByUser[w.id] || 0,
-      adj: adjByUser[w.id] || { advance: 0, bonus: 0, deduction: 0 },
-      paid: paidByUser[w.id] || null,
-      transportDefault,
-      panierRate,
-      assiduiteAmount,
-      endDate: to
-    };
-    return buildWorkerBulletin(w, ctx);
-  });
+  return {
+    mode: algerian ? 'algerian' : 'simple',
+    items: workers.map(w => {
+      const ctx = {
+        hours: hoursByUser[w.id] || 0,
+        workedDays: (statByUser[w.id] || {}).worked || 0,
+        skippedDays: (statByUser[w.id] || {}).skipped || 0,
+        absenceDays: absenceByUser[w.id] || 0,
+        adj: adjByUser[w.id] || { advance: 0, bonus: 0, deduction: 0 },
+        paid: paidByUser[w.id] || null,
+        transportDefault,
+        panierRate,
+        assiduiteAmount,
+        endDate: to,
+        algerian
+      };
+      return buildWorkerBulletin(w, ctx);
+    })
+  };
 }
 
 // GET /api/payroll?month=YYYY-MM - per-worker payroll for a month (owner only).
@@ -1511,7 +1561,8 @@ app.get('/api/payroll', (req, res) => {
   if (!/^\d{4}-\d{2}$/.test(month)) {
     return res.status(400).json({ error: 'Invalid month (expected YYYY-MM)' });
   }
-  res.json({ month, items: computePayrollRows(month) });
+  const payroll = computePayrollRows(month);
+  res.json({ month, ...payroll });
 });
 
 // GET /api/payroll/adjustments?month=YYYY-MM - advances/bonuses/deductions for
@@ -1603,7 +1654,7 @@ app.get('/api/payroll/:userId/:month/pdf', (req, res) => {
     }
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.userId));
     if (!user || user.role === 'owner') return res.status(404).json({ error: 'Staff member not found' });
-    const item = computePayrollRows(month).find(i => i.id === user.id) || {
+    const item = computePayrollRows(month).items.find(i => i.id === user.id) || {
       hours: 0, base_amount: 0, bonuses: 0, advances: 0, deductions: 0,
       absence_days: 0, gross: 0, amount: 0, paid: false
     };
@@ -4462,7 +4513,7 @@ function buildReportData(type, from, to) {
 
   if (type === 'payroll') {
     const month = /^\d{4}-\d{2}$/.test(String(from || '')) ? String(from) : new Date().toISOString().slice(0, 7);
-    const items = computePayrollRows(month);
+    const items = computePayrollRows(month).items;
     return {
       title: 'Payroll Report - ' + month,
       columns: ['Employee', 'Hours', 'Worked Days', 'Base', 'Seniority', 'Transport', 'Meal Allowance', 'Attendance Bonus', 'Bonuses', 'Gross', 'CNAS 9%', 'IRG', 'Advances', 'Deductions', 'Absence Days', 'Net', 'Status'],
@@ -4716,19 +4767,18 @@ function buildPaySlipPdf(doc, opts) {
   doc.moveDown(0.6);
 
   const gains = [
-    ['Salaire de base', item.base_amount || 0],
-    ['Prime d\u2019ancienneté', item.anciennete_amount || 0],
-    ['Prime de transport', item.transport_amount || 0],
-    ['Prime de panier', item.panier_amount || 0],
-    ['Prime d\u2019assiduité', item.assiduite_amount || 0],
-    ['Primes diverses', item.bonuses || 0]
+    ['Salaire de base', item.base_amount || 0]
   ];
-  const retenues = [
-    ['CNAS (9%)', -(item.cnas_amount || 0)],
-    ['IRG', -(item.irg_amount || 0)],
-    ['Avances', -(item.advances || 0)],
-    ['Autres retenues', -(item.deductions || 0)]
-  ];
+  if (item.anciennete_amount) gains.push(['Prime d\u2019ancienneté', item.anciennete_amount]);
+  if (item.transport_amount) gains.push(['Prime de transport', item.transport_amount]);
+  if (item.panier_amount) gains.push(['Prime de panier', item.panier_amount]);
+  if (item.assiduite_amount) gains.push(['Prime d\u2019assiduité', item.assiduite_amount]);
+  if (item.bonuses) gains.push(['Primes diverses', item.bonuses]);
+  const retenues = [];
+  if (item.cnas_amount) retenues.push(['CNAS (9%)', -(item.cnas_amount || 0)]);
+  if (item.irg_amount) retenues.push(['IRG', -(item.irg_amount || 0)]);
+  if (item.advances) retenues.push(['Avances', -(item.advances || 0)]);
+  if (item.deductions) retenues.push(['Autres retenues', -(item.deductions || 0)]);
   if ((item.absence_days || 0) > 0) {
     retenues.push(['Absences (' + item.absence_days + ' jr)', -(item.absence_deduction || 0)]);
   }
@@ -4762,8 +4812,10 @@ function buildPaySlipPdf(doc, opts) {
   doc.moveDown(0.4);
   doc.font('Helvetica').fontSize(9).fillColor('#555');
   doc.text('Heures travaillées: ' + (item.hours || 0).toFixed(2) + '   ·   Jours travaillés: ' + (item.worked_days || 0), startX, doc.y, { width: labelW + valueW });
-  doc.moveDown(0.4);
-  doc.text('Coût employeur (CNAS patronale ≈ 26%): ' + moneyPdf(item.employer_cnas || 0), startX, doc.y, { width: labelW + valueW });
+  if ((item.employer_cnas || 0) > 0) {
+    doc.moveDown(0.4);
+    doc.text('Coût employeur (CNAS patronale ≈ 26%): ' + moneyPdf(item.employer_cnas || 0), startX, doc.y, { width: labelW + valueW });
+  }
   doc.fillColor('#000');
 
   const deductions = opts.deductions || [];
@@ -5070,7 +5122,7 @@ app.post('/api/settings', (req, res) => {
     'shop_name', 'shop_address', 'shop_phone', 'shop_logo',
     'scale_label_mode', 'scale_label_prefix', 'scale_price_digits', 'scale_price_divisor', 'scale_serial_baud',
     'tva_enabled', 'tva_rate',
-    'pay_transport', 'pay_panier_rate', 'pay_assiduite_amount'
+    'pay_transport', 'pay_panier_rate', 'pay_assiduite_amount', 'pay_algerian_enabled'
   ]);
   const upsert = db.prepare(`
     INSERT INTO settings (key, value) VALUES (?, ?)
@@ -5080,6 +5132,8 @@ app.post('/api/settings', (req, res) => {
     // skip_login is a test-only bypass that removes every authorization check;
     // never let it be toggled from the running app (even by an owner).
     if (!SETTABLE_KEYS.has(key) || key === 'skip_login') continue;
+    // The Algerian payroll feature is PRO-only: a Basic license can't switch it on.
+    if (key === 'pay_algerian_enabled' && !isProLicense()) continue;
     upsert.run(key, String(value));
   }
   logAudit(req, 'settings_updated', `keys: ${Object.keys(updates).filter(k => SETTABLE_KEYS.has(k) && k !== 'skip_login').join(', ')}`);

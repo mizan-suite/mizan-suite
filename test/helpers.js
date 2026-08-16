@@ -24,7 +24,8 @@ function startTestServer(opts = {}) {
       PARAVIE_PORT: String(port),
       PARAVIE_SKIP_HTTPS: '1',
       PARAVIE_TEST: '1',
-      PARAVIE_DATA_DIR: path.join(dir, 'backups')
+      PARAVIE_DATA_DIR: path.join(dir, 'backups'),
+      ...(opts.env || {})
     };
 
     const child = spawn(process.execPath, [path.join(PROJECT_ROOT, 'server.js')], {

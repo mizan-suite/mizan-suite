@@ -3425,7 +3425,14 @@ body.has-sidebar {
   font-weight: 800;
   letter-spacing: 0.4px;
   padding: 1px 5px;
-  border-radius: 999px;
+  border-radius: 4px;
+}
+
+/* PRO-locked feature note (e.g. Settings > Payroll on a Basic license) */
+.pro-note {
+  color: #b98a00;
+  font-weight: 600;
+  margin-top: 0.4rem;
 }
 
 @media (max-width: 768px) {

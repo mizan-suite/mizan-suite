@@ -205,6 +205,16 @@
     </div>
 
     <div class="product-form">
+      <h2 data-i18n="settings.payrollSection">Payroll</h2>
+      <label style="display:flex; align-items:center; gap:0.6rem;">
+        <input type="checkbox" id="pay-algerian-toggle">
+        <span data-i18n="settings.payAlgerian">Algerian payroll rules (CNAS + IRG + auto primes)</span>
+      </label>
+      <p class="hint-text" data-i18n="settings.payAlgerianHint">Computes CNAS 9%, IRG (DGI scale) and the seniority / transport / meal / attendance primes automatically on the Payroll page. Turn this off to keep payroll simple (base + bonuses - advances - deductions).</p>
+      <p class="hint-text pro-note" id="pay-algerian-pro-note" style="display:none;" data-i18n="settings.proFeature"></p>
+    </div>
+
+    <div class="product-form">
       <h2 data-i18n="settings.printPreview">Print preview &amp; diagnostics</h2>
       <p class="hint-text" data-i18n="settings.printPreviewHint">See exactly what each document looks like before you print - no paper needed. Use this to check receipts, invoices, factures and labels on any screen.</p>
       <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">

@@ -26,6 +26,8 @@ const scaleSerialBaud = document.getElementById('scale-serial-baud');
 
 const tvaEnabledToggle = document.getElementById('tva-enabled-toggle');
 const tvaRateInput = document.getElementById('tva-rate');
+const payAlgerianToggle = document.getElementById('pay-algerian-toggle');
+const payAlgerianProNote = document.getElementById('pay-algerian-pro-note');
 
 const escapeHtml = (str) => String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -108,6 +110,9 @@ async function loadSettings() {
   if (tvaEnabledToggle) {
     tvaEnabledToggle.checked = s.tva_enabled === 'true';
     tvaRateInput.value = s.tva_rate === undefined || s.tva_rate === '' ? 19 : s.tva_rate;
+  }
+  if (payAlgerianToggle) {
+    payAlgerianToggle.checked = s.pay_algerian_enabled === 'true';
   }
   if (darkToggle.checked) document.documentElement.classList.add('dark-mode');
 }
@@ -362,7 +367,8 @@ document.getElementById('save-settings-btn').addEventListener('click', async () 
       scale_price_divisor: scalePriceDivisor ? scalePriceDivisor.value : '100',
       scale_serial_baud: scaleSerialBaud ? scaleSerialBaud.value : '9600',
       tva_enabled: tvaEnabledToggle ? tvaEnabledToggle.checked : false,
-      tva_rate: tvaRateInput ? tvaRateInput.value : '19'
+      tva_rate: tvaRateInput ? tvaRateInput.value : '19',
+      pay_algerian_enabled: payAlgerianToggle ? payAlgerianToggle.checked : false
     })
   });
 
@@ -744,6 +750,13 @@ async function loadLicenseInfo() {
         const tierLabel = data.tier === 'basic' ? I18N.t('tier.basic') : I18N.t('tier.pro');
         tierEl.textContent = I18N.t('settings.edition') + ': ' + tierLabel;
         tierEl.style.display = '';
+      }
+      // The Algerian payroll feature is PRO-only: a Basic license sees it
+      // locked with a note instead of an active checkbox.
+      if (payAlgerianToggle) {
+        const isBasic = data.tier === 'basic';
+        payAlgerianToggle.disabled = isBasic;
+        if (payAlgerianProNote) payAlgerianProNote.style.display = isBasic ? '' : 'none';
       }
       if (upBtn && data.tier === 'basic') upBtn.setAttribute('data-i18n', 'settings.upgradePro');
       if (upBtn && data.tier === 'basic') upBtn.textContent = I18N.t('settings.upgradePro');

@@ -44,6 +44,14 @@ test.before(async () => {
   assert.strictEqual(r.status, 200, JSON.stringify(r.data));
   ownerCookie = r.setCookie().split(';')[0];
 
+  // The Algerian payroll engine (CNAS/IRG/primes) is a PRO feature toggled in
+  // Settings. Tests run as PRO by default, so enable it to exercise the full
+  // engine; the disabling/basic cases are covered by dedicated tests below.
+  const algOn = await srv.request('POST', '/api/settings', {
+    pay_algerian_enabled: true
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(algOn.status, 200, JSON.stringify(algOn.data));
+
   const w = await srv.request('POST', '/api/users', {
     name: 'Walid', pin: '222333', role: 'worker', permissions: ['pointage']
   }, { Cookie: ownerCookie });
@@ -229,6 +237,77 @@ test('payroll rules settings control the primes', async () => {
     pay_transport: 1500, pay_panier_rate: 160, pay_assiduite_amount: 2000
   }, { Cookie: ownerCookie });
   assert.strictEqual(restore.status, 200, JSON.stringify(restore.data));
+});
+
+test('the Algerian payroll feature can be disabled (simple payroll)', async () => {
+  const off = await srv.request('POST', '/api/settings', {
+    pay_algerian_enabled: false
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(off.status, 200, JSON.stringify(off.data));
+
+  const res = await srv.request('GET', `/api/payroll?month=${MONTH}`, undefined, { Cookie: ownerCookie });
+  assert.strictEqual(res.status, 200, JSON.stringify(res.data));
+  assert.strictEqual(res.data.mode, 'simple', 'payroll reports simple mode');
+
+  const item = res.data.items.find(i => i.id === workerId);
+  assert.ok(item, 'worker appears in payroll');
+  // Simple payroll: no auto primes, no CNAS, no IRG.
+  assert.strictEqual(item.anciennete_amount, 0);
+  assert.strictEqual(item.transport_amount, 0);
+  assert.strictEqual(item.panier_amount, 0);
+  assert.strictEqual(item.assiduite_amount, 0);
+  assert.strictEqual(item.cnas_amount, 0);
+  assert.strictEqual(item.irg_amount, 0);
+  assert.strictEqual(item.employer_cnas, 0);
+  assert.strictEqual(item.gross, 30000);
+  // net = base 30000 - one-time deduction 1500 (recorded in an earlier test)
+  assert.strictEqual(item.amount, 28500);
+
+  // Restore so the remaining tests see the full engine again.
+  const restore = await srv.request('POST', '/api/settings', {
+    pay_algerian_enabled: true
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(restore.status, 200, JSON.stringify(restore.data));
+});
+
+test('the Algerian payroll feature requires the PRO edition', async () => {
+  const basicSrv = await startTestServer({ env: { PARAVIE_TEST_TIER: 'basic' } });
+  try {
+    const u = await basicSrv.request('POST', '/api/users', { name: 'Owner', pin: '123456' });
+    assert.strictEqual(u.status, 201, JSON.stringify(u.data));
+    const r = await basicSrv.request('POST', '/api/auth/login', { name: 'Owner', pin: '123456' });
+    assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+    const cookie = r.setCookie().split(';')[0];
+
+    const w = await basicSrv.request('POST', '/api/users', {
+      name: 'BasicWorker', pin: '222333', role: 'worker', permissions: ['pointage']
+    }, { Cookie: cookie });
+    assert.strictEqual(w.status, 201, JSON.stringify(w.data));
+    const sh = await basicSrv.request('PUT', `/api/staff/${w.data.id}`, {
+      monthly_salary: 30000
+    }, { Cookie: cookie });
+    assert.strictEqual(sh.status, 200, JSON.stringify(sh.data));
+
+    // A Basic license cannot switch the feature on: the setting is not stored.
+    const on = await basicSrv.request('POST', '/api/settings', {
+      pay_algerian_enabled: true
+    }, { Cookie: cookie });
+    assert.strictEqual(on.status, 200, JSON.stringify(on.data));
+    const settings = await basicSrv.request('GET', '/api/settings');
+    assert.strictEqual(settings.data.pay_algerian_enabled, undefined, 'feature setting is rejected for Basic');
+
+    const res = await basicSrv.request('GET', `/api/payroll?month=${MONTH}`, undefined, { Cookie: cookie });
+    assert.strictEqual(res.status, 200, JSON.stringify(res.data));
+    assert.strictEqual(res.data.mode, 'simple', 'Basic license gets simple payroll');
+    const item = res.data.items.find(i => i.id === w.data.id);
+    assert.ok(item, 'worker appears in payroll');
+    assert.strictEqual(item.cnas_amount, 0);
+    assert.strictEqual(item.transport_amount, 0);
+    assert.strictEqual(item.gross, 30000);
+    assert.strictEqual(item.amount, 30000);
+  } finally {
+    basicSrv.shutdown();
+  }
 });
 
 test('payroll export includes the new bulletin columns', async () => {

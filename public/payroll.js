@@ -24,8 +24,9 @@ const payTransport = document.getElementById('pay-transport');
 const payPanier = document.getElementById('pay-panier');
 const payAssiduite = document.getElementById('pay-assiduite');
 const payRulesSave = document.getElementById('pay-rules-save');
+const modeBanner = document.getElementById('payroll-mode-banner');
 
-let payrollCache = { items: [] };
+let payrollCache = { items: [], mode: 'simple' };
 let staffCache = [];
 let adjCache = [];
 
@@ -75,6 +76,15 @@ async function loadPayroll() {
   renderAdjustments();
 }
 
+// Show/hide the "feature is off" banner and lock the rules inputs when the
+// Algerian payroll mode (CNAS/IRG/primes) is not active.
+function applyMode() {
+  const showAlg = payrollCache.mode === 'algerian';
+  if (modeBanner) modeBanner.style.display = showAlg ? 'none' : '';
+  [payTransport, payPanier, payAssiduite, payRulesSave].forEach(el => { if (el) el.disabled = !showAlg; });
+  return showAlg;
+}
+
 async function loadRules() {
   const res = await fetch('/api/settings');
   if (!res.ok) return;
@@ -122,6 +132,7 @@ function bulletinLine(label, value, bold, negative) {
 }
 
 function bulletinFor(i) {
+  const showAlg = payrollCache.mode === 'algerian';
   const gains = [];
   gains.push(bulletinLine(I18N.t('payroll.base'), formatMoney(i.base_amount)));
   if (i.anciennete_amount > 0) gains.push(bulletinLine(I18N.t('payroll.seniority'), formatMoney(i.anciennete_amount)));
@@ -132,8 +143,8 @@ function bulletinFor(i) {
   gains.push(bulletinLine(I18N.t('payroll.gross'), formatMoney(i.gross), true));
 
   const retenues = [];
-  retenues.push(bulletinLine(I18N.t('payroll.cnas'), '-' + formatMoney(i.cnas_amount)));
-  retenues.push(bulletinLine(I18N.t('payroll.irg'), '-' + formatMoney(i.irg_amount)));
+  if (showAlg) retenues.push(bulletinLine(I18N.t('payroll.cnas'), '-' + formatMoney(i.cnas_amount)));
+  if (showAlg) retenues.push(bulletinLine(I18N.t('payroll.irg'), '-' + formatMoney(i.irg_amount)));
   if (i.advances > 0) retenues.push(bulletinLine(I18N.t('payroll.advances'), '-' + formatMoney(i.advances)));
   if (i.deductions > 0) retenues.push(bulletinLine(I18N.t('payroll.deductions'), '-' + formatMoney(i.deductions)));
   if (i.absence_days > 0) retenues.push(bulletinLine(`${I18N.t('payroll.absenceDays')} (${i.absence_days}j)`, '-' + formatMoney(i.absence_deduction)));
@@ -143,8 +154,8 @@ function bulletinFor(i) {
   info.push(bulletinLine(I18N.t('payroll.hours'), i.hours > 0 ? i.hours.toFixed(2) : '-'));
   info.push(bulletinLine(I18N.t('payroll.workedDays'), String(i.worked_days)));
   if (i.skipped_days > 0) info.push(bulletinLine(I18N.t('payroll.skippedDays'), String(i.skipped_days)));
-  info.push(bulletinLine(I18N.t('payroll.irgBase'), formatMoney(i.irg_base)));
-  info.push(bulletinLine(I18N.t('payroll.employerCost'), formatMoney(i.employer_cnas)));
+  if (showAlg) info.push(bulletinLine(I18N.t('payroll.irgBase'), formatMoney(i.irg_base)));
+  if (showAlg) info.push(bulletinLine(I18N.t('payroll.employerCost'), formatMoney(i.employer_cnas)));
 
   return `
     <div class="bulletin-grid">
@@ -164,6 +175,7 @@ function bulletinFor(i) {
 }
 
 function renderWorkerRow(i) {
+  const showAlg = payrollCache.mode === 'algerian';
   const primes = i.anciennete_amount + i.transport_amount + i.panier_amount + i.assiduite_amount + i.bonuses;
   const statusCell = i.paid
     ? `<span class="badge badge-ok" title="${escapeHtml(String(i.paid_at))}">${I18N.t('payroll.paid')}</span>`
@@ -175,8 +187,8 @@ function renderWorkerRow(i) {
       <td>${formatMoney(i.base_amount)}</td>
       <td>${primes > 0 ? formatMoney(primes) : '-'}</td>
       <td>${formatMoney(i.gross)}</td>
-      <td>${formatMoney(i.cnas_amount)}</td>
-      <td>${i.irg_amount > 0 ? formatMoney(i.irg_amount) : '-'}</td>
+      ${showAlg ? `<td>${formatMoney(i.cnas_amount)}</td>` : ''}
+      ${showAlg ? `<td>${i.irg_amount > 0 ? formatMoney(i.irg_amount) : '-'}</td>` : ''}
       <td><strong>${formatMoney(i.amount)}</strong></td>
       <td>${statusCell}</td>
       <td style="white-space:nowrap;">
@@ -187,12 +199,13 @@ function renderWorkerRow(i) {
       </td>
     </tr>
     <tr class="bulletin-row" data-id="${i.id}" style="display:none;">
-      <td colspan="10">${bulletinFor(i)}</td>
+      <td colspan="${showAlg ? 10 : 8}">${bulletinFor(i)}</td>
     </tr>`;
 }
 
 function renderPayroll() {
   const { items } = payrollCache;
+  const showAlg = applyMode();
 
   const total = items.reduce((a, i) => a + i.amount, 0);
   const totalGross = items.reduce((a, i) => a + i.gross, 0);
@@ -201,7 +214,7 @@ function renderPayroll() {
   totalEl.textContent = formatMoney(total);
   grossEl.textContent = formatMoney(totalGross);
   totalUnpaidEl.textContent = formatMoney(totalUnpaid);
-  employerEl.textContent = formatMoney(totalEmployer);
+  employerEl.textContent = showAlg ? formatMoney(totalEmployer) : '-';
 
   listEl.innerHTML = items.length ? `
     <table class="product-table">
@@ -211,8 +224,8 @@ function renderPayroll() {
         <th>${I18N.t('payroll.base')}</th>
         <th>${I18N.t('payroll.primes')}</th>
         <th>${I18N.t('payroll.gross')}</th>
-        <th>${I18N.t('payroll.cnas')}</th>
-        <th>${I18N.t('payroll.irg')}</th>
+        ${showAlg ? `<th>${I18N.t('payroll.cnas')}</th>` : ''}
+        ${showAlg ? `<th>${I18N.t('payroll.irg')}</th>` : ''}
         <th>${I18N.t('payroll.net')}</th>
         <th>${I18N.t('payroll.status')}</th>
         <th>${I18N.t('staff.thActions')}</th>
