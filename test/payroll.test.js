@@ -76,7 +76,13 @@ test('payroll computes the monthly salary for a worker', async () => {
   assert.strictEqual(item.monthly_salary, 30000);
   assert.strictEqual(item.base_amount, 30000);
   assert.strictEqual(item.deductions, 0);
-  assert.strictEqual(item.amount, 30000);
+  // Algerian payroll: transport prime 1500 is added, CNAS 9% is withheld,
+  // IRG is exempt (taxable gross 30000 <= 30000 threshold).
+  assert.strictEqual(item.transport_amount, 1500);
+  assert.strictEqual(item.gross, 31500);
+  assert.strictEqual(item.cnas_amount, 2700);
+  assert.strictEqual(item.irg_amount, 0);
+  assert.strictEqual(item.amount, 28800);
   assert.strictEqual(item.paid, false);
 });
 
@@ -96,7 +102,7 @@ test('a one-time pay reduction with a reason lowers the worker net pay', async (
   assert.strictEqual(res.status, 200, JSON.stringify(res.data));
   const item = res.data.items.find(i => i.id === workerId);
   assert.strictEqual(item.deductions, 1500);
-  assert.strictEqual(item.amount, 28500, 'net reduced by the one-time deduction');
+  assert.strictEqual(item.amount, 27300, 'net reduced by the one-time deduction');
 
   // The reason is retrievable with the adjustment.
   const list = await srv.request('GET', `/api/payroll/adjustments?month=${MONTH}`, undefined, { Cookie: ownerCookie });
@@ -130,6 +136,109 @@ test('invalid adjustments are rejected', async () => {
     user_id: workerId, kind: 'raise', amount: 100, month: MONTH
   }, { Cookie: ownerCookie });
   assert.strictEqual(badKind.status, 400, JSON.stringify(badKind.data));
+});
+
+test('primes (seniority, transport, meal, attendance) are computed from attendance', async () => {
+  // Samir: 40000 DA flat salary, hired 2018-03-01 (8 full years -> 8% seniority),
+  // clocked in for 10 days in the month -> 10 worked days.
+  const su = await srv.request('POST', '/api/users', {
+    name: 'Samir', pin: '444555', role: 'worker', permissions: ['pointage']
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(su.status, 201, JSON.stringify(su.data));
+  const samirId = su.data.id;
+  const sp = await srv.request('PUT', `/api/staff/${samirId}`, {
+    monthly_salary: 40000, hire_date: '2018-03-01'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(sp.status, 200, JSON.stringify(sp.data));
+
+  const ins = db.prepare('INSERT INTO time_entries (user_id, clock_in, clock_out) VALUES (?, ?, ?)');
+  for (let d = 1; d <= 31; d++) {
+    const day = `2026-08-${String(d).padStart(2, '0')}`;
+    ins.run(samirId, `${day} 08:00:00`, `${day} 16:00:00`);
+  }
+
+  const res = await srv.request('GET', `/api/payroll?month=${MONTH}`, undefined, { Cookie: ownerCookie });
+  assert.strictEqual(res.status, 200, JSON.stringify(res.data));
+  const item = res.data.items.find(i => i.id === samirId);
+  assert.ok(item, 'Samir appears in payroll');
+
+  assert.strictEqual(item.worked_days, 31);
+  assert.strictEqual(item.anciennete_amount, 3200, '8% seniority of 40000');
+  assert.strictEqual(item.transport_amount, 1500);
+  assert.strictEqual(item.panier_amount, 4960, '31 worked days x 160 meal rate');
+  assert.strictEqual(item.assiduite_amount, 2000, 'every day clocked -> attendance bonus paid');
+
+  // gross = 40000 + 3200 + 1500 + 4960 + 2000
+  assert.strictEqual(item.gross, 51660);
+  // CNAS 9% on base + seniority + attendance bonus (40000+3200+2000 = 45200)
+  assert.strictEqual(item.cnas_amount, 4068);
+  assert.strictEqual(item.irg_base, 41132);
+  assert.strictEqual(item.irg_amount, 3406, 'DGI scale on the annualised base minus 40% abatement (capped 1500)');
+  assert.strictEqual(item.employer_cnas, 11752, '26% employer cost on the CNAS base');
+  // net = 51660 - 4068 - 3406
+  assert.strictEqual(item.amount, 44186);
+
+  db.prepare('DELETE FROM time_entries WHERE user_id = ?').run(samirId);
+});
+
+test('the attendance bonus is withheld when the worker is absent', async () => {
+  // Yacine: same salary as Walid but with one recorded absence in the month.
+  const yu = await srv.request('POST', '/api/users', {
+    name: 'Yacine', pin: '555666', role: 'worker', permissions: ['pointage']
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(yu.status, 201, JSON.stringify(yu.data));
+  const yacineId = yu.data.id;
+  const yp = await srv.request('PUT', `/api/staff/${yacineId}`, {
+    monthly_salary: 30000
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(yp.status, 200, JSON.stringify(yp.data));
+  const le = await srv.request('POST', '/api/leave', {
+    user_id: yacineId, leave_date: '2026-08-05', type: 'absence', note: 'Absent'
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(le.status, 201, JSON.stringify(le.data));
+
+  const res = await srv.request('GET', `/api/payroll?month=${MONTH}`, undefined, { Cookie: ownerCookie });
+  const item = res.data.items.find(i => i.id === yacineId);
+  assert.ok(item, 'Yacine appears in payroll');
+  assert.strictEqual(item.assiduite_amount, 0, 'an absence forfeits the attendance bonus');
+  assert.strictEqual(item.absence_days, 1);
+  assert.strictEqual(item.absence_deduction, 1000, 'one day = salary / 30');
+  // gross 31500 (base + transport) - CNAS 2700 - absence 1000
+  assert.strictEqual(item.amount, 27800);
+});
+
+test('payroll rules settings control the primes', async () => {
+  const set = await srv.request('POST', '/api/settings', {
+    pay_transport: 0, pay_panier_rate: 0, pay_assiduite_amount: 0
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(set.status, 200, JSON.stringify(set.data));
+
+  const res = await srv.request('GET', `/api/payroll?month=${MONTH}`, undefined, { Cookie: ownerCookie });
+  const item = res.data.items.find(i => i.id === workerId);
+  assert.ok(item, 'worker appears in payroll');
+  assert.strictEqual(item.transport_amount, 0);
+  assert.strictEqual(item.panier_amount, 0);
+  assert.strictEqual(item.assiduite_amount, 0);
+  assert.strictEqual(item.gross, 30000);
+  assert.strictEqual(item.cnas_amount, 2700);
+  // net = gross 30000 - CNAS 2700 - one-time deduction 1500 (from an earlier test)
+  assert.strictEqual(item.amount, 25800);
+
+  // Restore defaults so the remaining tests see the standard rules.
+  const restore = await srv.request('POST', '/api/settings', {
+    pay_transport: 1500, pay_panier_rate: 160, pay_assiduite_amount: 2000
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(restore.status, 200, JSON.stringify(restore.data));
+});
+
+test('payroll export includes the new bulletin columns', async () => {
+  const res = await srv.request('GET', '/api/export/csv?type=payroll&from=2026-08', undefined, { Cookie: ownerCookie });
+  assert.strictEqual(res.status, 200, JSON.stringify(res.data));
+  const csv = String(res.data);
+  for (const col of ['Seniority', 'Transport', 'Meal Allowance', 'Attendance Bonus', 'Gross', 'CNAS 9%', 'IRG']) {
+    assert.ok(csv.includes(col), `CSV contains column ${col}`);
+  }
+  assert.ok(csv.includes('Walid'), 'CSV lists the worker');
 });
 
 test('the pay slip PDF is generated for the reduced month', async () => {

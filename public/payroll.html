@@ -31,8 +31,33 @@
       <a class="btn btn-ghost btn-sm" href="/api/export/pdf?type=payroll&from=__MONTH__" id="pay-export-pdf" data-i18n="pointage.exportPdf" target="_blank" rel="noopener">Export PDF</a>
     </div>
 
+    <!-- Payroll rules (primes) -->
+    <div class="po-card" style="margin-bottom:1.5rem;">
+      <h3 style="margin-top:0;" data-i18n="payroll.rules">Payroll rules (primes)</h3>
+      <div class="po-filter" style="flex-wrap:wrap;">
+        <label style="display:flex; flex-direction:column; gap:0.25rem;">
+          <span class="hint-text" data-i18n="payroll.transportLabel">Transport prime (DA / month)</span>
+          <input type="number" id="pay-transport" step="0.01" min="0" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; width:140px;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:0.25rem;">
+          <span class="hint-text" data-i18n="payroll.panierLabel">Meal allowance (DA / worked day)</span>
+          <input type="number" id="pay-panier" step="0.01" min="0" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; width:140px;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:0.25rem;">
+          <span class="hint-text" data-i18n="payroll.assiduiteLabel">Attendance bonus (DA / month)</span>
+          <input type="number" id="pay-assiduite" step="0.01" min="0" style="padding:0.4rem 0.6rem; border:1px solid #d8d8d8; border-radius:6px; width:140px;">
+        </label>
+        <button class="btn" id="pay-rules-save" style="align-self:flex-end;" data-i18n="payroll.saveRules">Save rules</button>
+      </div>
+      <div class="hint-text" style="margin-top:0.5rem;" data-i18n="payroll.rulesHint">CNAS 9% and IRG (DGI scale) are always withheld. The attendance bonus is paid only to workers with no absence and at least one worked day in the month.</div>
+    </div>
+
     <!-- Summary -->
     <div class="stat-grid" style="margin-bottom:1.5rem;">
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="payroll.totalGross">Total gross</span>
+        <span class="stat-value" id="payroll-gross">-</span>
+      </div>
       <div class="stat-card">
         <span class="stat-label" data-i18n="payroll.total">Total</span>
         <span class="stat-value" id="payroll-total">-</span>
@@ -40,6 +65,10 @@
       <div class="stat-card">
         <span class="stat-label" data-i18n="payroll.totalUnpaid">Total unpaid</span>
         <span class="stat-value" id="payroll-total-unpaid">-</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label" data-i18n="payroll.employerCost">Employer cost</span>
+        <span class="stat-value" id="payroll-employer">-</span>
       </div>
     </div>
 

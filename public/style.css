@@ -2233,6 +2233,58 @@ html.dark-mode .perm-chip:has(input:checked) {
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
+/* Payroll bulletin (expandable per-worker breakdown) */
+.bulletin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  padding: 0.25rem 0;
+}
+
+.bulletin-col {
+  min-width: 0;
+}
+
+.bulletin-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #777;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.35rem;
+}
+
+.bulletin-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.22rem 0;
+  font-size: 0.88rem;
+}
+
+.bulletin-line span:last-child {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.bulletin-line .bulletin-neg {
+  color: #c0392b;
+}
+
+.bulletin-total {
+  font-weight: 700;
+  border-top: 1px solid #e2e2e2;
+  margin-top: 0.3rem;
+  padding-top: 0.45rem;
+}
+
+.bulletin-row td {
+  background: #fbfbfb;
+  border-bottom: 1px solid #eee;
+}
+
 .po-card-header {
   display: flex;
   justify-content: space-between;

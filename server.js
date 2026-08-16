@@ -1269,25 +1269,199 @@ app.delete('/api/leave/:id', (req, res) => {
 });
 
 // ---------- ADMINISTRATION: PAYROLL ----------
+// Algerian payroll ("paie") engine. Rules implemented (DGI / CNAS, law 18-07,
+// executive decree 05-468, LF 2022+ / LF 2025-26):
+//   - base = flat monthly salary, or hours x hourly rate
+//   - prime d'ancienneté  = 1% of base per full year of service, capped at 20%
+//   - prime de transport  = monthly flat allowance, IRG-exempt up to 3,000 DA
+//   - prime de panier     = daily meal allowance x worked days, IRG-exempt
+//   - prime d'assiduité   = monthly bonus only when the worker never skipped
+//     or was absent in the month (no unexcused absence, at least 1 worked day)
+//   - CNAS salariale 9% of the CNAS-subject base; CNAS patronale ~26% (info)
+//   - IRG: annual progressive scale (6 tranches) applied monthly to the
+//     taxable gross minus CNAS; full exemption under 30,000 DA/month; a 40%
+//     abatement on the IRG itself bounded 1,000-1,500 DA/month; a second
+//     smoothing abatement for gross salaries between 30,001 and 35,000 DA.
+//   - advances / one-time deductions / unpaid absences reduce the net.
+// Adjustments are recorded in staff_advances.
+
+function getPaySetting(key, fallback) {
+  const v = getSetting(key);
+  if (v === null || v === '') return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// Full years of service completed between a hire date and a month-end date.
+function yearsOfService(hireDate, endDate) {
+  const h = new Date(hireDate + 'T00:00:00');
+  const e = new Date(endDate + 'T00:00:00');
+  if (isNaN(h.getTime()) || isNaN(e.getTime()) || e < h) return 0;
+  let years = e.getFullYear() - h.getFullYear();
+  const m = e.getMonth() - h.getMonth();
+  if (m < 0 || (m === 0 && e.getDate() < h.getDate())) years--;
+  return Math.max(0, years);
+}
+
+// YYYY-MM-DD of the last day of the given YYYY-MM month.
+function monthEndDateStr(month) {
+  const parts = String(month).split('-').map(Number);
+  const d = new Date(parts[0], parts[1], 0);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// IRG annual scale (LF 2025 / LF 2026, 6 tranches) - applied to the
+// annualised taxable base, then divided back to a monthly amount.
+const IRG_ANNUAL_BRACKETS = [
+  { upTo: 240000, rate: 0 },
+  { upTo: 480000, rate: 0.23 },
+  { upTo: 960000, rate: 0.27 },
+  { upTo: 1920000, rate: 0.30 },
+  { upTo: 3840000, rate: 0.33 },
+  { upTo: Infinity, rate: 0.35 }
+];
+
+// Monthly IRG for a salary. grossTaxable = taxable gross before CNAS (used for
+// the exemption threshold and the low-salary smoothing window); baseAfterCnas
+// = grossTaxable - CNAS salariale (the actual tax base).
+function irgForBaseMonthly(grossTaxable, baseAfterCnas) {
+  if (!(grossTaxable > 0)) return 0;
+  if (grossTaxable <= 30000) return 0; // exonération totale
+  const annual = baseAfterCnas * 12;
+  let tax = 0;
+  let prev = 0;
+  for (const b of IRG_ANNUAL_BRACKETS) {
+    const slice = Math.min(annual, b.upTo) - prev;
+    if (slice > 0) tax += slice * b.rate;
+    prev = b.upTo;
+  }
+  const monthly = tax / 12;
+  // Abattement de 40% sur l'IRG, borné 1 000 - 1 500 DA/mois.
+  const abattement = Math.min(1500, Math.max(1000, monthly * 0.40));
+  let irg = monthly - abattement;
+  // Second smoothing abatement for gross salaries 30 001 - 35 000 DA.
+  if (grossTaxable > 30000 && grossTaxable <= 35000) {
+    irg = irg * (137 / 51) - (27925 / 8);
+  }
+  return Math.max(0, Math.round(irg));
+}
+
+// Build one worker's full monthly bulletin from its attendance/leave context.
+function buildWorkerBulletin(w, ctx) {
+  const {
+    hours, workedDays, skippedDays, absenceDays, adj, paid,
+    transportDefault, panierRate, assiduiteAmount, endDate
+  } = ctx;
+
+  const hourly = !(w.monthly_salary > 0);
+  const base = hourly ? (hours * w.hourly_rate) : w.monthly_salary;
+
+  let anciennete = 0;
+  if (w.hire_date && base > 0) {
+    const years = Math.min(yearsOfService(w.hire_date, endDate), 20);
+    if (years > 0) anciennete = round2(base * years / 100);
+  }
+
+  // Primes only for a worker who actually earns a base that month.
+  const hasActivity = base > 0;
+  const transport = hasActivity ? transportDefault : 0;
+  const panier = hasActivity ? round2(panierRate * workedDays) : 0;
+  const assiduiteEligible = hasActivity && workedDays >= 1 && skippedDays === 0 && absenceDays === 0;
+  const assiduite = assiduiteEligible ? assiduiteAmount : 0;
+
+  const bonus = adj.bonus;
+  const gross = round2(base + anciennete + transport + panier + assiduite + bonus);
+
+  // CNAS salariale (9%) on the subject base (base + seniority + attendance
+  // bonus + manual bonuses; transport & meal allowance are exempt).
+  const cnasBase = round2(base + anciennete + assiduite + bonus);
+  const cnas = round2(cnasBase * 0.09);
+
+  // Taxable gross = subject base + the exempt ceilings exceeded by the
+  // transport (3,000 DA) and meal allowances (rate x worked days).
+  const grossTaxable = round2(cnasBase + Math.max(0, transport - 3000) + Math.max(0, panier - panierRate * workedDays));
+  const irgBase = round2(grossTaxable - cnas);
+  const irg = irgForBaseMonthly(grossTaxable, irgBase);
+
+  const dailyRate = hourly ? (w.hourly_rate * 8) : (w.monthly_salary / 30);
+  const absenceDeduction = round2(absenceDays * dailyRate);
+  const net = round2(Math.max(0, gross - cnas - irg - adj.advance - adj.deduction - absenceDeduction));
+
+  return {
+    id: w.id,
+    name: w.name,
+    active: !!w.active,
+    hourly_rate: w.hourly_rate,
+    monthly_salary: w.monthly_salary,
+    hours: round2(hours),
+    worked_days: workedDays,
+    skipped_days: skippedDays,
+    base_amount: round2(base),
+    anciennete_amount: round2(anciennete),
+    transport_amount: round2(transport),
+    panier_amount: round2(panier),
+    assiduite_amount: round2(assiduite),
+    bonuses: round2(bonus),
+    gross: round2(gross),
+    cnas_base: round2(cnasBase),
+    cnas_amount: round2(cnas),
+    irg_base: round2(irgBase),
+    irg_amount: irg,
+    employer_cnas: round2(cnasBase * 0.26),
+    advances: round2(adj.advance),
+    deductions: round2(adj.deduction),
+    absence_days: absenceDays,
+    absence_deduction: round2(absenceDeduction),
+    amount: round2(net),
+    paid: !!paid,
+    paid_at: paid ? paid.paid_at : null,
+    payment_id: paid ? paid.id : null
+  };
+}
 
 // Compute one month's payroll for every worker (owner account excluded).
 //   base  = hours x hourly rate, or the flat monthly salary when set
-//   gross = base + bonuses
-//   net   = gross - advances - deductions - unpaid absences (daily rate), >= 0
+//   gross = base + primes (anciennete, transport, panier, assiduite, bonuses)
+//   net   = gross - CNAS - IRG - advances - deductions - unpaid absences, >= 0
 // Absences use one day = salary/30 or hourly rate x 8; vacation/sick days are
 // paid and only shown. Adjustments are recorded in staff_advances.
 function computePayrollRows(month) {
   const next = db.prepare(`SELECT strftime('%Y-%m', '${month}-01', '+1 month') AS m`).get().m;
   const workers = db.prepare(
-    'SELECT id, name, active, hourly_rate, monthly_salary FROM users WHERE role != \'owner\' ORDER BY name'
+    `SELECT ${STAFF_COLS} FROM users WHERE role != 'owner' ORDER BY name`
   ).all();
+  const today = localDateString();
+  const from = month + '-01';
+  const to = monthEndDateStr(month);
+
+  // Hours actually worked (clocked).
   const hoursRows = db.prepare(`
     SELECT user_id, COALESCE(SUM(CASE WHEN clock_out IS NOT NULL
       THEN (julianday(clock_out) - julianday(clock_in)) * 24 ELSE 0 END), 0) AS hours
     FROM time_entries WHERE clock_in >= ? AND clock_in < ? GROUP BY user_id
-  `).all(month + '-01 00:00:00', next + '-01 00:00:00');
+  `).all(from + ' 00:00:00', next + '-01 00:00:00');
   const hoursByUser = {};
   for (const h of hoursRows) hoursByUser[h.user_id] = Number(h.hours);
+
+  // Attendance-derived worked / skipped days (panier + prime d'assiduité).
+  const entries = db.prepare(
+    'SELECT * FROM time_entries WHERE clock_in >= ? AND clock_in < ?'
+  ).all(from + ' 00:00:00', next + '-01 00:00:00');
+  const leave = db.prepare(
+    'SELECT * FROM leave_entries WHERE leave_date >= ? AND leave_date <= ?'
+  ).all(from, to);
+  const byUserMap = {};
+  for (const w of workers) byUserMap[w.id] = w;
+  const statByUser = {};
+  for (const d of computeAttendanceDays(workers, entries, leave, from, to, today)) {
+    const s = (statByUser[d.user_id] = statByUser[d.user_id] || { worked: 0, skipped: 0 });
+    if (d.status === 'present' || d.status === 'late' || d.status === 'missing_clockout') {
+      s.worked++;
+    } else if (d.status === 'absent' && d.date <= today) {
+      const w = byUserMap[d.user_id];
+      if (!w || !w.hire_date || d.date >= w.hire_date) s.skipped++;
+    }
+  }
 
   const adjRows = db.prepare(
     'SELECT user_id, kind, SUM(amount) AS total FROM staff_advances WHERE month = ? GROUP BY user_id, kind'
@@ -1299,7 +1473,7 @@ function computePayrollRows(month) {
 
   const absenceRows = db.prepare(
     "SELECT user_id, COUNT(*) AS days FROM leave_entries WHERE type = 'absence' AND leave_date >= ? AND leave_date <= ? GROUP BY user_id"
-  ).all(month + '-01', month + '-31');
+  ).all(from, to);
   const absenceByUser = {};
   for (const a of absenceRows) absenceByUser[a.user_id] = Number(a.days);
 
@@ -1307,34 +1481,24 @@ function computePayrollRows(month) {
   const paidByUser = {};
   for (const p of paidRows) paidByUser[p.user_id] = p;
 
+  const transportDefault = getPaySetting('pay_transport', 1500);
+  const panierRate = getPaySetting('pay_panier_rate', 160);
+  const assiduiteAmount = getPaySetting('pay_assiduite_amount', 2000);
+
   return workers.map(w => {
-    const hours = hoursByUser[w.id] || 0;
-    const base = w.monthly_salary > 0 ? w.monthly_salary : (hours * w.hourly_rate);
-    const adj = adjByUser[w.id] || { advance: 0, bonus: 0, deduction: 0 };
-    const absenceDays = absenceByUser[w.id] || 0;
-    const dailyRate = w.monthly_salary > 0 ? w.monthly_salary / 30 : (w.hourly_rate * 8);
-    const absenceDeduction = absenceDays * dailyRate;
-    const gross = base + adj.bonus;
-    const net = Math.max(0, gross - adj.advance - adj.deduction - absenceDeduction);
-    const paid = paidByUser[w.id] || null;
-    return {
-      id: w.id,
-      name: w.name,
-      active: !!w.active,
-      hourly_rate: w.hourly_rate,
-      monthly_salary: w.monthly_salary,
-      hours: Math.round(hours * 100) / 100,
-      base_amount: Math.round(base * 100) / 100,
-      bonuses: Math.round(adj.bonus * 100) / 100,
-      advances: Math.round(adj.advance * 100) / 100,
-      deductions: Math.round(adj.deduction * 100) / 100,
-      absence_days: absenceDays,
-      gross: Math.round(gross * 100) / 100,
-      amount: Math.round(net * 100) / 100,
-      paid: !!paid,
-      paid_at: paid ? paid.paid_at : null,
-      payment_id: paid ? paid.id : null
+    const ctx = {
+      hours: hoursByUser[w.id] || 0,
+      workedDays: (statByUser[w.id] || {}).worked || 0,
+      skippedDays: (statByUser[w.id] || {}).skipped || 0,
+      absenceDays: absenceByUser[w.id] || 0,
+      adj: adjByUser[w.id] || { advance: 0, bonus: 0, deduction: 0 },
+      paid: paidByUser[w.id] || null,
+      transportDefault,
+      panierRate,
+      assiduiteAmount,
+      endDate: to
     };
+    return buildWorkerBulletin(w, ctx);
   });
 }
 
@@ -4301,10 +4465,13 @@ function buildReportData(type, from, to) {
     const items = computePayrollRows(month);
     return {
       title: 'Payroll Report - ' + month,
-      columns: ['Employee', 'Hours', 'Base', 'Bonuses', 'Advances', 'Deductions', 'Absence Days', 'Net', 'Status'],
+      columns: ['Employee', 'Hours', 'Worked Days', 'Base', 'Seniority', 'Transport', 'Meal Allowance', 'Attendance Bonus', 'Bonuses', 'Gross', 'CNAS 9%', 'IRG', 'Advances', 'Deductions', 'Absence Days', 'Net', 'Status'],
       rows: items.map(i => [
-        i.name, i.hours.toFixed(2), i.base_amount.toFixed(2), i.bonuses.toFixed(2),
-        i.advances.toFixed(2), i.deductions.toFixed(2), String(i.absence_days),
+        i.name, i.hours.toFixed(2), String(i.worked_days), i.base_amount.toFixed(2),
+        i.anciennete_amount.toFixed(2), i.transport_amount.toFixed(2), i.panier_amount.toFixed(2),
+        i.assiduite_amount.toFixed(2), i.bonuses.toFixed(2), i.gross.toFixed(2),
+        i.cnas_amount.toFixed(2), i.irg_amount.toFixed(2), i.advances.toFixed(2),
+        i.deductions.toFixed(2), String(i.absence_days),
         i.amount.toFixed(2), i.paid ? 'Paid' : 'Unpaid'
       ])
     };
@@ -4542,66 +4709,80 @@ function buildPaySlipPdf(doc, opts) {
   doc.fontSize(10).text('Période: ' + month, { align: 'center' });
   doc.moveDown(0.5);
 
-  doc.fontSize(10).text('Employé: ' + user.name);
+  const profile = [user.name];
+  if (user.job_title) profile.push(user.job_title);
+  if (user.hire_date) profile.push('Embauche: ' + user.hire_date);
+  doc.fontSize(10).text(profile.join('  —  '));
   doc.moveDown(0.6);
 
-  const rows = [
-    ['Salaire mensuel', user.monthly_salary > 0 ? moneyPdf(user.monthly_salary) : '-'],
-    ['Taux horaire', user.hourly_rate > 0 ? moneyPdf(user.hourly_rate) : '-'],
-    ['Heures travaillées', (item.hours || 0).toFixed(2)],
-    ['Base', moneyPdf(item.base_amount || 0)],
-    ['Primes', item.bonuses ? moneyPdf(item.bonuses) : moneyPdf(0)],
-    ['Avances', item.advances ? moneyPdf(item.advances) : moneyPdf(0)],
-    ['Retenues', item.deductions ? moneyPdf(item.deductions) : moneyPdf(0)],
-    ['Absences (jours)', String(item.absence_days || 0)],
-    ['Montant net', moneyPdf(item.amount || 0)],
-    ['Statut', paid ? ('Payé le ' + String(paid.paid_at)) : 'Non payé']
+  const gains = [
+    ['Salaire de base', item.base_amount || 0],
+    ['Prime d\u2019ancienneté', item.anciennete_amount || 0],
+    ['Prime de transport', item.transport_amount || 0],
+    ['Prime de panier', item.panier_amount || 0],
+    ['Prime d\u2019assiduité', item.assiduite_amount || 0],
+    ['Primes diverses', item.bonuses || 0]
   ];
+  const retenues = [
+    ['CNAS (9%)', -(item.cnas_amount || 0)],
+    ['IRG', -(item.irg_amount || 0)],
+    ['Avances', -(item.advances || 0)],
+    ['Autres retenues', -(item.deductions || 0)]
+  ];
+  if ((item.absence_days || 0) > 0) {
+    retenues.push(['Absences (' + item.absence_days + ' jr)', -(item.absence_deduction || 0)]);
+  }
 
+  const startX = doc.page.margins.left + 60;
   const labelW = 220;
   const valueW = 160;
-  const startX = doc.page.margins.left + 60;
-  let y = doc.y;
+  const rowH = 22;
 
-  doc.font('Helvetica-Bold');
-  doc.fontSize(9).text('Libellé', startX, y, { width: labelW });
-  doc.text('Montant', startX + labelW, y, { width: valueW, align: 'right' });
-  y += 16;
-  doc.moveTo(startX, y).lineTo(startX + labelW + valueW, y).stroke();
-  y += 4;
+  const section = (title) => {
+    doc.font('Helvetica-Bold').fontSize(9).text(title, startX, doc.y);
+    doc.moveDown(0.4);
+  };
+  const drawLine = (label, value, bold) => {
+    if (doc.y > doc.page.height - doc.page.margins.bottom - 40) { doc.addPage(); }
+    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
+    doc.fontSize(10).text(label, startX, doc.y, { width: labelW });
+    doc.text(value, startX + labelW, doc.y, { width: valueW, align: 'right' });
+    doc.moveDown(0.7);
+  };
 
-  doc.font('Helvetica');
-  for (const [label, value] of rows) {
-    if (y > doc.page.height - doc.page.margins.bottom - 40) {
-      doc.addPage();
-      y = doc.page.margins.top;
-    }
-    doc.fontSize(10).text(label, startX, y, { width: labelW });
-    doc.text(String(value), startX + labelW, y, { width: valueW, align: 'right' });
-    y += 22;
-  }
+  section('GAINS');
+  for (const [label, v] of gains) drawLine(label, moneyPdf(v));
+  drawLine('Salaire brut', moneyPdf(item.gross || 0), true);
+
+  doc.moveDown(0.3);
+  section('RETENUES');
+  for (const [label, v] of retenues) drawLine(label, v < 0 ? '-' + moneyPdf(-v) : moneyPdf(v));
+  drawLine('NET À PAYER', moneyPdf(item.amount || 0), true);
+
+  doc.moveDown(0.4);
+  doc.font('Helvetica').fontSize(9).fillColor('#555');
+  doc.text('Heures travaillées: ' + (item.hours || 0).toFixed(2) + '   ·   Jours travaillés: ' + (item.worked_days || 0), startX, doc.y, { width: labelW + valueW });
+  doc.moveDown(0.4);
+  doc.text('Coût employeur (CNAS patronale ≈ 26%): ' + moneyPdf(item.employer_cnas || 0), startX, doc.y, { width: labelW + valueW });
+  doc.fillColor('#000');
 
   const deductions = opts.deductions || [];
   if (deductions.length) {
-    if (y > doc.page.height - doc.page.margins.bottom - 40) {
-      doc.addPage();
-      y = doc.page.margins.top;
-    }
-    doc.font('Helvetica-Bold').fontSize(9).text('Retenues - motifs :', startX, y, { width: labelW + valueW });
-    y += 14;
+    doc.moveDown(0.4);
+    doc.font('Helvetica-Bold').fontSize(9).text('Retenues - motifs :', startX, doc.y, { width: labelW + valueW });
+    doc.moveDown(0.4);
     doc.font('Helvetica');
     for (const d of deductions) {
-      if (y > doc.page.height - doc.page.margins.bottom - 40) {
-        doc.addPage();
-        y = doc.page.margins.top;
-      }
-      doc.fontSize(9).text((d.note || 'Retenue') + ' : -' + moneyPdf(d.amount), startX, y, { width: labelW + valueW });
-      y += 16;
+      if (doc.y > doc.page.height - doc.page.margins.bottom - 40) { doc.addPage(); }
+      doc.fontSize(9).text((d.note || 'Retenue') + ' : -' + moneyPdf(d.amount), startX, doc.y, { width: labelW + valueW });
+      doc.moveDown(0.6);
     }
   }
 
   doc.moveDown(1);
-  doc.fontSize(9).fillColor('#555').text('Signature du responsable', { align: 'center' });
+  doc.fontSize(9).fillColor('#555').text('Statut: ' + (paid ? ('Payé le ' + String(paid.paid_at)) : 'Non payé'), { align: 'center' });
+  doc.moveDown(1);
+  doc.text('Signature du responsable', { align: 'center' });
 }
 
 function moneyPdf(n) {
@@ -4888,7 +5069,8 @@ app.post('/api/settings', (req, res) => {
     'loyalty_earn_per', 'loyalty_worth',
     'shop_name', 'shop_address', 'shop_phone', 'shop_logo',
     'scale_label_mode', 'scale_label_prefix', 'scale_price_digits', 'scale_price_divisor', 'scale_serial_baud',
-    'tva_enabled', 'tva_rate'
+    'tva_enabled', 'tva_rate',
+    'pay_transport', 'pay_panier_rate', 'pay_assiduite_amount'
   ]);
   const upsert = db.prepare(`
     INSERT INTO settings (key, value) VALUES (?, ?)

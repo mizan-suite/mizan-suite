@@ -327,6 +327,23 @@ html.dark-mode .po-card-footer {
   border-color: var(--dark-border-soft, #2f463c);
 }
 
+html.dark-mode .bulletin-row td {
+  background: var(--dark-panel, #1c2b24);
+}
+
+html.dark-mode .bulletin-title {
+  color: #9db3a8;
+  border-bottom-color: var(--dark-border-soft, #2f463c);
+}
+
+html.dark-mode .bulletin-total {
+  border-top-color: var(--dark-border-soft, #2f463c);
+}
+
+html.dark-mode .bulletin-line .bulletin-neg {
+  color: #e38b7e;
+}
+
 html.dark-mode .form-grid input,
 html.dark-mode .form-grid select,
 html.dark-mode .payment-line input,
