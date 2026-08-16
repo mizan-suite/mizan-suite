@@ -889,6 +889,15 @@ html.dark-mode .pagination-bar .page-info {
   font-weight: normal;
 }
 
+.badge-variant {
+  background: #f0e9ff;
+  color: #6a3fc4;
+  border: 1px solid #ddd0f5;
+  margin-left: 0.35rem;
+  font-weight: 600;
+  cursor: help;
+}
+
 .badge-info {
   background: #e7f0ff;
   color: #2c6ed5;
@@ -1594,6 +1603,13 @@ html.dark-mode .pagination-bar .page-info {
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart-line-variant {
+  font-weight: 400;
+  color: #6a3fc4;
+  font-size: 0.85em;
   white-space: nowrap;
 }
 

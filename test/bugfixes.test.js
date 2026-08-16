@@ -189,3 +189,28 @@ test('excel export includes a totals row', async () => {
   const xml = xls.data.constructor === Buffer ? xls.data.toString('utf8') : String(xls.data);
   assert.ok(xml.length > 100, 'xlsx should contain meaningful data');
 });
+
+test('dashboard chart budget equals currentBudget even when a PO has a discount', async () => {
+  const { cookie } = await loginAs();
+  const prod = await makeProduct(cookie, { sale_price: 200, cost_price: 60, quantity: 100 });
+
+  // A received PO with a percent discount: gross 5*40=200, net 180.
+  const supplier = await srv.request('POST', '/api/suppliers', { name: 'Budget Supplier' }, { cookie });
+  const po = await srv.request('POST', '/api/purchase-orders', {
+    supplier_id: supplier.data.id,
+    supplier_name: 'Budget Supplier',
+    items: [{ product_id: prod.id, quantity_ordered: 5, unit_cost: 40 }],
+    discount_type: 'percent', discount_value: 10
+  }, { cookie });
+  assert.strictEqual(po.status, 201, JSON.stringify(po.data));
+  await srv.request('POST', `/api/purchase-orders/${po.data.id}/receive`, {}, { cookie });
+
+  const dash = await srv.request('GET', '/api/dashboard', undefined, { cookie });
+  assert.strictEqual(dash.status, 200, JSON.stringify(dash.data));
+
+  // The final chart point is today, so its budget must agree with currentBudget.
+  const last = dash.data.last7Days[dash.data.last7Days.length - 1];
+  assert.ok(last, 'expected a last7Days series');
+  assert.ok(Math.abs(last.budget - dash.data.currentBudget) < 0.01,
+    `chart budget ${last.budget} should equal currentBudget ${dash.data.currentBudget}`);
+});

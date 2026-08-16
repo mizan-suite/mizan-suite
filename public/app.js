@@ -14,6 +14,7 @@ function openAddModal() {
   const margePercentInput = document.getElementById('marge_percent');
   if (margePercentInput && defaultMarginPercent > 0) margePercentInput.value = defaultMarginPercent;
   addImageData = null;
+  resetVariantEditor('add');
   const pv = document.getElementById('add-image-preview');
   pv.hidden = true;
   pv.removeAttribute('src');
@@ -62,6 +63,72 @@ function fmtNum(v) {
 
 function parseBarcodes(raw) {
   return String(raw || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+}
+
+// ---------- Size/color variant matrix editor ----------
+// Both the add and edit forms share this tiny grid: size, color, quantity rows.
+// When enabled, the product's stock lives in these rows and the Quantity field
+// above is disabled (the server derives the total from the variant rows).
+
+function variantRowsHTML(rows) {
+  return rows.map((r, i) => `
+    <tr data-row="${i}">
+      <td style="padding:0.25rem;"><input type="text" class="variant-size" placeholder="${escapeHtml(I18N.t('inv.variantSizePh'))}" value="${escapeHtml(r.size || '')}" style="width:100%; box-sizing:border-box;"></td>
+      <td style="padding:0.25rem;"><input type="text" class="variant-color" placeholder="${escapeHtml(I18N.t('inv.variantColorPh'))}" value="${escapeHtml(r.color || '')}" style="width:100%; box-sizing:border-box;"></td>
+      <td style="padding:0.25rem;"><input type="number" class="variant-qty" min="0" step="1" value="${Number.isFinite(r.quantity) ? r.quantity : 0}" style="width:80px;"></td>
+      <td style="padding:0.25rem; text-align:right;"><button type="button" class="variant-row-remove btn-ico btn-outline" aria-label="×" title="×"><span data-icon="x"></span></button></td>
+    </tr>`).join('');
+}
+
+function collectVariants(rowsEl) {
+  const rows = [];
+  rowsEl.querySelectorAll('tr').forEach(tr => {
+    const size = tr.querySelector('.variant-size').value.trim();
+    const color = tr.querySelector('.variant-color').value.trim();
+    const qty = parseInt(tr.querySelector('.variant-qty').value, 10);
+    if (!size && !color) return; // blank row
+    rows.push({ size, color, quantity: Number.isFinite(qty) && qty >= 0 ? qty : 0 });
+  });
+  return rows;
+}
+
+function setupVariantEditor(prefix) {
+  const enabled = document.getElementById(`${prefix}-variants-enabled`);
+  const editor = document.getElementById(`${prefix}-variants-editor`);
+  const rowsEl = document.getElementById(`${prefix}-variants-rows`);
+  const qtyInput = document.getElementById(prefix === 'add' ? 'quantity' : 'edit-quantity');
+
+  const sync = () => {
+    editor.hidden = !enabled.checked;
+    qtyInput.disabled = enabled.checked;
+    if (enabled.checked && !rowsEl.querySelector('tr')) {
+      rowsEl.innerHTML = variantRowsHTML([{ size: '', color: '', quantity: 0 }]);
+    }
+  };
+  enabled.addEventListener('change', sync);
+  document.getElementById(`${prefix}-variant-add-row`).addEventListener('click', () => {
+    rowsEl.insertAdjacentHTML('beforeend', variantRowsHTML([{ size: '', color: '', quantity: 0 }]));
+  });
+  rowsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.variant-row-remove');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    if (tr) tr.remove();
+    if (!rowsEl.querySelector('tr')) enabled.checked = false;
+    sync();
+  });
+  sync();
+}
+
+// Reset the variant editor to its default (disabled, empty) state.
+function resetVariantEditor(prefix) {
+  const enabled = document.getElementById(`${prefix}-variants-enabled`);
+  const rowsEl = document.getElementById(`${prefix}-variants-rows`);
+  enabled.checked = false;
+  rowsEl.innerHTML = '';
+  const qtyInput = document.getElementById(prefix === 'add' ? 'quantity' : 'edit-quantity');
+  qtyInput.disabled = false;
+  document.getElementById(`${prefix}-variants-editor`).hidden = true;
 }
 
 // kg products hold decimal weights; piece products are whole units.
@@ -386,7 +453,7 @@ function renderProducts() {
     ? allProducts.map(p => `
         <tr data-id="${p.id}" class="${selectedIds.has(p.id) ? 'row-selected' : ''}">
           <td class="chk-col"><input type="checkbox" class="row-chk" data-id="${p.id}" ${selectedIds.has(p.id) ? 'checked' : ''}></td>
-          <td class="name-cell">${p.image ? `<img class="prod-thumb" src="${p.image}" alt="" loading="lazy">` : ''}<span>${escapeHtml(p.name)}</span></td>
+          <td class="name-cell">${p.image ? `<img class="prod-thumb" src="${p.image}" alt="" loading="lazy">` : ''}<span>${escapeHtml(p.name)}</span>${(p.variants && p.variants.length) ? ` <span class="badge badge-variant" title="${escapeHtml(p.variants.map(v => `${v.label} (${v.quantity})`).join(' · '))}">${p.variants.length}</span>` : ''}</td>
           <td>${escapeHtml(p.category || '-')}</td>
           <td>
             ${p.barcode ? `<span class="mono">${escapeHtml(p.barcode)}</span>` : ''}
@@ -688,6 +755,9 @@ form.addEventListener('submit', async (e) => {
     max_stock: parseInt(document.getElementById('max_stock').value),
     unit: document.getElementById('unit').value || 'piece',
     extra_barcodes: parseBarcodes(document.getElementById('extra-barcodes').value),
+    variants: document.getElementById('add-variants-enabled').checked
+      ? collectVariants(document.getElementById('add-variants-rows'))
+      : [],
     active: document.getElementById('active').checked ? 1 : 0,
     image: addImageData
   };
@@ -1176,6 +1246,13 @@ function fillEditForm(p, id) {
   document.getElementById('edit-min_stock').value = p.min_stock == null ? '' : p.min_stock;
   document.getElementById('edit-max_stock').value = p.max_stock == null ? '' : p.max_stock;
   document.getElementById('edit-unit').value = p.unit === 'kg' ? 'kg' : 'piece';
+  const editEnabled = document.getElementById('edit-variants-enabled');
+  const editRows = document.getElementById('edit-variants-rows');
+  const hasVariants = !!(p.variants && p.variants.length);
+  editEnabled.checked = hasVariants;
+  editRows.innerHTML = hasVariants ? variantRowsHTML(p.variants) : '';
+  document.getElementById('edit-quantity').disabled = hasVariants;
+  document.getElementById('edit-variants-editor').hidden = !hasVariants;
   document.getElementById('edit-msg').textContent = '';
   editModal.hidden = false;
   document.getElementById('edit-name').focus();
@@ -1232,6 +1309,9 @@ document.getElementById('edit-save').addEventListener('click', async () => {
     max_stock: parseInt(document.getElementById('edit-max_stock').value),
     unit: document.getElementById('edit-unit').value || 'piece',
     extra_barcodes: parseBarcodes(document.getElementById('edit-extra-barcodes').value),
+    variants: document.getElementById('edit-variants-enabled').checked
+      ? collectVariants(document.getElementById('edit-variants-rows'))
+      : [],
     active: document.getElementById('edit-active').checked ? 1 : 0
   };
   // Only send the image when the user actually changed it (chose a new file or
@@ -1270,6 +1350,10 @@ currentPerPage = currentPerPageValue();
 // Setup marge auto-calculation for add form and edit modal
 setupMargeListeners('', 'sale_price', 'wholesale_price');
 setupMargeListeners('edit-', 'edit-sale_price', 'edit-wholesale_price');
+
+// Setup the size/color variant editors for both forms
+setupVariantEditor('add');
+setupVariantEditor('edit');
 
 // ---------- Invoice import (Excel / CSV) ----------
 const importModal = document.getElementById('import-modal');

@@ -1697,10 +1697,82 @@ function serializeProducts(rows) {
   const all = db.prepare('SELECT product_id, barcode FROM product_barcodes').all();
   const byProd = {};
   for (const r of all) (byProd[r.product_id] = byProd[r.product_id] || []).push(r.barcode);
-  return rows.map(p => ({
-    ...p,
-    extra_barcodes: (byProd[p.id] || []).filter(b => b !== p.barcode)
-  }));
+  const allVariants = db.prepare('SELECT * FROM product_variants ORDER BY size, color').all();
+  const variantsByProd = {};
+  for (const v of allVariants) (variantsByProd[v.product_id] = variantsByProd[v.product_id] || []).push(v);
+  return rows.map(p => {
+    const variants = (variantsByProd[p.id] || []).map(v => ({
+      id: v.id,
+      size: v.size,
+      color: v.color,
+      quantity: v.quantity,
+      label: variantLabel(v)
+    }));
+    return {
+      ...p,
+      extra_barcodes: (byProd[p.id] || []).filter(b => b !== p.barcode),
+      variants,
+      has_variants: variants.length > 0
+    };
+  });
+}
+
+// Human label for a variant, e.g. "M / Blue" (only the parts that exist).
+function variantLabel(v) {
+  return [v.size, v.color].filter(Boolean).join(' / ') || '';
+}
+
+// Fetch a product's variants as plain rows (no serialization helpers).
+function getVariants(productId) {
+  return db.prepare('SELECT * FROM product_variants WHERE product_id = ? ORDER BY size, color').all(productId);
+}
+
+function productHasVariants(productId) {
+  return db.prepare('SELECT COUNT(*) AS c FROM product_variants WHERE product_id = ?').get(productId).c > 0;
+}
+
+// A product with variants keeps products.quantity as the SUM of its variant
+// quantities, so every existing stock/status/report query works unchanged.
+// Called whenever variant stock changes; a product without variants is left alone.
+function syncProductQuantity(productId) {
+  const count = db.prepare('SELECT COUNT(*) AS c FROM product_variants WHERE product_id = ?').get(productId).c;
+  if (count === 0) return;
+  const total = db.prepare('SELECT COALESCE(SUM(quantity), 0) AS t FROM product_variants WHERE product_id = ?').get(productId).t;
+  db.prepare('UPDATE products SET quantity = ? WHERE id = ?').run(total, productId);
+}
+
+// Validate a user-supplied variant list (from the product form). Returns the
+// cleaned rows [{ size, color, quantity }] or null when the field is absent.
+// Throws with a friendly message on bad input (duplicate size/color combos,
+// non-whole or negative quantities). Blank rows are skipped.
+function normalizeVariants(variants) {
+  if (variants === undefined || variants === null) return null;
+  if (!Array.isArray(variants)) throw new Error('variants must be a list');
+  const seen = new Set();
+  const out = [];
+  for (const v of variants) {
+    const size = String(v.size == null ? '' : v.size).trim();
+    const color = String(v.color == null ? '' : v.color).trim();
+    if (!size && !color) continue; // blank row
+    const key = `${size.toLowerCase()}||${color.toLowerCase()}`;
+    if (seen.has(key)) throw new Error(`Duplicate variant "${[size, color].filter(Boolean).join(' / ')}"`);
+    seen.add(key);
+    const qty = Number(v.quantity);
+    if (!Number.isInteger(qty) || qty < 0) throw new Error(`Variant quantity must be a non-negative whole number`);
+    out.push({ size, color, quantity: qty });
+  }
+  return out;
+}
+
+// Replace a product's variant set (must be called inside an open transaction).
+// `null` leaves the product untouched; an empty array clears all variants.
+// Keeps products.quantity in sync with the sum of variant stock.
+function replaceVariants(productId, variants) {
+  if (variants === null) return;
+  db.prepare('DELETE FROM product_variants WHERE product_id = ?').run(productId);
+  const ins = db.prepare('INSERT INTO product_variants (product_id, size, color, quantity) VALUES (?, ?, ?, ?)');
+  for (const v of variants) ins.run(productId, v.size || null, v.color || null, v.quantity);
+  syncProductQuantity(productId);
 }
 
 // ---------- Barcode validation ----------
@@ -1870,6 +1942,18 @@ app.post('/api/products', (req, res) => {
   // 'kg' (sold by weight; quantity is a kilogram amount, sale_price is per kg).
   const finalUnit = unit === 'kg' ? 'kg' : 'piece';
 
+  // Optional size/color variant matrix. When variants are supplied, the
+  // product's own quantity becomes the SUM of its variant quantities.
+  let variants;
+  try {
+    variants = normalizeVariants(req.body.variants);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  const finalQty = variants && variants.length
+    ? variants.reduce((acc, v) => acc + v.quantity, 0)
+    : (quantity || 0);
+
   // Numeric fields must be finite, non-negative numbers (a negative price or
   // quantity would corrupt stock/profit figures and can never be intended).
   for (const f of ['cost_price', 'sale_price', 'wholesale_price', 'margin_value', 'quantity', 'min_stock', 'max_stock']) {
@@ -1947,7 +2031,7 @@ app.post('/api/products', (req, res) => {
           wholesale_price = ?, margin_type = ?, margin_value = ?, quantity = ?,
           min_stock = ?, max_stock = ?, expiry_date = ?, supplier = ?, image = ?, unit = ?
         WHERE id = ?
-      `).run(name, category || null, cost_price || 0, finalSalePrice, finalWholesalePrice, finalMarginType, finalMarginValue, quantity || 0, min_stock || 5, max_stock || null, expiry_date || null, supplier || null, finalImage, finalUnit, id);
+      `).run(name, category || null, cost_price || 0, finalSalePrice, finalWholesalePrice, finalMarginType, finalMarginValue, finalQty, min_stock || 5, max_stock || null, expiry_date || null, supplier || null, finalImage, finalUnit, id);
     } else {
       const result = stmt.run(
         barcode || null,
@@ -1958,7 +2042,7 @@ app.post('/api/products', (req, res) => {
         finalWholesalePrice,
         finalMarginType,
         finalMarginValue,
-        quantity || 0,
+        finalQty,
         min_stock || 5,
         max_stock || null,
         expiry_date || null,
@@ -1970,6 +2054,7 @@ app.post('/api/products', (req, res) => {
       id = result.lastInsertRowid;
     }
     syncProductBarcodes(id, barcode, extra_barcodes);
+    replaceVariants(id, variants);
     db.exec('COMMIT');
     const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
     res.status(201).json(serializeProducts([newProduct])[0]);
@@ -2056,6 +2141,20 @@ app.put('/api/products/:id', (req, res) => {
     finalSalePrice = existing.sale_price || 0;
   }
 
+  // Optional size/color matrix. A provided (even empty) list replaces the
+  // product's variants: non-empty -> product quantity becomes the sum of the
+  // variants; empty -> variants are cleared and the form's quantity applies.
+  let variants;
+  try {
+    variants = normalizeVariants(req.body.variants);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  let finalQty = quantity;
+  if (variants && variants.length) {
+    finalQty = variants.reduce((acc, v) => acc + v.quantity, 0);
+  }
+
   const stmt = db.prepare(`
     UPDATE products SET
       barcode = ?, name = ?, category = ?, cost_price = ?, sale_price = ?,
@@ -2069,7 +2168,7 @@ app.put('/api/products/:id', (req, res) => {
       barcode ?? existing.barcode, name, category ?? existing.category,
       cost_price ?? existing.cost_price, finalSalePrice,
       finalWholesalePrice ?? existing.wholesale_price, finalMarginType || existing.margin_type, finalMarginValue || existing.margin_value,
-      quantity ?? existing.quantity, min_stock ?? existing.min_stock, max_stock ?? existing.max_stock,
+      finalQty ?? existing.quantity, min_stock ?? existing.min_stock, max_stock ?? existing.max_stock,
       expiry_date ?? existing.expiry_date, supplier ?? existing.supplier,
       finalImage,
       finalUnit !== undefined ? finalUnit : existing.unit,
@@ -2077,6 +2176,7 @@ app.put('/api/products/:id', (req, res) => {
       req.params.id
     );
     syncProductBarcodes(req.params.id, barcode, extra_barcodes);
+    replaceVariants(req.params.id, variants);
     db.exec('COMMIT');
     const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
     res.json(serializeProducts([updated])[0]);
@@ -2162,8 +2262,12 @@ app.post('/api/products/bulk-update', (req, res) => {
     for (const id of ids) {
       const product = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1').get(id);
       if (!product) continue;
-      const sets = changes.map(([k]) => `${k} = ?`);
-      const params = changes.map(([, v]) => v);
+      // Variant products' quantity is derived from their size/color rows, so a
+      // bulk quantity edit can't apply to them - it would desync the total.
+      const effChanges = productHasVariants(id) ? changes.filter(([k]) => k !== 'quantity') : changes;
+      if (!effChanges.length) { updated++; continue; }
+      const sets = effChanges.map(([k]) => `${k} = ?`);
+      const params = effChanges.map(([, v]) => v);
       db.prepare(`UPDATE products SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
       if (hasMargin) {
         const wholesale = ('wholesale_price' in f) ? Number(f.wholesale_price) : product.wholesale_price;
@@ -2438,7 +2542,7 @@ app.post('/api/import/products', (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
   `);
 
-  const results = { inserted: 0, updated: 0, skipped: 0, errors: [], suppliers_added: null };
+  const results = { inserted: 0, updated: 0, skipped: 0, variants_skipped: 0, errors: [], suppliers_added: null };
   const seenNames = new Set();
   const seenBarcodes = new Set();
   const seenSuppliers = new Set();
@@ -2510,6 +2614,14 @@ app.post('/api/import/products', (req, res) => {
         }
 
         if (existing) {
+          // Variant products carry stock per size/color; a product-level import
+          // quantity would silently desync the variant total, so we skip them
+          // and report it so the owner can set stock in the product form.
+          if (productHasVariants(existing.id)) {
+            results.variants_skipped++;
+            results.skipped++;
+            continue;
+          }
           const reactivate = existing.active === 0;
           if (reactivate) {
             // Product was previously deleted: fully restore it with the new values.
@@ -2635,6 +2747,19 @@ app.post('/api/sales', (req, res) => {
       const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
       if (!product) throw new Error(`Product ${item.product_id} not found`);
 
+      // Size/color variant support. A product that has variants must be sold by
+      // a specific variant (the cashier picks size+color), so we know exactly
+      // which stock line to deduct. The product's own quantity stays the SUM of
+      // its variants, so this keeps both in sync.
+      let variant = null;
+      if (item.variant_id != null) {
+        variant = db.prepare('SELECT * FROM product_variants WHERE id = ? AND product_id = ?')
+          .get(item.variant_id, product.id);
+        if (!variant) throw new Error(`Variant ${item.variant_id} does not belong to product ${product.id}`);
+      } else if (productHasVariants(product.id)) {
+        throw new Error(`Product ${product.name} uses sizes/colors - select a variant`);
+      }
+
       // Piece products are counted in whole units; weight products ('kg') are
       // sold by decimal weight, so a fractional, finite, positive quantity is
       // allowed there. Round the weight to 3 decimals (a gram) to avoid float
@@ -2650,13 +2775,21 @@ app.post('/api/sales', (req, res) => {
       } else if (!Number.isInteger(qty) || qty <= 0) {
         throw new Error(`Invalid quantity for product ${item.product_id} - must be a positive whole number`);
       }
-      if (product.quantity < qty) {
-        throw new Error(`Not enough stock for ${product.name} (have ${product.quantity}, need ${qty})`);
+
+      // Stock check: variant products check the exact variant's stock.
+      const stockAvailable = variant ? variant.quantity : product.quantity;
+      if (stockAvailable < qty) {
+        const what = variant ? `${product.name} (${variantLabel(variant)})` : product.name;
+        throw new Error(`Not enough stock for ${what} (have ${stockAvailable}, need ${qty})`);
       }
 
-      // reduce stock
+      // reduce stock (variant + its product total, so they never drift apart)
       db.prepare('UPDATE products SET quantity = quantity - ? WHERE id = ?')
         .run(qty, product.id);
+      if (variant) {
+        db.prepare('UPDATE product_variants SET quantity = quantity - ? WHERE id = ?')
+          .run(qty, variant.id);
+      }
 
       // Charge the price the customer was quoted. Held carts send the price at
       // hold time; if it's a valid positive number we use it (capped at the live
@@ -2672,6 +2805,8 @@ app.post('/api/sales', (req, res) => {
       lineItems.push({
         product_id: product.id,
         product_name: product.name,
+        variant_id: variant ? variant.id : null,
+        variant_label: variant ? variantLabel(variant) : '',
         quantity: qty,
         unit: product.unit === 'kg' ? 'kg' : 'piece',
         unit_price: unitPrice, // pre-discount unit price
@@ -2741,16 +2876,16 @@ app.post('/api/sales', (req, res) => {
     const saleId = saleResult.lastInsertRowid;
 
     const insertItem = db.prepare(`
-      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit, price_at_sale, cost_at_sale)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sale_items (sale_id, product_id, product_name, variant_id, quantity, unit, price_at_sale, cost_at_sale)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertMovement = db.prepare(`
-      INSERT INTO stock_movements (product_id, product_name, type, quantity_change, reason)
-      VALUES (?, ?, 'sale', ?, ?)
+      INSERT INTO stock_movements (product_id, product_name, variant_id, type, quantity_change, reason)
+      VALUES (?, ?, ?, 'sale', ?, ?)
     `);
     for (const li of lineItems) {
-      insertItem.run(saleId, li.product_id, li.product_name, li.quantity, li.unit, li.price_at_sale, li.cost_at_sale);
-      insertMovement.run(li.product_id, li.product_name, -li.quantity, `Sale #${saleId}`);
+      insertItem.run(saleId, li.product_id, li.product_name, li.variant_id, li.quantity, li.unit, li.price_at_sale, li.cost_at_sale);
+      insertMovement.run(li.product_id, li.product_name, li.variant_id, -li.quantity, `Sale #${saleId}`);
     }
 
     const insertPayment = db.prepare('INSERT INTO sale_payments (sale_id, method, amount) VALUES (?, ?, ?)');
@@ -2799,9 +2934,9 @@ app.get('/api/sales/:id', (req, res) => {
 
   const itemsWithRefundInfo = items.map(item => {
     const refundedQty = refunds
-      .filter(r => r.product_id === item.product_id)
+      .filter(r => r.product_id === item.product_id && r.variant_id === item.variant_id)
       .reduce((acc, r) => acc + r.quantity, 0);
-    return { ...item, refundedQty, remainingQty: item.quantity - refundedQty };
+    return { ...item, variant_label: item.variant_id ? variantLabel(db.prepare('SELECT * FROM product_variants WHERE id = ?').get(item.variant_id) || {}) : '', refundedQty, remainingQty: item.quantity - refundedQty };
   });
 
   res.json({ ...sale, items: itemsWithRefundInfo, payments, refunds });
@@ -2878,9 +3013,19 @@ app.post('/api/sales/:id/refund', (req, res) => {
 
     for (const item of items) {
       const qtyRaw = Number(item.quantity);
-      const saleItem = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ?')
-        .get(sale.id, item.product_id);
-      if (!saleItem) throw new Error(`Product ${item.product_id} was not part of sale #${sale.id}`);
+      // Match the exact line: variant-aware sales can have several lines of the
+      // same product (different size/color), so we prefer a variant match when
+      // one is given and fall back to product-only matching otherwise.
+      let saleItem;
+      if (item.variant_id != null) {
+        saleItem = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ? AND variant_id = ?')
+          .get(sale.id, item.product_id, item.variant_id);
+        if (!saleItem) throw new Error(`Product ${item.product_id} (variant ${item.variant_id}) was not part of sale #${sale.id}`);
+      } else {
+        saleItem = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ?')
+          .get(sale.id, item.product_id);
+        if (!saleItem) throw new Error(`Product ${item.product_id} was not part of sale #${sale.id}`);
+      }
 
       // kg products were sold by decimal weight; refund them by decimal weight.
       // Round to 3 decimals (a gram) to keep refund amounts exact.
@@ -2895,10 +3040,15 @@ app.post('/api/sales/:id/refund', (req, res) => {
         throw new Error('Refund quantity must be a positive whole number');
       }
 
-      // How much has already been refunded for this product on this sale? (prevents over-refunding)
-      const alreadyRefunded = db.prepare(`
-        SELECT COALESCE(SUM(quantity), 0) as qty FROM refunds WHERE original_sale_id = ? AND product_id = ?
-      `).get(sale.id, item.product_id).qty;
+      // How much has already been refunded for this line on this sale? (prevents over-refunding)
+      const alreadyRefunded = item.variant_id != null
+        ? db.prepare(`
+            SELECT COALESCE(SUM(quantity), 0) as qty FROM refunds
+            WHERE original_sale_id = ? AND product_id = ? AND variant_id = ?
+          `).get(sale.id, item.product_id, item.variant_id).qty
+        : db.prepare(`
+            SELECT COALESCE(SUM(quantity), 0) as qty FROM refunds WHERE original_sale_id = ? AND product_id = ?
+          `).get(sale.id, item.product_id).qty;
 
       const remaining = saleItem.quantity - alreadyRefunded;
       if (qty > remaining) {
@@ -2909,23 +3059,28 @@ app.post('/api/sales/:id/refund', (req, res) => {
       const refundedCost = round2(saleItem.cost_at_sale * qty);
       totalRefunded = round2(totalRefunded + refundAmount);
 
-      // restock
+      // restock (the exact variant, when the sale line had one)
       db.prepare('UPDATE products SET quantity = quantity + ? WHERE id = ?')
         .run(qty, item.product_id);
+      if (saleItem.variant_id) {
+        db.prepare('UPDATE product_variants SET quantity = quantity + ? WHERE id = ?')
+          .run(qty, saleItem.variant_id);
+      }
 
       db.prepare(`
-        INSERT INTO stock_movements (product_id, product_name, type, quantity_change, reason)
-        VALUES (?, ?, 'return', ?, ?)
-      `).run(item.product_id, saleItem.product_name, qty, `Refund from sale #${sale.id}`);
+        INSERT INTO stock_movements (product_id, product_name, variant_id, type, quantity_change, reason)
+        VALUES (?, ?, ?, 'return', ?, ?)
+      `).run(item.product_id, saleItem.product_name, saleItem.variant_id, qty, `Refund from sale #${sale.id}`);
 
       const refundResult = db.prepare(`
-        INSERT INTO refunds (original_sale_id, product_id, product_name, quantity, refund_amount, refunded_cost, reason)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(sale.id, item.product_id, saleItem.product_name, qty, refundAmount, refundedCost, reason || null);
+        INSERT INTO refunds (original_sale_id, product_id, product_name, variant_id, quantity, refund_amount, refunded_cost, reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(sale.id, item.product_id, saleItem.product_name, saleItem.variant_id, qty, refundAmount, refundedCost, reason || null);
 
       refundRecords.push({
         id: refundResult.lastInsertRowid,
         product_name: saleItem.product_name,
+        variant_id: saleItem.variant_id,
         quantity: qty,
         refund_amount: refundAmount
       });
@@ -3014,8 +3169,11 @@ app.post('/api/sales/:id/exchange', (req, res) => {
     // 1. Refund/resell quantities validated on the unit of the products involved.
     //    kg products are exchanged by decimal weight; piece products by whole
     //    units. Round weights to 3 decimals (a gram) for exact bookkeeping.
-    const saleItem = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ?')
-      .get(sale.id, old_item.product_id);
+    const saleItem = old_item.variant_id != null
+      ? db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ? AND variant_id = ?')
+          .get(sale.id, old_item.product_id, old_item.variant_id)
+      : db.prepare('SELECT * FROM sale_items WHERE sale_id = ? AND product_id = ?')
+          .get(sale.id, old_item.product_id);
     if (!saleItem) throw new Error(`Product ${old_item.product_id} was not part of sale #${sale.id}`);
 
     const oldQtyRaw = Number(old_item.quantity);
@@ -3028,9 +3186,13 @@ app.post('/api/sales/:id/exchange', (req, res) => {
       throw new Error('Exchange quantity must be a positive whole number');
     }
 
-    const alreadyRefunded = db.prepare(`
-      SELECT COALESCE(SUM(quantity), 0) as qty FROM refunds WHERE original_sale_id = ? AND product_id = ?
-    `).get(sale.id, old_item.product_id).qty;
+    const alreadyRefunded = old_item.variant_id != null
+      ? db.prepare(`
+          SELECT COALESCE(SUM(quantity), 0) as qty FROM refunds WHERE original_sale_id = ? AND product_id = ? AND variant_id = ?
+        `).get(sale.id, old_item.product_id, old_item.variant_id).qty
+      : db.prepare(`
+          SELECT COALESCE(SUM(quantity), 0) as qty FROM refunds WHERE original_sale_id = ? AND product_id = ?
+        `).get(sale.id, old_item.product_id).qty;
     const remaining = saleItem.quantity - alreadyRefunded;
     if (oldQty > remaining) {
       throw new Error(`Cannot exchange ${oldQty} of ${saleItem.product_name} - only ${remaining} remain`);
@@ -3039,6 +3201,16 @@ app.post('/api/sales/:id/exchange', (req, res) => {
     // 2. Sell the new item - quantities follow the product's own unit.
     const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(new_item.product_id);
     if (!newProduct) throw new Error(`Product ${new_item.product_id} not found`);
+
+    // Variant-aware exchange: the replacement can target a specific size/color.
+    let newVariant = null;
+    if (new_item.variant_id != null) {
+      newVariant = db.prepare('SELECT * FROM product_variants WHERE id = ? AND product_id = ?')
+        .get(new_item.variant_id, newProduct.id);
+      if (!newVariant) throw new Error(`Variant ${new_item.variant_id} does not belong to product ${newProduct.id}`);
+    } else if (productHasVariants(newProduct.id)) {
+      throw new Error(`Product ${newProduct.name} uses sizes/colors - select a variant`);
+    }
 
     const newQtyRaw = Number(new_item.quantity);
     const newQty = newProduct.unit === 'kg'
@@ -3049,26 +3221,36 @@ app.post('/api/sales/:id/exchange', (req, res) => {
     } else if (!Number.isInteger(newQty) || newQty <= 0) {
       throw new Error('Exchange quantity must be a positive whole number');
     }
-    if (newProduct.quantity < newQty) {
-      throw new Error(`Not enough stock for ${newProduct.name} (have ${newProduct.quantity}, need ${newQty})`);
+    const newStockAvailable = newVariant ? newVariant.quantity : newProduct.quantity;
+    if (newStockAvailable < newQty) {
+      const what = newVariant ? `${newProduct.name} (${variantLabel(newVariant)})` : newProduct.name;
+      throw new Error(`Not enough stock for ${what} (have ${newStockAvailable}, need ${newQty})`);
     }
 
     const refundAmount = round2(saleItem.price_at_sale * oldQty);
     const refundedCost = round2(saleItem.cost_at_sale * oldQty);
 
     db.prepare('UPDATE products SET quantity = quantity + ? WHERE id = ?').run(oldQty, old_item.product_id);
+    if (saleItem.variant_id) {
+      db.prepare('UPDATE product_variants SET quantity = quantity + ? WHERE id = ?')
+        .run(oldQty, saleItem.variant_id);
+    }
     db.prepare(`
-      INSERT INTO stock_movements (product_id, product_name, type, quantity_change, reason)
-      VALUES (?, ?, 'return', ?, ?)
-    `).run(old_item.product_id, saleItem.product_name, oldQty, `Exchange from sale #${sale.id}`);
+      INSERT INTO stock_movements (product_id, product_name, variant_id, type, quantity_change, reason)
+      VALUES (?, ?, ?, 'return', ?, ?)
+    `).run(old_item.product_id, saleItem.product_name, saleItem.variant_id, oldQty, `Exchange from sale #${sale.id}`);
     db.prepare(`
-      INSERT INTO refunds (original_sale_id, product_id, product_name, quantity, refund_amount, refunded_cost, reason)
-      VALUES (?, ?, ?, ?, ?, ?, 'Exchange')
-    `).run(sale.id, old_item.product_id, saleItem.product_name, oldQty, refundAmount, refundedCost);
+      INSERT INTO refunds (original_sale_id, product_id, product_name, variant_id, quantity, refund_amount, refunded_cost, reason)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'Exchange')
+    `).run(sale.id, old_item.product_id, saleItem.product_name, saleItem.variant_id, oldQty, refundAmount, refundedCost);
 
     // 2. Sell the new item
     const newItemTotal = round2(newProduct.sale_price * newQty);
     db.prepare('UPDATE products SET quantity = quantity - ? WHERE id = ?').run(newQty, newProduct.id);
+    if (newVariant) {
+      db.prepare('UPDATE product_variants SET quantity = quantity - ? WHERE id = ?')
+        .run(newQty, newVariant.id);
+    }
 
     const newSaleResult = db.prepare(`
       INSERT INTO sales (total, subtotal, status) VALUES (?, ?, 'completed')
@@ -3076,14 +3258,14 @@ app.post('/api/sales/:id/exchange', (req, res) => {
     const newSaleId = newSaleResult.lastInsertRowid;
 
     db.prepare(`
-      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit, price_at_sale, cost_at_sale)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(newSaleId, newProduct.id, newProduct.name, newQty, newProduct.unit === 'kg' ? 'kg' : 'piece', newProduct.sale_price, newProduct.cost_price);
+      INSERT INTO sale_items (sale_id, product_id, product_name, variant_id, quantity, unit, price_at_sale, cost_at_sale)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(newSaleId, newProduct.id, newProduct.name, newVariant ? newVariant.id : null, newQty, newProduct.unit === 'kg' ? 'kg' : 'piece', newProduct.sale_price, newProduct.cost_price);
 
     db.prepare(`
-      INSERT INTO stock_movements (product_id, product_name, type, quantity_change, reason)
-      VALUES (?, ?, 'sale', ?, ?)
-    `).run(newProduct.id, newProduct.name, -newQty, `Exchange - new item for sale #${sale.id}`);
+      INSERT INTO stock_movements (product_id, product_name, variant_id, type, quantity_change, reason)
+      VALUES (?, ?, ?, 'sale', ?, ?)
+    `).run(newProduct.id, newProduct.name, newVariant ? newVariant.id : null, -newQty, `Exchange - new item for sale #${sale.id}`);
 
     db.prepare('INSERT INTO sale_payments (sale_id, method, amount) VALUES (?, ?, ?)')
       .run(newSaleId, 'exchange', newItemTotal);
@@ -3550,8 +3732,8 @@ app.get('/api/dashboard', (req, res) => {
   }
   const receivedByDay = {};
   for (const r of db.prepare(
-    `SELECT substr(received_at, 1, 10) AS d, SUM(total_cost) AS v FROM purchase_orders
-     WHERE status = 'received' AND received_at IS NOT NULL GROUP BY d`
+    `SELECT substr(received_at, 1, 10) AS d, SUM(total_cost - COALESCE(discount_amount, 0)) AS v
+     FROM purchase_orders WHERE status = 'received' AND received_at IS NOT NULL GROUP BY d`
   ).all()) receivedByDay[r.d] = r.v;
   const expenseByDay = {};
   for (const r of db.prepare(
@@ -3574,7 +3756,7 @@ app.get('/api/dashboard', (req, res) => {
        FROM sale_items i JOIN sales s ON s.id = i.sale_id WHERE s.created_at < ?`
     ).get(beforeEnd).v - db.prepare('SELECT COALESCE(SUM(refund_amount - refunded_cost), 0) AS v FROM refunds WHERE created_at < ?').get(beforeEnd).v;
     cumulativeSpend = db.prepare(
-      `SELECT COALESCE(SUM(total_cost), 0) AS v FROM purchase_orders
+      `SELECT COALESCE(SUM(total_cost - COALESCE(discount_amount, 0)), 0) AS v FROM purchase_orders
        WHERE status = 'received' AND (received_at < ? OR received_at IS NULL)`
     ).get(beforeEnd).v;
     cumulativeExpenses = db.prepare(
@@ -3672,6 +3854,13 @@ app.post('/api/stock/movement', (req, res) => {
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
   if (!product) return res.status(404).json({ error: 'Product not found' });
+
+  // Variant products track stock per size/color, so a product-level adjustment
+  // would silently desync the variant total. Manage their stock in the product
+  // form's variant list instead.
+  if (productHasVariants(product.id)) {
+    return res.status(400).json({ error: `"${product.name}" uses sizes/colors - adjust its stock in the product's variant list` });
+  }
 
   const qtyNum = Number(quantity);
   if (!Number.isFinite(qtyNum) || qtyNum < 0) {
@@ -4034,6 +4223,12 @@ app.post('/api/purchase-orders/:id/receive', (req, res) => {
   db.exec('BEGIN');
   try {
     for (const item of items) {
+      // Variant products track stock per size/color and can't receive a
+      // product-level quantity, so receiving an order containing one is refused
+      // rather than letting the variant total silently drift.
+      if (productHasVariants(item.product_id)) {
+        throw new Error(`"${item.product_name}" uses sizes/colors - add stock in the product's variant list, not a purchase order`);
+      }
       db.prepare('UPDATE products SET quantity = quantity + ? WHERE id = ?')
         .run(item.quantity_ordered, item.product_id);
 

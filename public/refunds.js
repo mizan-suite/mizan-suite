@@ -45,7 +45,7 @@ function renderSale() {
         <tbody>
           ${sale.items.map((item, index) => `
             <tr>
-              <td>${escapeHtml(item.product_name)}</td>
+              <td>${escapeHtml(item.product_name)}${item.variant_label ? ` <span class="hint-text">(${escapeHtml(item.variant_label)})</span>` : ''}</td>
               <td>${item.quantity}${item.unit === 'kg' ? ' kg' : ''}</td>
               <td>${item.refundedQty}${item.unit === 'kg' ? ' kg' : ''}</td>
               <td>${item.remainingQty}${item.unit === 'kg' ? ' kg' : ''}</td>
@@ -69,13 +69,15 @@ function renderSale() {
         <select id="exchange-old-item">
           <option value="" data-i18n="refunds.itemToReturn">Item to return</option>
           ${sale.items.filter(i => i.remainingQty > 0).map((item, i) =>
-            `<option value="${item.product_id}" data-max="${item.remainingQty}">${escapeHtml(item.product_name)} (${I18N.t('refunds.max')} ${item.remainingQty})</option>`
+            `<option value="${item.product_id}:${item.variant_id || ''}" data-max="${item.remainingQty}">${escapeHtml(item.product_name)}${item.variant_label ? ` (${escapeHtml(item.variant_label)})` : ''} (${I18N.t('refunds.max')} ${item.remainingQty})</option>`
           ).join('')}
         </select>
         <input type="number" id="exchange-old-qty" data-i18n="refunds.qty" placeholder="Quantity" min="0" step="0.001" value="1">
         <select id="exchange-new-item">
           <option value="" data-i18n="refunds.newProduct">New product</option>
-          ${allProducts.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${p.sale_price.toFixed(2)} DA)</option>`).join('')}
+          ${allProducts.map(p => p.variants && p.variants.length
+            ? p.variants.map(v => `<option value="${p.id}:${v.id}">${escapeHtml(p.name)} (${escapeHtml(v.label)}) - ${p.sale_price.toFixed(2)} DA</option>`).join('')
+            : `<option value="${p.id}">${escapeHtml(p.name)} (${p.sale_price.toFixed(2)} DA)</option>`).join('')}
         </select>
         <input type="number" id="exchange-new-qty" data-i18n="refunds.qty" placeholder="Quantity" min="0" step="0.001" value="1">
       </div>
@@ -97,7 +99,12 @@ async function processRefund() {
     const qty = parseFloat(input.value);
     if (qty > 0) {
       const index = input.dataset.index;
-      items.push({ product_id: currentSale.items[index].product_id, quantity: qty });
+      const saleItem = currentSale.items[index];
+      items.push({
+        product_id: saleItem.product_id,
+        variant_id: saleItem.variant_id || null,
+        quantity: qty
+      });
     }
   });
 
@@ -133,6 +140,10 @@ async function processRefund() {
 
 async function processExchange() {
   const messageEl = document.getElementById('refund-message');
+  const parseItem = (value, qty) => {
+    const [pid, vid] = String(value || '').split(':');
+    return { product_id: pid, variant_id: vid || null, quantity: qty };
+  };
   const oldProductId = document.getElementById('exchange-old-item').value;
   const oldQty = parseFloat(document.getElementById('exchange-old-qty').value);
   const newProductId = document.getElementById('exchange-new-item').value;
@@ -148,8 +159,8 @@ async function processExchange() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      old_item: { product_id: oldProductId, quantity: oldQty },
-      new_item: { product_id: newProductId, quantity: newQty }
+      old_item: parseItem(oldProductId, oldQty),
+      new_item: parseItem(newProductId, newQty)
     })
   });
 

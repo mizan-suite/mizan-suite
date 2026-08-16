@@ -381,6 +381,38 @@ const MIGRATIONS = [
     version: 28,
     name: 'products.image (base64 data URL photo)',
     up() { ensureColumn('products', 'image', 'TEXT'); }
+  },
+  {
+    version: 29,
+    name: 'product_variants (size/color matrix) + variant tracking on sale_items/stock_movements/refunds',
+    up() {
+      // A product can be sold in several variants (e.g. a shirt in M/Blue,
+      // M/Red, L/Blue...). Each variant carries its own stock. When a product
+      // has variants, products.quantity is kept as the SUM of its variant
+      // quantities, so existing stock/status/report queries keep working.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS product_variants (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id INTEGER NOT NULL,
+          size TEXT,
+          color TEXT,
+          quantity INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (product_id) REFERENCES products(id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id)');
+
+      // Which exact variant a sold line, stock movement or refund refers to.
+      // Nullable so historical rows and variant-less products stay unchanged.
+      const addCol = (table, col) => {
+        const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+        if (!cols.includes(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} INTEGER`);
+      };
+      addCol('sale_items', 'variant_id');
+      addCol('stock_movements', 'variant_id');
+      addCol('refunds', 'variant_id');
+    }
   }
 ];
 

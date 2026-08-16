@@ -530,9 +530,10 @@ function showCartTicket() {
   const total = getTotal();
   const items = tab.cart.map(item => {
     const qty = item.unit === 'kg' ? item.quantity.toFixed(3) + ' kg' : item.quantity;
+    const name = item.variant_label ? `${item.name} (${item.variant_label})` : item.name;
     return `
     <tr>
-      <td>${esc(item.name)} x${qty}</td>
+      <td>${esc(name)} x${qty}</td>
       <td style="text-align:right;">${(item.price * item.quantity).toFixed(2)}</td>
     </tr>`;
   }).join('');
@@ -691,6 +692,12 @@ function addToCart(product) {
     openWeighModal(product);
     return;
   }
+  // Products with a size/color matrix must be sold by a specific variant, so
+  // show the picker instead of adding a generic line.
+  if (product.has_variants || (product.variants && product.variants.length)) {
+    openVariantPicker(product);
+    return;
+  }
   const existing = tab.cart.find(item => item.product_id === product.id);
 
   if (existing) {
@@ -710,6 +717,104 @@ function addToCart(product) {
       price: product.sale_price,
       quantity: 1,
       availableStock: product.quantity
+    });
+  }
+  lastFlashProductId = product.id;
+  lastAddedProductId = product.id;
+  renderCart();
+  renderTabs();
+}
+
+// ---------- Size/color variant picker ----------
+// Products with a variant matrix open a small modal listing each size/color
+// with its stock. Choosing one adds THAT variant's line to the cart (its own
+// stock is what gets checked and deducted at checkout).
+
+let variantPickerEl = null;
+
+function closeVariantPicker() {
+  if (variantPickerEl) {
+    variantPickerEl.remove();
+    variantPickerEl = null;
+  }
+}
+
+function openVariantPicker(product) {
+  if (variantPickerEl) closeVariantPicker();
+  const variants = product.variants || [];
+  const inStock = variants.filter(v => v.quantity > 0);
+  const outRows = variants.filter(v => v.quantity <= 0);
+  const modal = document.createElement('div');
+  modal.className = 'receipt-modal';
+  modal.id = 'variant-picker';
+  modal.innerHTML = `
+    <div class="receipt-box" style="max-width:420px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.2rem;">
+        <div>
+          <div style="font-weight:bold; font-size:1.05rem;">${esc(product.name)}</div>
+          <div class="hint-text">${I18N.t('cashier.perUnit').replace('{price}', Number(product.sale_price || 0).toFixed(2))}</div>
+        </div>
+        <button type="button" class="remove-btn" id="variant-picker-close" title="${I18N.t('cashier.close')}">&times;</button>
+      </div>
+      <div class="hint-text" style="margin-bottom:0.7rem;">${I18N.t('cashier.chooseVariant')}</div>
+      <div style="max-height:340px; overflow:auto;">
+        ${variants.length ? [...inStock, ...outRows].map(v => `
+          <button type="button" class="variant-row" data-variant-id="${v.id}" ${v.quantity <= 0 ? 'disabled' : ''} style="display:flex; width:100%; justify-content:space-between; align-items:center; padding:0.6rem 0.8rem; margin-bottom:0.35rem; border:1px solid var(--border,#d8d8d8); border-radius:6px; background:var(--bg,#fff); cursor:pointer; text-align:left; font-size:0.95rem; ${v.quantity <= 0 ? 'opacity:0.55; cursor:not-allowed;' : ''}">
+            <span>${esc(v.label || '?')}</span>
+            <span class="hint-text">${v.quantity} ${I18N.t('cashier.inStock')}</span>
+          </button>
+        `).join('') : `<p class="hint-text">${I18N.t('cashier.noVariants')}</p>`}
+      </div>
+      ${!inStock.length ? `<p class="hint-text" style="margin-top:0.6rem;">${I18N.t('cashier.outOfStock').replace('{name}', product.name)}</p>` : ''}
+    </div>
+  `;
+  document.body.appendChild(modal);
+  variantPickerEl = modal;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal || e.target.closest('#variant-picker-close')) {
+      closeVariantPicker();
+      return;
+    }
+    const row = e.target.closest('.variant-row');
+    if (!row) return;
+    const variant = variants.find(v => v.id == row.dataset.variantId);
+    if (!variant) return;
+    closeVariantPicker();
+    addVariantToCart(product, variant);
+  });
+
+  const first = modal.querySelector('.variant-row:not([disabled])');
+  if (first) first.focus();
+}
+
+// Adds one specific size/color variant to the cart. Each cart line is keyed by
+// product + variant, so the same product can appear several times (M/Blue,
+// L/Blue) and each line tracks its own variant stock.
+function addVariantToCart(product, variant) {
+  const tab = activeTab();
+  if (!tab) return;
+  const existing = tab.cart.find(item => item.product_id === product.id && item.variant_id === variant.id);
+  const label = `${product.name} (${variant.label || ''})`;
+  if (existing) {
+    if (existing.quantity < variant.quantity) {
+      existing.quantity++;
+    } else {
+      alert(I18N.t('cashier.onlyInStock').replace('{qty}', variant.quantity).replace('{name}', label));
+    }
+  } else {
+    if (variant.quantity < 1) {
+      alert(I18N.t('cashier.outOfStock').replace('{name}', label));
+      return;
+    }
+    tab.cart.push({
+      product_id: product.id,
+      variant_id: variant.id,
+      variant_label: variant.label,
+      name: product.name,
+      price: product.sale_price,
+      quantity: 1,
+      availableStock: variant.quantity
     });
   }
   lastFlashProductId = product.id;
@@ -1047,6 +1152,7 @@ function renderProductDetail() {
       <div class="pd-row"><span class="pd-label">${I18N.t('inv.wholesalePrice')}</span><span>${Number(product.wholesale_price || 0).toFixed(2)} DA</span></div>
       <div class="pd-row"><span class="pd-label">${I18N.t('inv.salePrice')}</span><span>${Number(product.sale_price || 0).toFixed(2)} DA</span></div>
       <div class="pd-row"><span class="pd-label">${I18N.t('inv.thQty')}</span><span>${stockText}</span></div>
+      ${(product.variants && product.variants.length) ? `<div class="pd-row"><span class="pd-label">${I18N.t('inv.variants')}</span><span>${esc(product.variants.map(v => `${v.label} (${v.quantity})`).join(' · '))}</span></div>` : ''}
       <div class="pd-row"><span class="pd-label">${I18N.t('inv.expiryDate')}</span><span>${expText}</span></div>
       <div class="pd-row"><span class="pd-label">${I18N.t('inv.thStatus')}</span><span>${stockText}</span></div>
     </div>
@@ -1069,7 +1175,7 @@ function renderCart() {
       return `
       <div class="cart-item${item.product_id === lastFlashProductId ? ' cart-flash' : ''}${item.product_id === selectedProductId ? ' cart-item-selected' : ''}" data-product-id="${item.product_id}">
         <div class="cart-line-main">
-          <span class="cart-line-name">${esc(item.name)}</span>
+          <span class="cart-line-name">${esc(item.name)}${item.variant_label ? ` <span class="cart-line-variant">(${esc(item.variant_label)})</span>` : ''}</span>
           <span class="cart-line-unit">${unitLabel}</span>
         </div>
         <div class="qty-controls">
@@ -1549,6 +1655,7 @@ checkoutBtn.addEventListener('click', async () => {
   const payload = {
     items: tab.cart.map(item => ({
       product_id: item.product_id,
+      variant_id: item.variant_id || null,
       quantity: item.quantity,
       // Held carts keep the price they were quoted at hold time; send it so the
       // server charges that price instead of re-reading a possibly-changed live
@@ -1618,9 +1725,10 @@ function tvaBreakdown(total) {
 function showReceipt(result, tenderedPayments, changeDue, clientName) {
   const items = result.items.map(i => {
     const qty = i.unit === 'kg' ? Number(i.quantity).toFixed(3) + ' kg' : i.quantity;
+    const name = i.variant_label ? `${i.product_name} (${i.variant_label})` : i.product_name;
     return `
     <tr>
-      <td>${esc(i.product_name)} x${qty}</td>
+      <td>${esc(name)} x${qty}</td>
       <td style="text-align:right;">${(i.price_at_sale * i.quantity).toFixed(2)}</td>
     </tr>`;
   }).join('');
@@ -1683,7 +1791,7 @@ function showReceipt(result, tenderedPayments, changeDue, clientName) {
         ticket: `${I18N.t('cashier.ticket')} #${result.saleId}`,
         clientName: clientName ? `${I18N.t('cashier.clientName')}: ${clientName}` : '',
         date: new Date().toLocaleString(),
-        items: result.items.map(i => ({ name: i.product_name, quantity: i.unit === 'kg' ? `${Number(i.quantity).toFixed(3)} kg` : i.quantity, price: i.price_at_sale, total: i.price_at_sale * i.quantity })),
+        items: result.items.map(i => ({ name: i.variant_label ? `${i.product_name} (${i.variant_label})` : i.product_name, quantity: i.unit === 'kg' ? `${Number(i.quantity).toFixed(3)} kg` : i.quantity, price: i.price_at_sale, total: i.price_at_sale * i.quantity })),
         subtotal: result.subtotal,
         discount: result.discountAmount || 0,
         points: result.pointsDiscount || 0,

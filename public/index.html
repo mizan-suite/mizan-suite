@@ -276,6 +276,29 @@
         </div>
 
         <div class="form-section">
+          <h3 class="form-section-title" data-i18n="inv.sectVariants">Sizes & Colors</h3>
+          <label style="display:flex; align-items:center; gap:0.6rem;">
+            <input type="checkbox" id="add-variants-enabled">
+            <span data-i18n="inv.enableVariants">Sell this product in sizes / colors</span>
+          </label>
+          <p class="hint-text" data-i18n="inv.variantsHint">When enabled, stock is tracked per size/color and the Quantity field above is ignored.</p>
+          <div id="add-variants-editor" class="variant-editor" hidden style="margin-top:0.6rem;">
+            <table class="variant-table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:0.3rem;" data-i18n="inv.variantSize">Size</th>
+                  <th style="text-align:left; padding:0.3rem;" data-i18n="inv.variantColor">Color</th>
+                  <th style="text-align:left; padding:0.3rem;" data-i18n="inv.quantity">Quantity</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="add-variants-rows"></tbody>
+            </table>
+            <button type="button" id="add-variant-add-row" class="btn btn-outline btn-sm" style="margin-top:0.4rem;" data-i18n="inv.addVariantRow">+ Add size / color</button>
+          </div>
+        </div>
+
+        <div class="form-section">
           <h3 class="form-section-title" data-i18n="inv.sectAvailability">Availability</h3>
           <label style="display:flex; align-items:center; gap:0.6rem;">
             <input type="checkbox" id="active" checked>
@@ -398,6 +421,29 @@
               <label for="edit-expiry_date" data-i18n="inv.expiryDate">Expiry date</label>
               <input type="date" id="edit-expiry_date">
             </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-section-title" data-i18n="inv.sectVariants">Sizes & Colors</h3>
+          <label style="display:flex; align-items:center; gap:0.6rem;">
+            <input type="checkbox" id="edit-variants-enabled">
+            <span data-i18n="inv.enableVariants">Sell this product in sizes / colors</span>
+          </label>
+          <p class="hint-text" data-i18n="inv.variantsHint">When enabled, stock is tracked per size/color and the Quantity field above is ignored.</p>
+          <div id="edit-variants-editor" class="variant-editor" hidden style="margin-top:0.6rem;">
+            <table class="variant-table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:0.3rem;" data-i18n="inv.variantSize">Size</th>
+                  <th style="text-align:left; padding:0.3rem;" data-i18n="inv.variantColor">Color</th>
+                  <th style="text-align:left; padding:0.3rem;" data-i18n="inv.quantity">Quantity</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="edit-variants-rows"></tbody>
+            </table>
+            <button type="button" id="edit-variant-add-row" class="btn btn-outline btn-sm" style="margin-top:0.4rem;" data-i18n="inv.addVariantRow">+ Add size / color</button>
           </div>
         </div>
 
