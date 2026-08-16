@@ -184,6 +184,102 @@ function showTestResult(text, ok) {
   testResultEl.style.color = ok ? '#1b6e5c' : '#c0392b';
 }
 
+// Report the selected printer's existence/status without sending any job.
+async function printerStatusNote(deviceName) {
+  if (!window.akPrintersAvailable || !window.akPrintersAvailable()) return '';
+  try {
+    const printers = await window.akPrint.getPrinters();
+    const p = printers.find(x => x.name === deviceName);
+    return p
+      ? I18N.t('settings.testStatus').replace('{s}', statusLabel(p.status))
+      : I18N.t('settings.testMissing');
+  } catch (e) {
+    return '';
+  }
+}
+
+// Print a single 50x40mm test label through the GDI driver - the same path the
+// Barcode Labels page uses. Label printers reject raw ESC/POS tickets (they
+// speak TSPL/EZPL/other languages), so the label test must NOT use raw bytes.
+async function printLabelTest(deviceName) {
+  const barcode = '6130612345678';
+  const shop = window.akLabelBrandHtml ? window.akLabelBrandHtml() : '';
+  const html = `
+    <div class="label-sheet label-sheet-test">
+      <div class="label">
+        ${shop}
+        <div class="label-name">${escapeHtml(I18N.t('settings.testLabelName'))}</div>
+        <div class="label-price">250.00 DA</div>
+        <div class="label-expiry">${escapeHtml(I18N.t('labels.expPrefix'))} 2027-06-30</div>
+        <svg class="label-svg" data-barcode="${barcode}"></svg>
+      </div>
+    </div>`;
+
+  let styleEl = document.getElementById('preview-print-size');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'preview-print-size';
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = '@page { size: 50mm 40mm; margin: 0; }';
+
+  const root = document.createElement('div');
+  root.id = 'preview-print-root';
+  root.innerHTML = html;
+  document.body.appendChild(root);
+
+  const svg = root.querySelector('.label-svg');
+  if (svg && window.JsBarcode) {
+    try {
+      JsBarcode(svg, barcode, { format: 'EAN13', width: 1.6, height: 34, displayValue: true, font: 'monospace', fontSize: 12, margin: 0 });
+    } catch (e) {
+      try {
+        JsBarcode(svg, barcode, { format: 'CODE128', width: 1.6, height: 34, displayValue: true, font: 'monospace', fontSize: 12, margin: 0 });
+      } catch (e2) { /* leave blank */ }
+    }
+  }
+
+  const cleanup = () => {
+    root.remove();
+    if (styleEl) styleEl.textContent = '';
+  };
+
+  try {
+    if (window.akPrint && typeof window.akPrint.print === 'function') {
+      return await window.akPrint.print({ deviceName });
+    }
+    window.print();
+    return false;
+  } catch (e) {
+    throw e;
+  } finally {
+    cleanup();
+  }
+}
+
+async function testLabelPrinter(printerInputEl) {
+  const deviceName = printerInputEl.value;
+  if (!deviceName) {
+    showTestResult(I18N.t('settings.testChoosePrinter'), false);
+    return;
+  }
+  testResultEl.textContent = I18N.t('settings.testRunning');
+  testResultEl.style.color = '#888';
+
+  const statusNote = await printerStatusNote(deviceName);
+
+  try {
+    const ok = await printLabelTest(deviceName);
+    if (ok) {
+      showTestResult((statusNote ? statusNote + ' ' : '') + I18N.t('settings.testLabelSent'), true);
+    } else {
+      showTestResult((statusNote ? statusNote + ' ' : '') + I18N.t('settings.testGdiDialog'), true);
+    }
+  } catch (e) {
+    showTestResult((statusNote ? statusNote + ' ' : '') + I18N.t('settings.testLabelFail').replace('{e}', String((e && e.message) || e)), false);
+  }
+}
+
 async function testPrinter(printerInputEl, settingKey, useRaw) {
   const deviceName = printerInputEl.value;
   if (!deviceName) {
@@ -193,16 +289,7 @@ async function testPrinter(printerInputEl, settingKey, useRaw) {
   testResultEl.textContent = I18N.t('settings.testRunning');
   testResultEl.style.color = '#888';
 
-  let statusNote = '';
-  if (window.akPrintersAvailable && window.akPrintersAvailable()) {
-    try {
-      const printers = await window.akPrint.getPrinters();
-      const p = printers.find(x => x.name === deviceName);
-      statusNote = p
-        ? I18N.t('settings.testStatus').replace('{s}', statusLabel(p.status))
-        : I18N.t('settings.testMissing');
-    } catch (e) { /* ignore - continue with the print test */ }
-  }
+  const statusNote = await printerStatusNote(deviceName);
 
   if (useRaw && window.akEscpos && window.akPrintRaw) {
     try {
@@ -230,7 +317,7 @@ async function testPrinter(printerInputEl, settingKey, useRaw) {
 }
 
 document.getElementById('test-receipt-btn').addEventListener('click', () => testPrinter(printerInput, 'printer_name', true));
-document.getElementById('test-label-btn').addEventListener('click', () => testPrinter(labelPrinterInput, 'label_printer_name', true));
+document.getElementById('test-label-btn').addEventListener('click', () => testLabelPrinter(labelPrinterInput));
 document.getElementById('test-a4-btn').addEventListener('click', () => testPrinter(a4PrinterInput, 'a4_printer_name', false));
 
 darkToggle.addEventListener('change', () => {

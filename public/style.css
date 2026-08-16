@@ -3064,6 +3064,19 @@ body.has-sidebar {
   .label { border: 1px dashed #bbb; }
 }
 
+/* Single 50x40mm label for the Settings "Test" button (GDI path, same as the
+   Barcode Labels page). @page is overridden to 50mm x 40mm at test time. */
+.label-sheet-test {
+  display: block;
+  border: none;
+}
+
+.label-sheet-test .label {
+  width: 46mm;
+  min-height: 36mm;
+  border: 1px dashed #bbb;
+}
+
 /* ---------- Buttons & icons ---------- */
 .btn {
   display: inline-flex;
