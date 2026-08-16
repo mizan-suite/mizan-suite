@@ -317,59 +317,112 @@ function renderAttendanceTable() {
     }
   }
 
+  const todayStr = localDateStr(new Date());
+  const isWeekendDate = d => {
+    const w = new Date(d + 'T00:00:00').getDay();
+    return w === 5 || w === 6; // Friday + Saturday in Algeria
+  };
+
+  // Who physically showed up on each day (for the totals footer row).
+  const dayCounts = {};
+  dates.forEach(d => { dayCounts[d] = 0; });
+
   const header = dates.map(d => {
-    const short = new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
-    return `<th title="${escapeHtml(d)}">${escapeHtml(short)}</th>`;
+    const dt = new Date(d + 'T00:00:00');
+    const short = dt.toLocaleDateString(undefined, { weekday: 'narrow', day: 'numeric' });
+    const cls = ['att-head'];
+    if (isWeekendDate(d)) cls.push('att-weekend');
+    if (d === todayStr) cls.push('att-today');
+    const tip = (isWeekendDate(d) ? I18N.t('pointage.weekendTitle') + ' - ' : '') + d;
+    return `<th class="${cls.join(' ')}" title="${escapeHtml(tip)}">${escapeHtml(short)}</th>`;
   }).join('');
 
   const rows = active.map(w => {
-    let presentDays = 0, lateDays = 0, missingDays = 0, justifiedDays = 0, absentDays = 0;
+    let presentDays = 0, lateDays = 0, missingDays = 0, justifiedDays = 0, absentDays = 0, totalMinutes = 0;
     const cells = dates.map(d => {
       const a = attByUser[w.id] && attByUser[w.id][d];
       const leave = leaveByUser[w.id] && leaveByUser[w.id][d];
+      const cls = ['att-col'];
+      if (isWeekendDate(d)) cls.push('att-weekend');
+      if (d === todayStr) cls.push('att-today');
+
       if (!a || a.status === 'absent') {
         absentDays++;
-        return `<td class="att-col att-absent" title="${escapeHtml(I18N.t('pointage.absent'))}"><span class="badge badge-danger">${I18N.t('pointage.absentShort')}</span></td>`;
+        return `<td class="${cls.join(' ')} att-absent"><span class="att-dash">&ndash;</span></td>`;
       }
+
+      const inTime = a.first_clock_in ? String(a.first_clock_in).slice(11, 16) : null;
+      const worked = fmtHM(a.worked_minutes);
+
       if (a.status === 'late') {
         lateDays++;
-        const inTime = a.first_clock_in ? String(a.first_clock_in).slice(11, 16) : '-';
+        totalMinutes += a.worked_minutes;
+        dayCounts[d]++;
         const tip = I18N.t('pointage.lateTooltip')
           .replace('{min}', a.late_minutes)
-          .replace('{in}', inTime)
+          .replace('{in}', inTime || '-')
           .replace('{shift}', a.shift_start || '-');
-        return `<td class="att-col att-late" title="${escapeHtml(tip)}"><span class="badge badge-warning">${I18N.t('pointage.lateShort')}</span></td>`;
+        cls.push('att-late');
+        return `<td class="${cls.join(' ')}" title="${escapeHtml(tip)}">
+          <div class="att-time">${inTime || '&ndash;'}<span class="att-late-min">+${a.late_minutes}</span></div>
+          ${worked ? `<div class="att-hours">${worked}</div>` : ''}
+        </td>`;
       }
       if (a.status === 'missing_clockout') {
         missingDays++;
-        return `<td class="att-col att-missing" title="${escapeHtml(I18N.t('pointage.missingClockout'))}"><span class="badge badge-missing">${I18N.t('pointage.missingShort')}</span></td>`;
+        totalMinutes += a.worked_minutes;
+        dayCounts[d]++;
+        const tip = I18N.t('pointage.missingClockout') + (inTime ? ` (${inTime})` : '');
+        cls.push('att-missing');
+        return `<td class="${cls.join(' ')}" title="${escapeHtml(tip)}">
+          <div class="att-time">${inTime || '&ndash;'}</div>
+          <div class="att-hours"><span class="att-open" title="${escapeHtml(I18N.t('pointage.openShift'))}">&#9679;</span></div>
+        </td>`;
       }
       if (a.status === 'justified') {
         justifiedDays++;
         const lt = leave && (leave.type === 'sick' || leave.type === 'vacation');
         const tip = lt ? (leaveTypeLabel(leave.type) + (leave.note ? ' - ' + leave.note : '')) : I18N.t('pointage.justifiedAbsent');
-        return `<td class="att-col att-justified" title="${escapeHtml(tip)}"><span class="badge badge-info">${I18N.t('pointage.justifiedShort')}</span></td>`;
+        cls.push('att-justified');
+        const letter = lt ? leaveTypeShort(leave.type) : I18N.t('pointage.justifiedShort');
+        return `<td class="${cls.join(' ')}" title="${escapeHtml(tip)}"><span class="badge badge-info">${escapeHtml(letter)}</span></td>`;
       }
       presentDays++;
-      const inTime = a.first_clock_in ? String(a.first_clock_in).slice(11, 16) : '-';
-      return `<td class="att-col att-present" title="${escapeHtml(I18N.t('pointage.present') + ' - ' + inTime)}"><span class="badge badge-ok">${I18N.t('pointage.presentShort')}</span></td>`;
+      totalMinutes += a.worked_minutes;
+      dayCounts[d]++;
+      const tip = I18N.t('pointage.present') + (inTime ? ' - ' + inTime : '') + (worked ? ' (' + worked + ')' : '');
+      cls.push('att-present');
+      return `<td class="${cls.join(' ')}" title="${escapeHtml(tip)}">
+        <div class="att-time">${inTime || '&ndash;'}</div>
+        ${worked ? `<div class="att-hours">${worked}</div>` : ''}
+      </td>`;
     }).join('');
 
     const shift = w.expected_shift_start
       ? `<div class="hint-text">${escapeHtml(w.expected_shift_start)}${w.expected_shift_end ? ' - ' + escapeHtml(w.expected_shift_end) : ''}</div>`
       : '';
+    const summaryTip = `${fmtHM(totalMinutes)} ${I18N.t('pointage.summaryHours')} - ${presentDays} ${I18N.t('pointage.present')} / ${lateDays} ${I18N.t('pointage.late')} / ${missingDays} ${I18N.t('pointage.missingClockout')} / ${justifiedDays} ${I18N.t('pointage.justifiedAbsent')} / ${absentDays} ${I18N.t('pointage.absent')}`;
     return `<tr>
-      <td>${escapeHtml(w.name)}${shift}</td>
+      <td class="att-worker">${escapeHtml(w.name)}${shift}</td>
       ${cells}
-      <td class="att-summary" title="${presentDays} ${I18N.t('pointage.present')} / ${lateDays} ${I18N.t('pointage.late')} / ${missingDays} ${I18N.t('pointage.missingClockout')} / ${justifiedDays} ${I18N.t('pointage.justifiedAbsent')} / ${absentDays} ${I18N.t('pointage.absent')}">
-        <span class="badge badge-ok">${I18N.t('pointage.presentShort')} ${presentDays}</span>
-        <span class="badge badge-warning">${I18N.t('pointage.lateShort')} ${lateDays}</span>
-        <span class="badge badge-missing">${I18N.t('pointage.missingShort')} ${missingDays}</span>
-        <span class="badge badge-info">${I18N.t('pointage.justifiedShort')} ${justifiedDays}</span>
-        <span class="badge badge-danger">${I18N.t('pointage.absentShort')} ${absentDays}</span>
+      <td class="att-summary" title="${escapeHtml(summaryTip)}">
+        <div class="att-hours-total">${fmtHM(totalMinutes)}</div>
+        <div class="att-counts">
+          <span class="badge badge-ok">${I18N.t('pointage.presentShort')} ${presentDays}</span>
+          <span class="badge badge-warning">${I18N.t('pointage.lateShort')} ${lateDays}</span>
+          <span class="badge badge-missing">${I18N.t('pointage.missingShort')} ${missingDays}</span>
+          <span class="badge badge-info">${I18N.t('pointage.justifiedShort')} ${justifiedDays}</span>
+          <span class="badge badge-danger">${I18N.t('pointage.absentShort')} ${absentDays}</span>
+        </div>
       </td>
     </tr>`;
   }).join('');
+
+  const footer = `<tr>
+    <th>${I18N.t('pointage.workerCount')}</th>
+    ${dates.map(d => `<td class="att-col att-foot${isWeekendDate(d) ? ' att-weekend' : ''}${d === todayStr ? ' att-today' : ''}">${dayCounts[d] ? dayCounts[d] : '&ndash;'}</td>`).join('')}
+    <td class="att-summary"></td>
+  </tr>`;
 
   summaryEl.innerHTML = `
     <div class="po-card" style="padding:1rem;">
@@ -387,6 +440,7 @@ function renderAttendanceTable() {
       <table class="product-table attendance-table">
         <thead><tr><th>${I18N.t('pointage.worker')}</th>${header}<th>${I18N.t('pointage.summary')}</th></tr></thead>
         <tbody>${rows}</tbody>
+        <tfoot>${footer}</tfoot>
       </table>
       </div>
     </div>`;
@@ -431,6 +485,22 @@ function leaveTypeLabel(type) {
   if (type === 'vacation') return I18N.t('pointage.typeVacation');
   if (type === 'sick') return I18N.t('pointage.typeSick');
   return I18N.t('pointage.typeAbsence');
+}
+
+// One-letter code for a leave day cell: V / S (or J when untyped).
+function leaveTypeShort(type) {
+  if (type === 'vacation') return I18N.t('pointage.typeVacation').charAt(0);
+  if (type === 'sick') return I18N.t('pointage.typeSick').charAt(0);
+  return I18N.t('pointage.justifiedShort');
+}
+
+// Compact hours display: 480 -> "8h00", 45 -> "45m", 0 -> "".
+function fmtHM(min) {
+  if (min == null || min <= 0) return '';
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  if (h === 0) return `${m}m`;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
 }
 
 function renderLeave() {

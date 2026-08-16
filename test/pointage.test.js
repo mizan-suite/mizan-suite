@@ -274,3 +274,28 @@ test('clock-many batches clock in / clock out across selected staff (owner only)
   }, { Cookie: ownerCookie });
   assert.strictEqual(none.status, 400, JSON.stringify(none.data));
 });
+
+test('an open shift on today counts live worked minutes', async () => {
+  const w = await srv.request('POST', '/api/users', {
+    name: 'Live', pin: '777888', role: 'worker', permissions: ['pointage']
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(w.status, 201, JSON.stringify(w.data));
+
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  // Open shift clocked in this morning, still running.
+  const inRes = await srv.request('POST', '/api/time-entries/clock', {
+    user_id: w.data.id, clock_in: `${todayStr}T08:00`
+  }, { Cookie: ownerCookie });
+  assert.strictEqual(inRes.status, 201, JSON.stringify(inRes.data));
+  assert.strictEqual(inRes.data.entry.clock_out, null);
+
+  const res = await srv.request('GET', `/api/time-entries/attendance?from=${todayStr}&to=${todayStr}`, undefined, { Cookie: ownerCookie });
+  assert.strictEqual(res.status, 200, JSON.stringify(res.data));
+  const day = res.data.find(x => x.user_id === w.data.id);
+  assert.ok(day, 'worker has a record for today');
+  assert.strictEqual(day.status, 'present');
+  assert.ok(day.worked_minutes > 0, `expected live minutes > 0, got ${day.worked_minutes}`);
+  assert.ok(day.first_clock_in, 'first_clock_in is exposed');
+});

@@ -1090,6 +1090,7 @@ function computeAttendanceDays(workers, entries, leave, from, to, today) {
   }
 
   const byDay = {};
+  const nowTs = new Date();
   for (const e of entries) {
     const ds = String(e.clock_in || '').slice(0, 10);
     if (!ds) continue;
@@ -1101,6 +1102,11 @@ function computeAttendanceDays(workers, entries, leave, from, to, today) {
       rec.minutes += Math.max(0, (new Date(e.clock_out) - new Date(e.clock_in)) / 60000);
     } else {
       rec.open = true;
+      // An open shift on today's date keeps counting up to the current time so
+      // the attendance table shows live hours for someone still clocked in.
+      if (ds === today && new Date(e.clock_in) <= nowTs) {
+        rec.minutes += Math.max(0, (nowTs - new Date(e.clock_in)) / 60000);
+      }
     }
   }
 

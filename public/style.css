@@ -1019,11 +1019,14 @@ html.dark-mode .pagination-bar .page-info {
   border-color: var(--accent, #1b6e5c);
 }
 
-/* Professional attendance (pointage) matrix table: colour the day cells so the
-   owner can scan a worker's month at a glance. */
+/* Professional attendance (pointage) matrix table: each day cell shows the
+   clock-in time and worked hours on a colour-coded background so the owner can
+   scan a worker's month at a glance. Weekend (Fri/Sat) and today are marked. */
 .attendance-table .att-col {
   text-align: center;
-  min-width: 46px;
+  min-width: 52px;
+  padding: 0.35rem 0.2rem;
+  line-height: 1.25;
 }
 .attendance-table .att-col.att-present {
   background: #e3f6ec;
@@ -1040,10 +1043,77 @@ html.dark-mode .pagination-bar .page-info {
 .attendance-table .att-col.att-missing {
   background: #f0f0f5;
 }
+.attendance-table .att-col.att-weekend {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5));
+}
+.attendance-table th.att-head {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.attendance-table th.att-weekend {
+  background: #f4f4f6;
+  color: #8b9390;
+}
+.attendance-table th.att-today,
+.attendance-table .att-col.att-today {
+  box-shadow: inset 0 2px 0 0 var(--accent, #1b6e5c);
+}
+.attendance-table .att-time {
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.attendance-table .att-hours {
+  font-size: 0.66rem;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.attendance-table .att-late-min {
+  color: #b54708;
+  font-weight: 800;
+  margin-left: 2px;
+  font-size: 0.6rem;
+}
+.attendance-table .att-open {
+  color: #b54708;
+  font-size: 0.6rem;
+  animation: att-pulse 1.2s ease-in-out infinite;
+}
+@keyframes att-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.attendance-table .att-dash {
+  color: #c9cdd0;
+}
+.attendance-table .att-worker {
+  white-space: nowrap;
+}
 .attendance-table .att-summary {
   white-space: nowrap;
   text-align: right;
   min-width: 150px;
+}
+.attendance-table .att-hours-total {
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+.attendance-table .att-counts {
+  display: flex;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 0.3rem;
+}
+.attendance-table .att-counts .badge {
+  font-size: 0.62rem;
+  padding: 0.1rem 0.3rem;
+}
+.attendance-table tfoot td.att-foot {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #5a6560;
+  background: #fafbfb;
 }
 
 /* ---------- POS (Cashier) layout ---------- */
